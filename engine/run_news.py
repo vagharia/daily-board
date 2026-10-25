@@ -1,6 +1,7 @@
 """News run (every 30 minutes): sources -> relevance -> translation -> severity -> stories ->
 media & posts on X -> airspace warnings & sea signals -> index & warning lights -> Telegram alerts -> JSON."""
 import os
+import re
 import time
 
 from . import alerts, aviation, collect, config, media, sea, store, util, xposts
@@ -17,6 +18,80 @@ MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "e
                "sev", "topics", "flags", "ppl", "geo", "ctry")
 PUBLIC_FLAGS = {"kinetic", "denial", "analysis", "opinion", "speculative", "past", "maritime_incident", "airspace",
                 "evac", "deploy", "ultimatum", "sanctions", "exercise", "threat"}
+
+
+_PAGE_ID = re.compile(r"/(\d{5,})(?=[/?#._-]|$)")
+
+
+def page_id(url):
+    """The numeric article id in a URL (entekhab.ir/fa/news/944944/…), leaving out dates such as 20261024."""
+    for x in _PAGE_ID.findall(url or ""):
+        if not (len(x) == 8 and x.startswith("20")):
+            return x
+    return None
+
+
+def _words(s):
+    return set(re.findall(r"\w{2,}", util.fa_norm(s or "").lower()))
+
+
+def _similar_titles(a, b):
+    wa, wb = _words(a), _words(b)
+    return bool(wa and wb) and len(wa & wb) / len(wa | wb) >= 0.5
+
+
+def retime_updates(new, raw, clusters, pages, T):
+    """Entekhab's live page keeps the page's own date (00:11) on every update, and some outlets re-headline an
+    article with fresh news under its old date. A new item from a page we already had from an earlier round,
+    with that same date but a different headline, is timed when it first appeared (now). pages: the registry of
+    pages seen in feeds, kept in the state. Returns the number of items retimed."""
+    stored = {}
+    for c in clusters:
+        for m in c["m"]:
+            pid = m.get("via") == "direct" and page_id(m.get("u"))
+            if pid:
+                stored.setdefault(f"{m['s']}:{pid}", []).append(m)
+    n = 0
+    for it in new:
+        pid = it.get("via") == "direct" and page_id(it.get("u"))
+        if not pid or T - it["t"] < 3600:
+            continue
+        key = f"{it['s']}:{pid}"
+        p = pages.get(key)
+        if not p or p["k"] == it["k"] or p["t"] != it["t"] or p["s"] >= T:
+            continue
+        if any(m["t"] == it["t"] and _similar_titles(m.get("ti"), it["ti"]) for m in stored.get(key, [])):
+            continue                                       # only a reworded headline of a report we have
+        it["t"] = T
+        n += 1
+    for it in raw:
+        pid = it.get("via") == "direct" and page_id(it.get("u"))
+        if pid:
+            pages.setdefault(f"{it['s']}:{pid}", {"k": it["k"], "t": it["t"], "s": T})
+    for key in [k for k, p in pages.items() if T - p["s"] > 3 * 86400]:
+        del pages[key]
+    return n
+
+
+def fix_live_pages(clusters, seen):
+    """One-time repair of stored reports that came from a live page or a re-headlined article (several reports
+    from one page, same date, different headlines): time each by when it first appeared."""
+    groups = {}
+    for c in clusters:
+        for m in c["m"]:
+            pid = m.get("via") == "direct" and page_id(m.get("u"))
+            if pid:
+                groups.setdefault((m["s"], pid, m["t"]), []).append(m)
+    n = 0
+    for ms in groups.values():
+        if len(ms) < 2 or all(_similar_titles(ms[0].get("ti"), m.get("ti")) for m in ms[1:]):
+            continue
+        for m in ms:
+            first = seen.get(m["k"])
+            if first and first - m["t"] >= 3600:
+                m["t"] = first
+                n += 1
+    return n
 
 
 def slim(it):
@@ -162,11 +237,15 @@ def news_round(full=True):
 
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
-    if misc.get("recluster") != 2:
+    if misc.get("live_fix") != 1:
+        log(f"live-page reports retimed: {fix_live_pages(clusters, seen)}")
+        misc["live_fix"] = 1
+        misc["recluster"] = 0                 # so their stories are rebuilt just below
+    if misc.get("recluster") != 3:
         # once after a clustering change: rebuild the last two days' stories from their reports
         n0 = len(clusters)
         clusters = recluster(clusters, T)
-        misc["recluster"] = 2
+        misc["recluster"] = 3
         # re-formed stories must not trigger alerts again; new reports in this round still can
         sent = alerts_state.setdefault("sent", [])
         sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
@@ -190,6 +269,9 @@ def news_round(full=True):
     else:
         misc["last_full"] = T
     new = [it for it in raw if it["k"] not in seen]
+    retimed = retime_updates(new, raw, clusters, misc.setdefault("pages", {}), T)
+    if retimed:
+        log(f"items timed when they appeared (live page or re-headlined article): {retimed}")
     for it in raw:
         seen.setdefault(it["k"], T)
     seen = {k: v for k, v in seen.items() if T - v <= 9 * 86400}
