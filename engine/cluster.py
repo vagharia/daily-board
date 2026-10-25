@@ -241,7 +241,8 @@ RARE_STORIES = 5           # a word found in at most this many stories counts as
 
 def same_story(a, b, dt=0, rare=frozenset()):
     """a, b: features of two reports published dt seconds apart; rare: the uncommon words of report a.
-    True only if they agree on what happened, where and who said it, and their headlines are very close.
+    Returns the headlines' similarity (0 = not the same story). Two reports are the same story only if they
+    agree on what happened, where and who said it, and their headlines are very close.
     Reports within two hours of each other that share uncommon words (a place such as Pakdasht or Sirik, a
     rare name) need a little less overlap. The story's time window is checked by the caller."""
     ka, kb = KIND[a["cls"]], KIND[b["cls"]]
@@ -287,7 +288,7 @@ def same_story(a, b, dt=0, rare=frozenset()):
             return False
         if a["cite"] and b["cite"] and not a["cite"] & b["cite"]:
             return False
-    return True
+    return jac
 
 
 _SUB = re.compile(r"\s+/\s+|؛|\s+\|\s+")
@@ -363,13 +364,21 @@ class Clusterer:
             if abs(item["t"] - c["t"]) > WINDOW["event" if physical else "other"]:
                 continue                                   # when: measured from the story's first report
             times = {m["k"]: m["t"] for m in c["m"]}
-            if any(same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()):
-                matches.append(c)
-        best = matches[0] if matches else None
-        for other in matches[1:]:
-            # the report bridges two stories that are really one (e.g. a short and a long headline about the
-            # same explosion): fold the smaller one in, remembering its id so its alert isn't sent twice
+            score = max((same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()),
+                        default=0.0)
+            if score:
+                matches.append((score, c))
+        matches.sort(key=lambda x: -x[0])
+        best = matches[0][1] if matches else None
+        for _, other in matches[1:]:
+            # the report fits two stories: fold the smaller one in only if the two also match each other
+            # directly (not merely through this report), remembering its id so its alert isn't sent twice
             if len(other["m"]) > 8 or len(best["m"]) + len(other["m"]) > 60:
+                continue
+            tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
+            fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
+            if not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
+                       for ky, y in fb.items()):
                 continue
             best["m"].extend(other["m"])
             best["t"] = min(best["t"], other["t"])
