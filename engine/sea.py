@@ -131,13 +131,13 @@ def run(state):
             out["errors"].append(f"portwatch {key}: {str(e)[:80]}")
             if c:
                 out[key] = c["data"]
-    c = cache.get("nga")
+    c = cache.get("nga2")
     if c and t - c.get("fetched", 0) < 2 * 3600:
         out["warnings"] = c["data"]
     else:
         try:
             w = nga_warnings()
-            cache["nga"] = {"fetched": t, "data": w}
+            cache["nga2"] = {"fetched": t, "data": w}
             out["warnings"] = w
         except Exception as e:  # noqa: BLE001
             out["errors"].append(f"nga: {str(e)[:80]}")

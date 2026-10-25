@@ -21,19 +21,30 @@ def P(rx, base, topics=(), flags=()):
 # ------------------------------------------------------------------ English patterns
 PATTERNS = [
     # --- critical / kinetic
-    P(r"\b(declar(e|es|ed|ing) war|act of war|all-out war|full-scale war|war (has )?(begun|broken out|erupted)"
+    P(r"\b(declar(e|es|ed|ing) war|war (has )?(begun|broken out|erupted)"
       r"|ground (offensive|invasion|operation)|invad(e|es|ed|ing)\b|invasion of)", 90, ["military"], ["kinetic"]),
+    P(r"\b(all-out|full-scale|full-blown|wider|regional|new|renewed) war\b|\bact of war\b|\bbrink of war\b", 58,
+      ["military"], ["threat"]),
     P(r"\b(air ?strikes?|airstrikes?)\b", 80, ["military"], ["kinetic"]),
     P(r"\bstrikes? (on|against|at|in|near|hit|target)", 76, ["military"], ["kinetic"]),
     P(r"\b(struck|bombed|bombing|bombard\w*|shell(ed|ing))\b", 78, ["military"], ["kinetic"]),
     P(r"\b(missile|rocket|drone|ballistic)s? (attack|strike|barrage|salvo|assault)s?\b", 82, ["military"], ["kinetic"]),
     P(r"\b(launch(es|ed|ing)?|fir(es|ed|ing)) (\w+ ){0,3}(missiles?|rockets?|drones?)\b", 82, ["military"], ["kinetic"]),
-    P(r"\bintercept\w*\b.{0,40}\b(missiles?|rockets?|drones?|projectiles?|ballistic|uavs?|cruise)\b"
-      r"|\b(missiles?|rockets?|drones?|projectiles?|uavs?)\b.{0,60}\bintercept\w*", 78, ["military"], ["kinetic"]),
+    P(r"\bintercept\w*\b.{0,40}\b(missiles?|rockets?|ballistic|cruise)\b"
+      r"|\b(missiles?|rockets?)\b.{0,60}\bintercept\w*", 76, ["military"], ["kinetic"]),
+    P(r"\bintercept\w*\b.{0,40}\b(drones?|projectiles?|uavs?)\b"
+      r"|\b(drones?|projectiles?|uavs?)\b.{0,60}\bintercept\w*", 64, ["military"], []),
     P(r"\bshrapnel\b|\bdebris (from|of) (an? )?(intercept\w*|missiles?|drones?)", 72, ["military"], ["kinetic"]),
     P(r"\bintercept(s|ed|ion|ions)?\b", 50, ["military"], []),
     P(r"\b(air[- ]raid )?sirens?\b", 74, ["military"], ["kinetic"]),
-    P(r"\bshot down\b|\bdowned (a |an |the )?(drone|jet|aircraft)", 80, ["military"], ["kinetic"]),
+    P(r"\b(shoot|shoots|shooting|shot) down\b|\bdowned (a |an |the )?(\w+ ){0,2}(drone|jet|aircraft|uav)|\bdowning of\b"
+      r"|\b(destroy\w*|hunt\w*) (of )?(an? |the )?(\w+ ){0,3}(drone|uav)s?\b", 78, ["military"], ["kinetic"]),
+    P(r"\b(air ?strikes?|strikes?|shelling|bombardment|raids?|attacks?|barrage)\b.{0,25}\b(kill(s|ed|ing)?|wound\w*"
+      r"|injur\w*|dead)\b", 82, ["military"], ["kinetic"]),
+    P(r"\b(missiles?|rockets?|drones?|ballistic)\b.{0,15}\b(target(s|ed|ing)?|hit(s|ting)?|slam\w*|pound\w*|rain\w*)\b",
+      80, ["military"], ["kinetic"]),
+    P(r"\b(could|would|will|may|might|ready to|prepared to|threaten\w* to|vow\w* to|plans? to)\s+(\w+\s+){0,2}"
+      r"(strike|attack|bomb|hit|target|invade)\b", 60, ["military"], ["threat"]),
     P(r"\b(attack(ed|s)? on|attacked|under attack|came under fire)\b", 74, ["military"], ["kinetic"]),
     P(r"\b(explosions?|blasts?|detonat\w+)\b", 70, ["military"], ["kinetic"]),
     P(r"\b(was |were |been |is |are )?assassinated\b|\bassassination of\b|\bkilled (a |an |the )?(senior|top) "
@@ -79,7 +90,7 @@ PATTERNS = [
     P(r"\b(mobiliz\w+|state of emergency|martial law|high alert|maximum alert|full alert|war footing)\b", 70,
       ["military"], ["alert"]),
     P(r"\bprepar\w+ (to|for) (strike|attack|war|retaliat\w+|military action)\b", 76, ["military"], ["kinetic_threat"]),
-    P(r"\b(killed|dead|deaths|casualties|wounded|injured|martyr\w*)\b", 64, ["military"], []),
+    P(r"\b(kill(s|ed)?|dead|deaths|casualties|wounded|injured|martyr\w*)\b", 64, ["military"], []),
     P(r"\b(retaliat\w+|reprisal|revenge|counter-?attack|response will be)\b", 64, ["military"], ["retaliation"]),
     P(r"\bcyber ?-?attacks?\b", 60, ["military"], []),
     # --- significant
@@ -122,6 +133,13 @@ OPINION = re.compile(r"^(opinion|op-ed|editorial|commentary|letters?)\b|\|\s*opi
 ANALYSIS = re.compile(r"^(analysis|explainer|explained|q&a|podcast|newsletter|the big story|in charts|fact check)\b"
                       r"|\b(what to know|what we know|why it matters|how .{3,40} could|what .{3,40} means)\b", I)
 LIVE = re.compile(r"^(live|live updates|live:|breaking)\b", I)
+REACTION = re.compile(r"\b(condemn\w*|denounc\w*|deplor\w*|condolence\w*|sympath\w*|solidarity|unacceptable"
+                      r"|calls? for (restraint|calm|de-?escalation)|urg(e|es|ed) restraint|welcom\w*|express\w* concern)\b", I)
+HYPO = re.compile(r"\b(threat\w*|warn\w*|vow\w*|could|would|may|might|if|unless|prepar\w+|plan\w*|plot\w*"
+                  r"|consider\w*|ready to|possible|possibility|scenario)\b", I)
+QUESTION = re.compile(r"[?؟]\s*(\W*$|[|/:-])")
+EXTRA_ANALYSIS = re.compile(r"\b(interview|in conversation|podcast|poll|polls|survey|op-ed|column|watch:|review:)\b"
+                            r"|^(watch|listen|video)\b", I)
 ACTOR = re.compile(r"\b(trump|president|khamenei|supreme leader|netanyahu|prime minister|irgc|revolutionary guards?"
                    r"|pentagon|hegseth|centcom|idf|army chief|commander)\b", I)
 TARGET = re.compile(r"\b(hormuz|nuclear (site|facility|facilities|plant)|natanz|fordow|isfahan|bushehr|dimona|tehran"
@@ -137,9 +155,11 @@ def FP(terms, base, flags=()):
 
 FA_PATTERNS = [
     FP(["اعلام جنگ", "عملیات زمینی", "تهاجم زمینی"], 88, ["kinetic"]),
-    FP(["حمله موشکی", "حمله پهپادی", "حمله هوایی", "حملات هوایی", "بمباران", "اصابت موشک", "شلیک موشک",
-        "حملات موشکی", "حمله به", "مورد حمله قرار"], 80, ["kinetic"]),
-    FP(["رهگیری", "سرنگون", "آژیر خطر", "پدافند فعال شد", "فعال شدن پدافند", "صدای انفجار", "انفجار"], 74, ["kinetic"]),
+    FP(["حمله موشکی", "حمله پهپادی", "حمله هوایی", "حملات هوایی", "بمباران", "اصابت موشک", "حملات موشکی",
+        "مورد حمله قرار"], 80, ["kinetic"]),
+    FP(["حمله به", "شلیک موشک"], 62, []),
+    FP(["رهگیری", "سرنگون", "آژیر خطر", "پدافند فعال شد", "فعال شدن پدافند", "صدای انفجار", "انفجار",
+        "شکار پهپاد", "انهدام پهپاد", "ساقط شد", "ساقط کرد"], 74, ["kinetic"]),
     FP(["توقیف نفتکش", "توقیف کشتی", "حمله به نفتکش", "حمله به کشتی"], 82, ["kinetic", "maritime_incident"]),
     FP(["بستن تنگه هرمز", "بسته شدن تنگه هرمز", "انسداد تنگه", "مسدود شدن تنگه"], 85, ["maritime_incident", "hormuz_closure"]),
     FP(["بسته شدن حریم هوایی", "بستن حریم هوایی", "تعلیق پروازها", "لغو پروازها", "توقف پروازها"], 78, ["airspace"]),
@@ -156,6 +176,8 @@ FA_PATTERNS = [
     FP(["مذاکره", "مذاکرات", "دیدار", "گفتگو", "رایزنی", "میانجی"], 30, []),
     FP(["گفت", "اعلام کرد", "بیانیه", "تاکید کرد"], 26, []),
 ]
+FA_ANALYSIS = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
+    "گفتگو با", "گفت‌وگو با", "گفت وگو با", "مصاحبه", "نظرسنجی", "تماشا کنید", "یادداشت", "سرمقاله", "تحلیل", "پادکست"]])))
 FA_DENIAL = re.compile("|".join(map(re.escape, [fa_norm(x) for x in ["تکذیب", "شایعه", "کذب", "صحت ندارد", "جعلی"]])))
 
 
@@ -185,21 +207,42 @@ def score_en(title: str, summary: str):
     if PAST.search(t) or PAST.search(s[:160]):
         best *= 0.6
         flags.add("past")
-    if ACTOR.search(t) and flags & {"threat", "ultimatum", "retaliation", "kinetic_threat"}:
+    if ACTOR.search(t) and flags & {"ultimatum", "kinetic_threat"}:
         best += 6
+    elif ACTOR.search(t) and flags & {"threat", "retaliation"}:
+        best = max(best, min(best + 6, 68))      # a leader's threat is serious, but not a strike
     if TARGET.search(t) and flags & {"kinetic", "maritime_incident"}:
         best += 6
     m = CASUALTIES.search(to_latin_digits(t + " " + s[:200]))
     if m:
         n = int(m.group(1))
         best += 10 if n >= 50 else 6 if n >= 10 else 0
+    if "kinetic" in flags and HYPO.search(t) and not ({"kinetic"} & _strong_kinetic(t)):
+        best = min(best, 66)                       # "threatens to strike", "could attack", "plans attacks"
+        flags.add("speculative")
+    if REACTION.search(t):
+        best = min(best, 54)                       # reactions to an event rank below the event itself
+        flags.add("reaction")
+        flags.discard("kinetic")
+    if QUESTION.search(t):
+        best = min(best, 56)
+        flags.add("speculative")
     if OPINION.search(t):
         best = min(best, 38)
         flags.add("opinion")
-    elif ANALYSIS.search(t) and not LIVE.search(t):
+    elif (ANALYSIS.search(t) or EXTRA_ANALYSIS.search(t)) and not LIVE.search(t):
         best = min(best, 44)
         flags.add("analysis")
     return max(5.0, min(98.0, best)), topics, flags
+
+
+_STRONG = re.compile(r"\b(struck|bombed|killed|launched|fired|hit|intercepted|shot down|exploded|attacked|seized"
+                     r"|strikes? (on|hit)|airstrikes? (on|hit|kill))\b", I)
+
+
+def _strong_kinetic(t):
+    """A completed action in the headline keeps an item kinetic even if it also says 'warns' or 'could'."""
+    return {"kinetic"} if _STRONG.search(t) else set()
 
 
 def score_fa(title: str, summary: str):
@@ -217,6 +260,12 @@ def score_fa(title: str, summary: str):
     if FA_DENIAL.search(t) and best >= 45:
         best *= 0.65
         flags.add("denial")
+    if FA_ANALYSIS.search(t):
+        best = min(best, 44)
+        flags.add("analysis")
+    if QUESTION.search(t):
+        best = min(best, 56)
+        flags.add("speculative")
     return best, flags
 
 
@@ -228,9 +277,18 @@ def classify(item):
     sev, topics, flags = score_en(en_t, en_s)
     if fa_t:
         fsev, fflags = score_fa(fa_t, fa_s)
-        flags |= fflags
-        if fsev > sev:
-            sev = (fsev + sev) / 2 if "denial" in flags else fsev
+        if not en_t:
+            sev, flags = fsev or sev, flags | fflags
+        else:
+            # the translation is scored with the richer English rules; the Persian original can lift it halfway
+            if fsev > sev:
+                sev = (fsev + sev) / 2
+                flags |= {f for f in fflags if f != "kinetic" or sev >= KINETIC_BASE}
+            flags |= {f for f in fflags if f in ("denial", "analysis", "speculative")}
+            if "analysis" in flags:
+                sev = min(sev, 44)
+            if "speculative" in fflags:
+                sev = min(sev, 56)
     title_topics = match_keys(TOPICS_RX, en_t, fa_t)
     body_topics = [k for k in match_keys(TOPICS_RX, en_s, fa_s) if k != "statement"]
     topics |= set(title_topics) | set(body_topics)

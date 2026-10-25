@@ -13,7 +13,11 @@ than then there their they them his her he she we our you your who what when whe
 amid amidst near via per vs live update updates breaking news video watch photos analysis opinion explainer
 day days week weeks month months year years today tonight yesterday tomorrow first second third one two three
 up down out off back amid amidst within without across around official officials source sources state media
-""".split())
+middle east region regional""".split())
+
+# "Iran war live: …", "War in the Middle East: …", "Middle East crisis | …" — the prefix says nothing about the event
+LIVE_PREFIX = re.compile(r"^\s*(?:[^:|–—]{0,40}\b(?:live|updates?|crisis|war|conflict|latest)\b[^:|–—]{0,20})\s*[:|–—]\s+",
+                         re.I)
 
 SYN = {
     "u.s": "us", "american": "us", "americans": "us", "washington": "us",
@@ -49,8 +53,16 @@ def is_core(c):
                 or set(c.get("flags", [])) & CORE_FLAGS or set(c.get("ppl", [])) & CORE_PPL)
 
 
+def _stem(w):
+    if len(w) > 6 and w.endswith("ing"):
+        return w[:-3]
+    if len(w) > 5 and w.endswith("ed") and not w.endswith("eed"):
+        return w[:-2]
+    return w
+
+
 def tokens(title: str):
-    t = (title or "").lower()
+    t = LIVE_PREFIX.sub("", title or "").lower()
     t = re.sub(r"[’'`]s\b", "", t)
     t = t.replace("u.s.", "us ").replace("u.k.", "uk ").replace("united states", "us").replace("united nations", "un")
     t = re.sub(r"[^a-z0-9\s]", " ", t)
@@ -61,6 +73,9 @@ def tokens(title: str):
             continue
         if len(w) > 4 and w.endswith("s") and not w.endswith("ss"):
             w = w[:-1]
+        w = SYN.get(w, _stem(w))
+        if w in STOP:
+            continue
         out.add(w)
     return out
 
@@ -77,7 +92,8 @@ def similar(a, b):
     has_entity = bool(inter & ENTITY) or any(x.isdigit() for x in inter)
     if not has_entity:
         return jac >= 0.6 and n >= 4
-    return (ovl >= 0.6 and jac >= 0.3 and n >= 3) or (jac >= 0.5 and n >= 2) or (ovl >= 0.75 and n >= 3)
+    return (ovl >= 0.6 and jac >= 0.3 and n >= 3) or (jac >= 0.5 and n >= 2) or (ovl >= 0.75 and n >= 3) \
+        or (n >= 4 and ovl >= 0.55 and jac >= 0.3)
 
 
 class Clusterer:

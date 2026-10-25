@@ -56,7 +56,7 @@
       pinAgain: 'دوباره وارد کن', pinWrong: 'رمز اشتباه است', pinMismatch: 'دو رمز یکی نبود؛ دوباره',
       tg: 'هشدار تلگرام', tgOn: 'فعال', tgWait: 'منتظر /start در ربات', tgOff: 'غیرفعال',
       tgHelp: 'توکن ربات را در تنظیمات ریپو (Secrets) با نام TELEGRAM_BOT_TOKEN ثبت کن و به ربات ‎/start بفرست.',
-      srcH: 'وضعیت منابع', srcSum: '{ok} از {n} منبع در آخرین اجرا جواب دادند', srcGn: 'از مسیر غیرمستقیم', srcFail: 'بدون پاسخ',
+      srcH: 'وضعیت منابع', srcSum: '{ok} از {n} منبع در آخرین اجرا جواب دادند', srcGn: 'از مسیر گوگل‌نیوز', srcBing: 'از مسیر بینگ', srcTg: 'از کانال تلگرام', srcFail: 'بدون پاسخ',
       items: '{n} خبر', methodH: 'روش محاسبه', about: 'زمان‌بندی', filtersH: 'فیلترها', sortBy: 'ترتیب',
       sortTime: 'جدیدترین', sortSev: 'مهم‌ترین', topics: 'موضوع', countries: 'کشورها', people: 'افراد',
       apply: 'نمایش {n} خبر', layNews: 'خبرها', layAir: 'هواپیماهای نظامی',
@@ -103,7 +103,7 @@
       pinAgain: 'Enter it again', pinWrong: 'Wrong passcode', pinMismatch: 'They did not match; try again',
       tg: 'Telegram alerts', tgOn: 'On', tgWait: 'Waiting for /start', tgOff: 'Off',
       tgHelp: 'Save the bot token as the repository secret TELEGRAM_BOT_TOKEN, then send /start to the bot.',
-      srcH: 'Source status', srcSum: '{ok} of {n} sources responded in the last run', srcGn: 'via Google News', srcFail: 'no response',
+      srcH: 'Source status', srcSum: '{ok} of {n} sources responded in the last run', srcGn: 'via Google News', srcBing: 'via Bing News', srcTg: 'via its Telegram channel', srcFail: 'no response',
       items: '{n} items', methodH: 'Method', about: 'Schedule', filtersH: 'Filters', sortBy: 'Sort',
       sortTime: 'Latest', sortSev: 'Most important', topics: 'Topic', countries: 'Countries', people: 'People',
       apply: 'Show {n} stories', layNews: 'Stories', layAir: 'Military aircraft',
@@ -383,9 +383,17 @@
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
     return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + fresh + '<span class="time">' + esc(ago(c.u)) + '</span></div>';
   }
+  // a broken image collapses its frame instead of leaving an empty box
+  window.imgFail = function (img) {
+    var box = img.parentNode;
+    img.remove();
+    if (!box || box.querySelector('.s-play')) return;
+    if (box.classList.contains('s-media')) box.classList.add('s-noimg');
+    else if (box.classList.contains('s-thumb')) { var card = box.parentNode; box.remove(); if (card) card.classList.add('noimg'); }
+  };
   function mediaInner(c, cls) {
     var play = c.vid ? '<div class="s-play"><span>' + ic('play') + '</span></div>' : '';
-    if (c.img) return '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="this.remove()">' + play;
+    if (c.img) return '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="imgFail(this)">' + play;
     return play;
   }
   function cardRed(c) {
@@ -745,8 +753,9 @@
       Object.keys(groups).forEach(function (g) {
         h += '<div class="src-group"><h5>' + esc(groups[g].name) + '</h5>';
         groups[g].list.forEach(function (s) {
-          var cls = !s.ok ? 'bad' : s.via === 'gn' ? 'gn' : '';
-          var c = s.ok ? t('items', { n: nfmt(s.items) }) + (s.via === 'gn' ? ' · ' + t('srcGn') : '') : t('srcFail');
+          var viaKey = { gn: 'srcGn', bing: 'srcBing', tg: 'srcTg' }[s.via];
+          var cls = !s.ok ? 'bad' : viaKey ? 'gn' : '';
+          var c = s.ok ? t('items', { n: nfmt(s.items) }) + (viaKey ? ' · ' + t(viaKey) : '') : t('srcFail');
           h += '<div class="src-line"><i class="' + cls + '"></i><span>' + esc(L() === 'fa' ? s.fa : s.en) + '</span><span class="c">' + esc(c) + '</span></div>';
         });
         h += '</div>';

@@ -70,6 +70,30 @@ def ensure_texts(clusters, tr):
             c["fa"] = {"ti": ti, "su": su, "fallback": 1}
 
 
+def rescore(clusters):
+    out = []
+    for c in clusters:
+        keep = []
+        for m in c["m"]:
+            if not is_relevant(m)[1]:
+                continue
+            if m.get("lang") == "fa" or m.get("en_ti"):
+                classify(m)
+            keep.append(m)
+        if not keep:
+            continue
+        if len(keep) < len(c["m"]):
+            c.pop("en", None)                 # its headline may have come from a dropped report
+            c.pop("fa", None)
+        c["m"] = keep
+        refresh(c)
+        out.append(c)
+    dropped = len(clusters) - len(out)
+    if dropped:
+        log(f"rescore: {dropped} stored stories no longer pass the relevance rules")
+    return out
+
+
 def public_cluster(c, short=False):
     srcs, seen = [], set()
     for m in sorted(c["m"], key=lambda m: (-(m.get("rel") or 0), m["t"])):
@@ -112,6 +136,9 @@ def main():
         alerts_state = {k: v for k, v in alerts_state.items() if k == "chat"}
         misc["state_version"] = config.STATE_VERSION
         first_run = True
+
+    # stored stories are re-checked with the current rules, so rule changes apply at once
+    clusters = rescore(clusters)
 
     # ---------------------------------------------------------------- 1. collect
     raw, health = collect.collect_all(T)
@@ -215,7 +242,14 @@ def main():
     for c in retry:
         if "en_from" not in c:
             refresh(c)
-    ensure_texts(list(changed.values()) + retry[:60], tr)
+    retry.sort(key=lambda c: ("en" in c and "fa" in c, -c["u"]))
+    ensure_texts(list(changed.values()) + retry[:150], tr)
+    for c in clusters:                      # never publish a story without a headline
+        if "en" not in c or "fa" not in c:
+            m = c["m"][0]
+            c.setdefault("en", {"ti": m.get("en_ti") or m["ti"], "su": m.get("en_su") or m.get("su", ""), "fallback": 1})
+            c.setdefault("fa", {"ti": m["ti"] if m.get("lang") == "fa" else c["en"]["ti"], "su": m.get("su", ""),
+                                "fallback": 1})
 
     # ---------------------------------------------------------------- 7. posts on X + Truth Social
     truth = xposts.truth_social(BY_ID["truth"])

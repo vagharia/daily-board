@@ -183,8 +183,13 @@ html[lang=fa] .lang [data-l=fa],html[lang=en] .lang [data-l=en]{background:var(-
 .s-media img{width:100%;height:100%;object-fit:cover}
 .s-media::after{content:"";position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(180deg,transparent,rgba(13,33,66,.92))}
 .s-noimg{display:grid;place-items:center;color:rgba(142,172,222,.35)}
-.s-noimg .ic{width:36px;height:36px}
-.s-noimg span{position:absolute;inset:auto 14px 12px;z-index:1;font-size:12px;color:var(--ink-3)}
+.s-media.s-noimg{aspect-ratio:auto;height:54px;background:linear-gradient(270deg,rgba(255,61,87,.20),rgba(255,61,87,0) 75%),#0b1c38}
+[dir=ltr] .s-media.s-noimg{background:linear-gradient(90deg,rgba(255,61,87,.20),rgba(255,61,87,0) 75%),#0b1c38}
+.s-media.s-noimg::after{display:none}
+.s-noimg .ic{width:22px;height:22px;opacity:.6}
+.s-noimg > span:not(.s-tag){position:absolute;inset:auto 14px 12px;z-index:1;font-size:12px;color:var(--ink-3)}
+.s-media.s-noimg .s-tag{top:50%;transform:translateY(-50%);color:var(--ink)}
+.s-media.s-noimg > .ic{display:none}
 .s-tag{position:absolute;top:10px;inset-inline-start:10px;z-index:2;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 9px;
   border-radius:999px;font-size:11.5px;font-weight:700;background:rgba(7,20,43,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12)}
 .s-tag .t-dot{width:7px;height:7px}

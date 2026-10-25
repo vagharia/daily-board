@@ -57,6 +57,13 @@ FA_MID = fa_rx([
     "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "حمله", "حملات", "جنگ$", "جنگنده", "آتش بس", "تجاوز",
     "انفجار", "رزمایش", "تهدید", "هشدار", "اولتیماتوم", "ضرب الاجل", "تنگه", "شورای امنیت",
 ])
+# far-away conflicts and politics: not relevant unless the headline also names one of the core actors or Iran
+FA_FOREIGN = fa_rx([
+    "اوکراین", "کی یف", "کییف", "بلغارستان", "دریای سیاه", "ونزوئلا", "تایوان", "کره شمالی", "میانمار", "سودان",
+    "لیبی", "نیجر", "کلمبیا", "مکزیک", "آرژانتین", "برزیل", "فرانسه", "آلمان", "انگلیس", "بریتانیا", "ایتالیا",
+    "اسپانیا", "لهستان", "رومانی", "صربستان", "ژاپن", "استرالیا", "کانادا", "کشمیر", "بنگلادش", "سومالی", "اتیوپی",
+])
+FA_IRAN = fa_rx(["ایران", "ایرانی", "تهران", "جمهوری اسلامی"])
 FA_NOISE = fa_rx([
     "فوتبال", "والیبال", "فوتسال", "بسکتبال", "جام جهانی", "لیگ برتر", "المپیک", "سینما", "کنسرت",
     "تیم ملی", "پرسپولیس", "استقلال تهران", "سریال", "جشنواره فیلم",
@@ -95,6 +102,8 @@ def relevance_fa(title: str, summary: str):
     mt, ms = _distinct(FA_MID, t), _distinct(FA_MID, s)
     score = 4 * len(ct) + 2 * len(mt) + 2.5 * len(cs - ct) + 1 * len(ms - mt)
     ok = bool(ct) or score >= 6 or len(mt) >= 2
+    if ok and not ct and FA_FOREIGN.search(t) and not FA_IRAN.search(t):
+        ok = False                       # e.g. drone attacks in the Black Sea, riots in France
     if ok and FA_NOISE.search(t) and not (mt & {"حمله", "موشک", "پهپاد", "جنگ"}):
         ok = False
     return round(score, 1), ok
