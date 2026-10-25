@@ -34,7 +34,7 @@
       firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
-      empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها',
+      empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
       noData: 'هنوز داده‌ای ساخته نشده. موتور هر چند دقیقه اجرا می‌شود؛ کمی بعد دوباره سر بزن.',
       offline: 'اتصال برقرار نیست؛ آخرین داده ذخیره‌شده نمایش داده می‌شود.',
       lightsH: 'چراغ‌های هشدار', lightsOn: '{n} چراغ روشن:', lightsWatch: 'چراغی روشن نیست؛ {n} مورد زیر نظر',
@@ -81,7 +81,7 @@
       firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
-      empty: 'No stories match these filters.', clear: 'Clear filters',
+      empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
       noData: 'No data yet. The engine runs every few minutes; check back shortly.',
       offline: 'You are offline; showing the last saved data.',
       lightsH: 'Warning lights', lightsOn: '{n} lights on:', lightsWatch: 'No lights on; {n} on watch',
@@ -140,10 +140,17 @@
   var LAMP_ICON = { strike: 'crosshair', hormuz: 'tanker', airspace: 'planeoff', deploy: 'ship',
     evac: 'exit', ultimatum: 'hourglass', oil: 'drop' };
   var TIER_ORDER = ['red', 'orange', 'yellow'];
+  // which importance levels the feed shows; each can be switched on or off (lower-importance ones are off at first)
+  var DEF_TIERS = { red: true, orange: true, yellow: false };
+  function savedTiers() {
+    var v = store.get('tiers', null), out = {};
+    TIER_ORDER.forEach(function (k) { out[k] = v && typeof v[k] === 'boolean' ? v[k] : DEF_TIERS[k]; });
+    return out.red || out.orange || out.yellow ? out : Object.assign({}, DEF_TIERS);
+  }
 
   // ------------------------------------------------------------------ state
   var S = {
-    lang: store.get('lang', 'fa'), tab: 'news', range: store.get('range', '24h'), tier: 'all', topic: null, ctry: null,
+    lang: store.get('lang', 'fa'), tab: 'news', range: store.get('range', '24h'), tiers: savedTiers(), topic: null, ctry: null,
     ppl: null, sort: store.get('sort', 'time'), q: '', xseg: 'geo', layers: { news: true },
     sound: store.get('sound', true), d: { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null },
     seen: null, newIds: {}, shown: 0, list: [], gaugeSet: false, mapData: null, offline: false, origX: {}
@@ -362,7 +369,7 @@
   function filtered(ignoreTier) {
     var d = currentNews();
     var list = d ? d.clusters.slice() : [];
-    if (!ignoreTier && S.tier !== 'all') list = list.filter(function (c) { return c.tier === S.tier; });
+    if (!ignoreTier) list = list.filter(function (c) { return S.tiers[c.tier]; });
     if (S.topic) list = list.filter(function (c) { return c.topics.indexOf(S.topic) >= 0; });
     if (S.ctry) list = list.filter(function (c) { return c.ctry.indexOf(S.ctry) >= 0; });
     if (S.ppl) list = list.filter(function (c) { return c.ppl.indexOf(S.ppl) >= 0; });
@@ -421,15 +428,14 @@
     var base = filtered(true);
     var counts = { red: 0, orange: 0, yellow: 0 };
     base.forEach(function (c) { counts[c.tier]++; });
-    var h = '<button class="chip' + (S.tier === 'all' ? ' on' : '') + '" data-tier="all">' + esc(t('all')) + ' <b>' + nfmt(base.length) + '</b></button>';
+    var h = '';
     TIER_ORDER.forEach(function (k) {
-      h += '<button class="chip' + (S.tier === k ? ' on' : '') + '" data-tier="' + k + '"><i class="t-dot ' + k + '"></i>' + esc(t(k)) + ' <b>' + nfmt(counts[k]) + '</b></button>';
-    });
-    Object.keys(TOPICS).forEach(function (k) {
-      h += '<button class="chip' + (S.topic === k ? ' on' : '') + '" data-topic="' + k + '">' + esc(pick(TOPICS[k])) + '</button>';
+      var on = !!S.tiers[k];
+      h += '<button class="chip chip--tier' + (on ? ' on' : '') + '" data-tier="' + k + '" aria-pressed="' + on + '">' +
+        '<i class="t-dot ' + k + '"></i>' + esc(t(k)) + ' <b>' + nfmt(counts[k]) + '</b></button>';
     });
     $('#chips').innerHTML = h;
-    $('#filterDot').hidden = !(S.ctry || S.ppl || S.sort === 'sev');
+    $('#filterDot').hidden = !(S.topic || S.ctry || S.ppl || S.sort === 'sev');
   }
 
   var PAGE = 25;
@@ -447,7 +453,10 @@
     }
     S.list = filtered();
     if (!S.list.length) {
-      feed.innerHTML = '<div class="empty">' + ic('search') + '<p>' + esc(t('empty')) + '</p><button data-a="clear">' + esc(t('clear')) + '</button></div>';
+      var y = !S.tiers.yellow && filtered(true).some(function (c) { return c.tier === 'yellow'; })
+        ? '<button data-tier="yellow">' + esc(t('showYellow')) + '</button>' : '';
+      feed.innerHTML = '<div class="empty">' + ic('search') + '<p>' + esc(t('empty')) + '</p>' + y +
+        '<button data-a="clear">' + esc(t('clear')) + '</button></div>';
       return;
     }
     S.shown = 0;
@@ -686,9 +695,10 @@
   }
 
   function openFilters() {
-    var base = filtered(true).concat();
-    var cc = {}, pc = {};
+    var tc = {}, cc = {}, pc = {};
     (currentNews() ? currentNews().clusters : []).forEach(function (c) {
+      if (!S.tiers[c.tier]) return;
+      c.topics.forEach(function (k) { tc[k] = (tc[k] || 0) + 1; });
       c.ctry.forEach(function (k) { cc[k] = (cc[k] || 0) + 1; });
       c.ppl.forEach(function (k) { pc[k] = (pc[k] || 0) + 1; });
     });
@@ -702,6 +712,7 @@
     function body() {
       var h = '<h2>' + esc(t('filtersH')) + '</h2>';
       h += '<h4>' + esc(t('sortBy')) + '</h4><div class="seg"><button data-sort="time" class="' + (S.sort === 'time' ? 'on' : '') + '">' + esc(t('sortTime')) + '</button><button data-sort="sev" class="' + (S.sort === 'sev' ? 'on' : '') + '">' + esc(t('sortSev')) + '</button></div>';
+      h += sec(t('topics'), tc, TOPICS, 'topic');
       h += sec(t('countries'), cc, COUNTRIES, 'ctry');
       h += sec(t('people'), pc, PEOPLE, 'ppl');
       h += '<div class="btns"><button class="btn" data-a="clear">' + esc(t('clear')) + '</button><button class="btn" data-close style="border-color:rgba(94,200,255,.6)">' + esc(t('apply', { n: nfmt(filtered().length) })) + '</button></div>';
@@ -1088,8 +1099,12 @@
     if ((el = e.target.closest('[data-close]'))) { closeSheet(); return; }
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
-    if ((el = e.target.closest('[data-tier]'))) { S.tier = el.dataset.tier; renderChips(); renderFeed(); return; }
-    if ((el = e.target.closest('[data-topic]'))) { S.topic = S.topic === el.dataset.topic ? null : el.dataset.topic; renderChips(); renderFeed(); return; }
+    if ((el = e.target.closest('[data-tier]'))) {
+      var nt = Object.assign({}, S.tiers);
+      nt[el.dataset.tier] = !nt[el.dataset.tier];
+      if (!nt.red && !nt.orange && !nt.yellow) return;              // at least one level stays on
+      S.tiers = nt; store.set('tiers', nt); renderChips(); renderFeed(); return;
+    }
     if ((el = e.target.closest('[data-range]'))) { S.range = el.dataset.range; store.set('range', S.range); renderAll(); return; }
     if ((el = e.target.closest('[data-range-toggle]'))) { S.range = S.range === 'week' ? '24h' : 'week'; store.set('range', S.range); if (S.range === 'week' && !S.d.newsWeek) load(['newsWeek']).then(function () { renderAll(); }); renderAll(); return; }
     if ((el = e.target.closest('[data-layer]'))) { var k = el.dataset.layer; S.layers[k] = !S.layers[k]; store.set('layers', S.layers); renderMap(); return; }
@@ -1102,7 +1117,7 @@
       else if (a === 'index') openIndex();
       else if (a === 'markets') openMarkets();
       else if (a === 'filters') openFilters();
-      else if (a === 'clear') { S.tier = 'all'; S.topic = S.ctry = S.ppl = null; S.q = ''; $('#searchInput').value = ''; $('#searchBox').hidden = true; renderChips(); renderFeed(); if (sheetOpen) closeSheet(); }
+      else if (a === 'clear') { S.tiers = Object.assign({}, DEF_TIERS); store.set('tiers', S.tiers); S.topic = S.ctry = S.ppl = null; S.q = ''; $('#searchInput').value = ''; $('#searchBox').hidden = true; renderChips(); renderFeed(); if (sheetOpen) closeSheet(); }
     }
   });
   $('#langBtn').addEventListener('click', function () { setLang(L() === 'fa' ? 'en' : 'fa'); });

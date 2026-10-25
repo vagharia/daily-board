@@ -162,6 +162,9 @@ html[lang=fa] .lang [data-l=fa],html[lang=en] .lang [data-l=en]{background:var(-
   color:var(--ink-2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
 .chip b{font-weight:700;color:var(--ink);font-feature-settings:"tnum" 1}
 .chip.on{border-color:rgba(94,200,255,.7);color:var(--ink);background:var(--sonar-dim)}
+.chip--tier:not(.on){color:var(--ink-3)}
+.chip--tier:not(.on) .t-dot{opacity:.35}
+.chip--tier:not(.on) b{color:var(--ink-3)}
 .chip .t-dot{width:8px;height:8px;border-radius:50%}
 .t-dot{display:inline-block;border-radius:50%;flex:none}
 .t-dot.red,.dot-red{background:var(--red)} .t-dot.orange,.dot-orange{background:var(--orange)} .t-dot.yellow,.dot-yellow{background:var(--yellow)}
