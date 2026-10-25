@@ -20,7 +20,7 @@ LIGHTS = [
     ("strike", "حمله نظامی مستقیم", "Direct military strike"),
     ("hormuz", "حادثه دریایی / هرمز", "Hormuz / shipping incident"),
     ("airspace", "هشدار یا بسته شدن حریم هوایی", "Airspace warning / closure"),
-    ("deploy", "اعزام ناو و بمب‌افکن", "Carrier / bomber deployment"),
+    ("deploy", "اعزام ناو و هواپیماهای نظامی", "Carrier / military aircraft deployment"),
     ("evac", "تخلیه سفارت / هشدار سفر", "Embassy evacuation / travel alert"),
     ("ultimatum", "اولتیماتوم / ضرب‌الاجل", "Ultimatum / deadline"),
     ("oil", "جهش قیمت نفت", "Oil price spike"),

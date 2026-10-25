@@ -162,6 +162,12 @@ def news_round(full=True):
 
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
+    if misc.get("reeval") != 2:
+        # once after a relevance change: items of the last 36 hours that were left out get another look
+        kept = {m["k"] for c in clusters for m in c["m"]}
+        seen = {k: v for k, v in seen.items() if k in kept or v < T - 36 * 3600}
+        misc["reeval"] = 2
+        log("re-checking items of the last 36 hours with the current relevance rules")
 
     # ---------------------------------------------------------------- 1. collect
     raw, health = collect.collect_all(T, full=full)

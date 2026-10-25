@@ -17,7 +17,8 @@ EN_MID = en_rx([
     "syria", "damascus", "lebanon", "lebanese", "beirut", "yemen", "sanaa", "hodeidah", "red sea", "bab el-mandeb",
     "bab al-mandab", "gaza", "hamas", "west bank", "jordan$", "enrichment", "uranium", "iaea", "nuclear deal",
     "jcpoa", "snapback", "e3$", "tanker", "crude", "brent", "opec", "strait$", "jerusalem", "haifa", "dimona", "eilat",
-    "ukmto",
+    "ukmto", "diego garcia", "al udeid", "incirlik", "akrotiri", "prince sultan air base", "al dhafra",
+    "ain al-asad", "muwaffaq", "nevatim", "ramon air base",
 ])
 EN_SEC = en_rx([
     "strike$", "strikes$", "struck$", "airstrike", "air strike", "missile", "drone", "attack", "war$", "wars$",
@@ -25,6 +26,13 @@ EN_SEC = en_rx([
     "aircraft carrier", "carrier strike", "bomber", "retaliat", "escalat", "threat", "nuclear", "blockade",
     "airspace", "evacuat", "intercept", "explosion", "blast$", "killed", "invasion", "ultimatum", "mobiliz",
     "deploy", "shrapnel", "air defen", "airport",
+])
+# military aircraft movements reported by the media (deployments, tankers, airlift)
+EN_AIR = en_rx([
+    "refuel", "tanker aircraft", "tanker planes", "tanker jets", "airlift", "warplane", "fighter jet",
+    "fighter squadron", "squadron", "cargo flights", "cargo planes", "military flights", "military aircraft",
+    "transport planes", "awacs", "stealth bomber", "bomber",
+    r"re:\b(?:kc|c|f|b|e|p|mq|rq)-?(?:135|46|10|17|5|15|16|22|35|52|2|1b?|3|8|9|4)s?\b",
 ])
 # weak signals: enough together with a core term, not enough to make a Middle East item relevant on their own
 EN_WEAK = en_rx(["talks$", "negotiat", "envoy", "diplomat", "oil price", "shipping", "warn", "summit", "minister"])
@@ -56,6 +64,7 @@ FA_MID = fa_rx([
     "مذاکرات", "عراقچی", "لاریجانی", "وحیدی", "بقائی", "بقایی", "قالیباف", "شورای عالی امنیت ملی", "سپاه",
     "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "حمله", "حملات", "جنگ$", "جنگنده", "آتش بس", "تجاوز",
     "انفجار", "رزمایش", "تهدید", "هشدار", "اولتیماتوم", "ضرب الاجل", "تنگه", "شورای امنیت",
+    "سوخت رسان", "ترابری", "هواپیماهای نظامی", "هواپیمای نظامی", "پروازهای نظامی", "پایگاه", "العدید", "دیه گو گارسیا",
     # Iranian places: an explosion or air defence activity in Tabriz is news even without a foreign actor
     "تهران", "تبریز", "اصفهان", "شیراز", "مشهد", "کرج", "قم", "اهواز", "بندرعباس", "بوشهر", "کرمانشاه",
     "ارومیه", "خرمشهر", "آبادان", "چابهار", "کیش", "قشم", "نطنز", "فردو", "خارگ", "هرمزگان", "خوزستان",
@@ -96,6 +105,8 @@ def relevance_en(title: str, summary: str):
     mt, ms = _distinct(EN_MID, t), _distinct(EN_MID, s)
     st, ss = _distinct(EN_SEC, t), _distinct(EN_SEC, s)
     wt, ws = _distinct(EN_WEAK, t), _distinct(EN_WEAK, s)
+    at = _distinct(EN_AIR, t)
+    st |= at
     ut, us = _distinct(EN_US, t), _distinct(EN_US, s)
     score = 1.5 * (4 * len(ct) + 2 * len(mt) + len(st) + 0.5 * len(wt) + len(ut)) + \
         (3 * len(cs - ct) + 1.5 * len(ms - mt) + 0.7 * len(ss - st) + 0.3 * len(ws - wt) + 0.7 * len(us - ut))
@@ -104,6 +115,7 @@ def relevance_en(title: str, summary: str):
         or (bool(mt) and bool(st) and score >= 4.5) \
         or (bool(mt) and bool(ss) and len(mt | ms) >= 2 and score >= 6) \
         or (bool(ut) and bool(mt | cs) and bool(st | ss | wt)) or score >= 10 \
+        or (bool(at) and bool(ut | mt | ms | cs)) \
         or bool(ECON_A.search(t) and ECON_B.search(t)) or bool(GOLD.search(t))
     if ok and EN_NOISE.search(t) and not ct:
         ok = False

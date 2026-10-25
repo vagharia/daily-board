@@ -14,6 +14,12 @@ from .util import fa_norm, to_latin_digits
 I = re.I
 
 
+AIR = (r"tankers? (aircraft|planes|jets)|refuel(l)?ing (tankers?|aircraft|planes|jets)|aerial refuel\w*|kc-?135s?"
+       r"|kc-?46s?|kc-?10s?|c-?17s?|c-?5s?|cargo (planes|aircraft|flights)|transport (planes|aircraft)"
+       r"|military (flights|aircraft|planes|cargo)|warplanes?|fighter (jets|planes|squadrons?)|squadrons?|fighters"
+       r"|f-?15s?|f-?16s?|f-?22s?|f-?35s?|e-?3s?|awacs|p-?8s?|mq-?9s?|reapers?|b-?52s?|b-?2s?|b-?1b?s?|bombers?")
+
+
 def P(rx, base, topics=(), flags=()):
     return (re.compile(rx, I), base, set(topics), set(flags))
 
@@ -83,6 +89,15 @@ PATTERNS = [
       r" (\w+ ){0,4}(aircraft carriers?|carrier strike groups?|carriers?|bombers?|b-2s?|b-52s?|b-1b?s?|f-35s?|f-22s?"
       r"|fighter jets?|warships?|destroyers?|thaad|patriot batter\w+|submarines?)\b", 72, ["military"], ["deploy"]),
     P(r"\b(aircraft carrier|carrier strike group|b-2 bombers?|b-52 bombers?|stealth bombers?)\b", 62, ["military"], ["deploy"]),
+    # military aircraft movements: tankers, airlift, fighters, AWACS (media and flight-tracker reports)
+    P(r"\b(deploy\w*|dispatch\w*|send(s|ing)?|sent|mov(e|es|ed|ing)|surg\w+|arriv\w*|land(s|ed|ing)?|fl(y|ies|ew|own)"
+      r"|spott?\w*|track\w*|head(s|ing|ed)?|reposition\w*|rotat\w+|bolster\w*|reinforc\w*|station\w*|redeploy\w*)\b"
+      r".{0,60}\b(" + AIR + r")\b", 66, ["military", "air"], ["deploy"]),
+    P(r"\b(" + AIR + r")\b.{0,50}\b(deploy\w*|arriv\w*|land(s|ed|ing)?|head(s|ing|ed)? (to|for|toward)|spotted"
+      r"|cross\w*|surge\w*|en route|redeploy\w*|stationed)\b", 66, ["military", "air"], ["deploy"]),
+    P(r"\b(airlift|air bridge)\b", 56, ["military", "air"], ["deploy"]),
+    P(r"\bscrambl\w+\b.{0,30}\b(jets|fighters|aircraft|warplanes|interceptors)\b"
+      r"|\b(jets|fighters|warplanes|interceptors)\b.{0,20}\bscrambl\w+", 62, ["military", "air"], ["deploy"]),
     P(r"\bultimatum\b", 74, ["statement"], ["ultimatum"]),
     P(r"\b(deadline|days to|hours to|or face)\b", 60, ["statement"], ["ultimatum"]),
     P(r"\b(nuclear test|weapons?-grade|90 ?(%|percent) enrich\w*|withdraw\w* from (the )?(npt|non-proliferation)"
@@ -188,6 +203,9 @@ FA_PATTERNS = [
     FP(["بسته شدن حریم هوایی", "بستن حریم هوایی", "تعلیق پروازها", "لغو پروازها", "توقف پروازها"], 78, ["airspace"]),
     FP(["تخلیه سفارت", "خروج اتباع", "تخلیه اتباع"], 76, ["evac"]),
     FP(["اعزام ناو", "استقرار ناو", "ناو هواپیمابر", "استقرار بمب افکن", "بمب افکن های", "اعزام نیرو"], 70, ["deploy"]),
+    FP(["سوخت رسان", "هواپیماهای ترابری", "هواپیمای ترابری", "ترابری نظامی", "پروازهای نظامی", "پرواز نظامی",
+        "اعزام جنگنده", "استقرار جنگنده", "ورود جنگنده", "جنگنده های آمریکایی", "جنگنده های اسرائیلی", "جنگنده های اف"],
+       64, ["deploy"]),
     FP(["اولتیماتوم", "ضرب الاجل"], 72, ["ultimatum"]),
     FP(["ترور", "به شهادت رسید", "شهادت"], 70, ["kinetic"]),
     FP(["کشته", "جان باخت", "زخمی"], 50, []),
