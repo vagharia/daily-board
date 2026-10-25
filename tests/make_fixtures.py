@@ -175,6 +175,9 @@ def chart(price, prev, n=150, step=1800, drift=0.0):
 
 
 w("yahoo_brent.json", chart(82.4, 77.1))
+w("tv_scan.json", json.dumps({"totalCount": 2, "data": [
+    {"s": "FX:UKOIL", "d": [116.81, 3.47, "Brent Oil Futures"]},
+    {"s": "OANDA:XAUUSD", "d": [3995.81, -0.71, "Gold"]}]}))
 w("yahoo_gold.json", chart(3412.5, 3366.0, drift=0.05))
 
 # ---- air
@@ -231,6 +234,20 @@ w("bing_spa.xml", rss([
              "&c=1&mkt=en-us", "desc": "The Kingdom expressed concern over the escalation in the Strait of Hormuz.",
      "date": ago(2.5)},
 ], "Bing News"))
+
+# Safe Airspace country page (same markup as the live site)
+w("safeairspace.html", """<div class="page-country-summary">
+<h3 class="page-country-summary-risk-level page-country-summary-risk-level-1">Risk Level: <span>One - Do Not Fly</span></h3>
+<a href="https://safeairspace.net/about/">[ about risk levels ]</a>
+<div class="page-country-summary-content"> Oct 2026: The FIR has reopened to overflights, but multiple countries advise
+against entering the airspace.<br><br><b>See OPSGROUP Briefing</b>: <a href="#">Middle East</a><br><br>More text.</div></div>
+<div class="page-country-table"><h3 class="page-country-warninglist">Current warnings list :</h3>
+<table><tr><th>Source</th><th>Reference</th><th>Issued</th><th>Valid to</th></tr>
+<tr><td>France</td><td><a href="" target="_blank">Notam LFFF F2110/26</a></td><td>24 Oct 2026</td><td>28 Oct 2026</td><td></td></tr>
+<!--<tr><td></td><td colspan="4">French operators should not enter the airspace.</td></tr>-->
+<tr><td>EASA</td><td><a href="https://www.easa.europa.eu/x">CZIB 2026-04-R2</a></td><td>08 Jul 2026</td><td>16 Nov 2026</td><td></td></tr>
+<!--<tr><td></td><td colspan="4">Operators should avoid the airspace.</td></tr>-->
+</table></div>""")
 
 # ---- PortWatch: ~90/day before the crisis, ~5/day after
 rows = []
@@ -313,6 +330,8 @@ index = {
     r"bbc\.com/news/articles/sample-hormuz-tanker": "article.html",
     r"cdn\.syndication\.twimg\.com/tweet-result.*1850123456789012345": "tweet.json",
     r"t\.me/s/dollar_tehran3bze": "tg.html",
+    r"scanner\.tradingview\.com": "tv_scan.json",
+    r"safeairspace\.net/": "safeairspace.html",
     r"finance\.yahoo\.com/v8/finance/chart/BZ": "yahoo_brent.json",
     r"finance\.yahoo\.com/v8/finance/chart/GC": "yahoo_gold.json",
     r"opendata\.adsb\.fi/api/v2/mil": "air_mil.json",

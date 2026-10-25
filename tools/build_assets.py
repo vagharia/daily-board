@@ -52,6 +52,11 @@ def is_woff2(b):
 def fonts():
     out = os.path.join(DOCS, "fonts")
     os.makedirs(out, exist_ok=True)
+    have = [f for f in ("vazirmatn.woff2", "plex-400.woff2", "plex-500.woff2", "plex-600.woff2", "plex-700.woff2")
+            if os.path.exists(os.path.join(out, f)) and os.path.getsize(os.path.join(out, f)) > 1000]
+    if len(have) == 5:
+        print("fonts already present")
+        return
     vz = "fonts/webfonts/Vazirmatn[wght].woff2"
     q = urllib.parse.quote(vz)
     b = first_ok([
@@ -134,8 +139,20 @@ def clip_ring(ring, box):
 
 
 def dp(pts, eps):
-    """Douglas-Peucker simplification (iterative)."""
+    """Douglas-Peucker simplification (iterative). Closed rings (first point == last point) are split at
+    the point farthest from the start; otherwise the start/end segment has zero length and every point
+    would measure distance 0 from it, collapsing whole countries."""
     if len(pts) < 4:
+        return pts
+    if pts[0] == pts[-1]:
+        x0, y0 = pts[0]
+        m = max(range(1, len(pts) - 1), key=lambda i: (pts[i][0] - x0) ** 2 + (pts[i][1] - y0) ** 2)
+        return _dp(pts[:m + 1], eps)[:-1] + _dp(pts[m:], eps)
+    return _dp(pts, eps)
+
+
+def _dp(pts, eps):
+    if len(pts) < 3:
         return pts
     keep = [False] * len(pts)
     keep[0] = keep[-1] = True
@@ -145,11 +162,11 @@ def dp(pts, eps):
         ax, ay = pts[a]
         bx, by = pts[b]
         dx, dy = bx - ax, by - ay
-        L = math.hypot(dx, dy) or 1e-12
+        L = math.hypot(dx, dy)
         best, bi = 0.0, None
         for i in range(a + 1, b):
             px, py = pts[i]
-            d = abs(dy * px - dx * py + bx * ay - by * ax) / L
+            d = abs(dy * px - dx * py + bx * ay - by * ax) / L if L else math.hypot(px - ax, py - ay)
             if d > best:
                 best, bi = d, i
         if bi is not None and best > eps:

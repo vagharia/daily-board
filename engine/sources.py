@@ -1,4 +1,4 @@
-"""The fixed list of 94 sources checked on every run.
+"""The fixed list of 98 sources checked on every run (94 outlets and agencies + 4 Telegram channels).
 
 Each source has its own feeds; when they fail or don't exist, the engine falls back to a
 Google News query restricted to the source's domain(s). `rel` is a 0-1 reliability weight
@@ -18,17 +18,19 @@ GROUPS = {
     "official": ("منابع رسمی", "Official sources"),
     "fa_intl": ("فارسی‌زبان خارج از ایران", "Persian-language international"),
     "iran": ("ایرانی", "Iranian"),
+    "tg": ("کانال‌های تلگرام", "Telegram channels"),
 }
 
 
 def S(id, en, fa, group, rel, domains, feeds=(), lang="en", gn=True, gnq=None, kind="news", tg=(), tz=0,
-      via_media=False):
+      via_media=False, noecon=False):
     """tz: correction in seconds for feeds that print local time as UTC. via_media: the source is found
     through other outlets' reports (UKMTO, CENTCOM), so items show the reporting outlet's name."""
     if isinstance(domains, str):
         domains = [domains]
     return dict(id=id, en=en, fa=fa, group=group, rel=rel, domains=list(domains),
-                feeds=list(feeds), lang=lang, gn=gn, gnq=gnq, kind=kind, tg=list(tg), tz=tz, via_media=via_media)
+                feeds=list(feeds), lang=lang, gn=gn, gnq=gnq, kind=kind, tg=list(tg), tz=tz, via_media=via_media,
+                noecon=noecon)
 
 
 SOURCES = [
@@ -250,11 +252,21 @@ SOURCES = [
         "https://www.khabaronline.ir/rss"], lang="fa", tg=["khabaronline_ir"]),
     S("entekhab", "Entekhab", "انتخاب", "iran", 0.65, "entekhab.ir", [
         "https://www.entekhab.ir/fa/rss/allnews"], lang="fa", tg=["entekhab_ir"]),
+
+    # ------------------------------------------------------------ Telegram channels (political / military posts only)
+    S("vahidonline", "Vahid Online", "وحید آنلاین", "tg", 0.6, "t.me/VahidOnline", lang="fa", gn=False, kind="tg",
+      tg=["VahidOnline"], noecon=True),
+    S("sboxxx", "Secret Box", "سکرت باکس", "tg", 0.45, "t.me/SBoxxx", lang="fa", gn=False, kind="tg",
+      tg=["SBoxxx"], noecon=True),
+    S("fundamentalview", "Fundamental View", "دیدگاه بنیادی", "tg", 0.45, "t.me/fundamental_View", lang="fa",
+      gn=False, kind="tg", tg=["fundamental_View"], noecon=True),
+    S("tsepress", "TSE Press", "تی‌اس‌ای پرس", "tg", 0.45, "t.me/tsepress", lang="fa", gn=False, kind="tg",
+      tg=["tsepress"], noecon=True),
 ]
 
 BY_ID = {s["id"]: s for s in SOURCES}
-assert len(SOURCES) == 94, len(SOURCES)
-assert len(BY_ID) == 94
+assert len(SOURCES) == 98, len(SOURCES)
+assert len(BY_ID) == 98
 
 
 def source_for_domain(host: str):

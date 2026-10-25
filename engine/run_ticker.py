@@ -24,7 +24,7 @@ def update():
         usd = prev.get("dollar") or {"status": "fail", "error": str(e)[:100]}
         if usd.get("status") == "ok":
             usd["status"] = "stale"
-    mk = markets.run({k: prev.get(k) for k in ("brent", "gold")})
+    mk = markets.run({k: prev.get(k) for k in ("brent", "gold")}, state.setdefault("markets", {}))
     out = {"v": 1, "updated": now(), "dollar": usd, **mk}
     save_json(data_path("ticker.json"), out)
     save_json(data_path("state", "ticker_state.json"), state)

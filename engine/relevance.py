@@ -56,6 +56,10 @@ FA_MID = fa_rx([
     "مذاکرات", "عراقچی", "لاریجانی", "وحیدی", "بقائی", "بقایی", "قالیباف", "شورای عالی امنیت ملی", "سپاه",
     "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "حمله", "حملات", "جنگ$", "جنگنده", "آتش بس", "تجاوز",
     "انفجار", "رزمایش", "تهدید", "هشدار", "اولتیماتوم", "ضرب الاجل", "تنگه", "شورای امنیت",
+    # Iranian places: an explosion or air defence activity in Tabriz is news even without a foreign actor
+    "تهران", "تبریز", "اصفهان", "شیراز", "مشهد", "کرج", "قم", "اهواز", "بندرعباس", "بوشهر", "کرمانشاه",
+    "ارومیه", "خرمشهر", "آبادان", "چابهار", "کیش", "قشم", "نطنز", "فردو", "خارگ", "هرمزگان", "خوزستان",
+    "سیستان", "بلوچستان", "کردستان", "آذربایجان",
 ])
 # far-away conflicts and politics: not relevant unless the headline also names one of the core actors or Iran
 FA_FOREIGN = fa_rx([
@@ -64,6 +68,18 @@ FA_FOREIGN = fa_rx([
     "اسپانیا", "لهستان", "رومانی", "صربستان", "ژاپن", "استرالیا", "کانادا", "کشمیر", "بنگلادش", "سومالی", "اتیوپی",
 ])
 FA_IRAN = fa_rx(["ایران", "ایرانی", "تهران", "جمهوری اسلامی"])
+# economy and markets: dropped for Telegram channels whose economic posts the owner doesn't want
+FA_ECON = fa_rx([
+    "بورس", "فرابورس", "شاخص کل", "سهام", "سهامداران", "نماد", "صندوق", "معاملات", "عرضه اولیه", "تالار",
+    "سکه", "طلا", "قیمت دلار", "نرخ ارز", "ارز", "تتر", "رمزارز", "بیت کوین", "تورم", "نقدینگی", "بانک مرکزی",
+    "سود", "مالیات", "صورت مالی", "صورتهای مالی", "حقیقی", "حقوقی", "بازار سرمایه", "اوراق", "تومان", "ریال",
+    "قیمت", "گرانی", "بنزین", "خودرو", "مسکن", "اجاره", "یارانه",
+])
+FA_MILPOL = fa_rx([
+    "حمله", "حملات", "موشک", "پهپاد", "جنگ$", "انفجار", "سپاه", "ارتش", "پدافند", "ترامپ", "نتانیاهو", "اسرائیل",
+    "آمریکا", "مذاکره", "مذاکرات", "توافق", "تحریم", "هرمز", "حوثی", "حزب الله", "عراقچی", "خامنه ای", "رهبر",
+    "آتش بس", "نظامی", "امنیتی", "تهدید", "هشدار", "شورای امنیت", "ناو", "جنگنده", "بمباران", "رهگیری",
+])
 FA_NOISE = fa_rx([
     "فوتبال", "والیبال", "فوتسال", "بسکتبال", "جام جهانی", "لیگ برتر", "المپیک", "سینما", "کنسرت",
     "تیم ملی", "پرسپولیس", "استقلال تهران", "سریال", "جشنواره فیلم",
@@ -111,8 +127,20 @@ def relevance_fa(title: str, summary: str):
 
 def is_relevant(item):
     if item.get("lang") == "fa":
-        return relevance_fa(item.get("ti", ""), item.get("su", ""))
+        sc, ok = relevance_fa(item.get("ti", ""), item.get("su", ""))
+        if ok and _noecon(item.get("s")):
+            t = fa_norm(item.get("ti", ""))
+            if FA_ECON.search(t) and not FA_MILPOL.search(t):
+                ok = False                                  # market news from a mixed Telegram channel
+            elif not FA_MILPOL.search(t + " " + fa_norm(item.get("su", ""))[:300]):
+                ok = False                                  # nothing political or military in it
+        return sc, ok
     return relevance_en(item.get("ti", ""), item.get("su", ""))
+
+
+def _noecon(sid):
+    from .sources import BY_ID
+    return bool(BY_ID.get(sid, {}).get("noecon"))
 
 
 if __name__ == "__main__":

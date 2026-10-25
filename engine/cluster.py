@@ -46,6 +46,7 @@ CORE_FLAGS = {"oil_spike", "maritime_incident", "hormuz_closure", "airspace", "n
 CORE_PPL = {"ir_leader", "ir_pres", "ir_fm", "ir_snsc", "irgc_cmd", "ir_army", "ghalibaf", "ir_spox", "houthi_l",
             "hzb_l", "grossi", "mbs", "sa_fm", "qa", "om", "uae"}
 NONCORE_FACTOR, NONCORE_CAP = 0.6, 55.0
+CORROBORATE_BELOW = 0.75
 EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
                "alert", "kinetic_threat"}
 
@@ -168,6 +169,13 @@ def refresh(c):
     if not set(top.get("flags", [])) & EVENT_FLAGS:
         # many outlets repeating a threat or a plan make it a big story, not a strike
         c["sev"] = min(c["sev"], 69.0)
+    if c["ns"] == 1 and max_rel < CORROBORATE_BELOW:
+        # a single less reliable outlet (state media, partisan or Telegram channels) can't make a red story
+        # on its own; it turns red once another source reports it
+        c["sev"] = min(c["sev"], 69.0)
+        c["single"] = True
+    else:
+        c.pop("single", None)
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []

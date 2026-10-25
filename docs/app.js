@@ -45,7 +45,7 @@
       idxWeek: 'هفت روز اخیر', idxMethod: 'چطور محاسبه می‌شود',
       method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ تهدید، تحریم، رزمایش و گزارش آژانس نارنجی؛ بیانیه، مذاکره و تحلیل زرد. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است.',
       method2: 'میانگین ساده نیست: رویدادهای جدی‌تر وزن نمایی بیشتری دارند تا یک حمله زیر سی خبر روتین گم نشود، خبرهای تازه سنگین‌ترند (نیمه‌عمر ۶ ساعت)، و هر رویداد فقط یک بار شمرده می‌شود هر چند رسانه گزارشش کنند. اعتبار منبع هم اثر دارد.',
-      method3: 'شاخص نهایی ۷۰٪ اخبار و ۳۰٪ سیگنال‌های عینی است: پروازهای نظامی منطقه، افت تردد هوایی غیرنظامی و تردد تنگه هرمز. این یک نشانگر است، نه پیش‌بینی.',
+      method3: 'شاخص نهایی ۷۰٪ اخبار و ۳۰٪ سیگنال‌های عینی است: تردد و حوادث تنگه هرمز، و سطح ریسک و هشدارهای رسمی تازه برای حریم هوایی کشورهای منطقه. این یک نشانگر است، نه پیش‌بینی.',
       mkH: 'بازار', lastTrade: 'آخرین معامله', vsPrev: 'نسبت به معامله قبل', vsDay: 'نسبت به دیروز',
       dayHL: 'بیشترین و کمترین امروز', trades: 'تعداد معامله امروز', toman: 'تومان', stale: 'داده قدیمی است',
       usdNote: 'فقط پست‌های «معامله شد ✅» کانال خوانده می‌شود؛ قیمت‌های خرید و فروش نادیده گرفته می‌شوند.',
@@ -58,14 +58,13 @@
       srcH: 'وضعیت منابع', srcSum: '{ok} از {n} منبع در آخرین اجرا جواب دادند', srcGn: 'از مسیر گوگل‌نیوز', srcBing: 'از مسیر بینگ', srcTg: 'از کانال تلگرام', srcFail: 'بدون پاسخ',
       items: '{n} خبر', methodH: 'روش محاسبه', about: 'زمان‌بندی', filtersH: 'فیلترها', sortBy: 'ترتیب',
       sortTime: 'جدیدترین', sortSev: 'مهم‌ترین', topics: 'موضوع', countries: 'کشورها', people: 'افراد',
-      apply: 'نمایش {n} خبر', layNews: 'خبرها', layAir: 'هواپیماهای نظامی',
-      airH: 'پروازهای نظامی منطقه', airUnit: 'هواپیما', airBase: 'میانگین هفته: {n}', airBuilding: 'خط مبنا در حال ساخت',
-      civH: 'تردد هوایی غیرنظامی', ofNormal: '{n}٪ عادی', civNa: 'در حال ساخت خط مبنا', civLow: 'خیلی کم', civRed: 'کمتر از عادی', civNorm: 'عادی',
-      civNote: 'نسبت به همین ساعت در روزهای اخیر. پوشش ADS-B روی بخش‌هایی از ایران کامل نیست و بعضی هواپیماهای نظامی ترانسپوندر را خاموش می‌کنند؛ این‌ها سیگنال نسبی‌اند. داده: adsb.fi، adsb.lol و OpenSky Network.',
+      apply: 'نمایش {n} خبر', layNews: 'خبرها',
+      avH: 'هشدارهای حریم هوایی منطقه', avNew: 'هشدار تازه', avUntil: 'تا {d}', avIssued: 'صدور {d}', avOngoing: 'بدون تاریخ پایان', avMore: 'صفحه کامل در Safe Airspace',
+      avNote: 'سطح ریسک هر کشور و هشدارهای رسمی در جریان (نوتام کشورها، بولتن‌های EASA و هشدارهای FAA) از Safe Airspace؛ حدوداً هر ساعت به‌روز می‌شود. روی هر کشور بزن تا جزئیات باز شود.', avNone: 'داده هشدارهای هوایی هنوز نرسیده.',
       hzH: 'تردد تنگه هرمز', hzUnit: 'عبور در روز (میانگین ۷ روز)', hzPre: 'عادی پیش از بحران: {n}', hzPct: '{n}٪ حالت عادی',
       hzLag: 'داده IMF PortWatch تا {d}؛ حدود یک هفته تأخیر دارد.', hzTank: 'نفتکش: {a} در روز (عادی {b})', babH: 'باب‌المندب',
       warnH: 'هشدارهای دریانوردی فعال', warnNone: 'هشدار فعالی برای منطقه نیست.',
-      liveAir: 'نقشه زنده پروازها', liveSea: 'نقشه زنده کشتی‌ها', placeH: 'خبرهای {p}',
+      liveSea: 'نقشه زنده کشتی‌ها', placeH: 'خبرهای {p}',
       xGeo: 'سیاسی و نظامی', xEcon: 'نفت و طلا', xNote: 'ایکس API رایگان ندارد؛ این‌ها پست‌های حساب‌های معتبرند که رسانه‌های معتبر نقل کرده‌اند، به‌علاوه پست‌های تروث‌سوشال ترامپ.',
       xEmpty: 'هنوز پستی از حساب‌های منتخب ثبت نشده. با هر به‌روزرسانی اضافه می‌شود.', cites: '{n} رسانه نقل کرده', openX: 'باز کردن',
       newRed: 'خبر خیلی مهم جدید', refreshed: 'به‌روز شد', loading: 'در حال دریافت…', stories: '{n} خبر',
@@ -92,7 +91,7 @@
       idxWeek: 'Last seven days', idxMethod: 'How it is calculated',
       method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; threats, sanctions, exercises and IAEA findings orange; statements, talks and analysis yellow. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight.',
       method2: 'It is not a plain average: serious events weigh exponentially more so one strike is not drowned out by thirty routine stories, recent events weigh more (6-hour half-life), and each event counts once however many outlets report it. Source reliability also counts.',
-      method3: 'The index is 70% news and 30% objective signals: military flights in the region, drops in civil air traffic and Hormuz transits. It is an indicator, not a forecast.',
+      method3: 'The index is 70% news and 30% objective signals: Hormuz traffic and incidents, and the risk level and fresh official warnings for the region\'s airspace. It is an indicator, not a forecast.',
       mkH: 'Markets', lastTrade: 'Last trade', vsPrev: 'vs previous trade', vsDay: 'vs yesterday',
       dayHL: 'Today high / low', trades: 'Trades today', toman: 'toman', stale: 'Data is stale',
       usdNote: 'Only "traded ✅" posts are read; buy and sell quotes are ignored.',
@@ -105,14 +104,13 @@
       srcH: 'Source status', srcSum: '{ok} of {n} sources responded in the last run', srcGn: 'via Google News', srcBing: 'via Bing News', srcTg: 'via its Telegram channel', srcFail: 'no response',
       items: '{n} items', methodH: 'Method', about: 'Schedule', filtersH: 'Filters', sortBy: 'Sort',
       sortTime: 'Latest', sortSev: 'Most important', topics: 'Topic', countries: 'Countries', people: 'People',
-      apply: 'Show {n} stories', layNews: 'Stories', layAir: 'Military aircraft',
-      airH: 'Military flights in the region', airUnit: 'aircraft', airBase: '7-day average: {n}', airBuilding: 'Building baseline',
-      civH: 'Civil air traffic', ofNormal: '{n}% of normal', civNa: 'Building baseline', civLow: 'Very low', civRed: 'Below normal', civNorm: 'Normal',
-      civNote: 'Compared with the same hour on recent days. ADS-B coverage over parts of Iran is incomplete and some military aircraft fly dark, so these are relative signals. Data: adsb.fi, adsb.lol and OpenSky Network.',
+      apply: 'Show {n} stories', layNews: 'Stories',
+      avH: 'Regional airspace warnings', avNew: 'New warning', avUntil: 'until {d}', avIssued: 'issued {d}', avOngoing: 'no end date', avMore: 'Full page on Safe Airspace',
+      avNote: 'Each country\'s risk level and the official warnings in force (state NOTAMs, EASA bulletins, FAA advisories) from Safe Airspace; refreshed about hourly. Tap a country for details.', avNone: 'No airspace data yet.',
       hzH: 'Strait of Hormuz traffic', hzUnit: 'transits per day (7-day avg)', hzPre: 'Pre-crisis normal: {n}', hzPct: '{n}% of normal',
       hzLag: 'IMF PortWatch data through {d}; about a week behind.', hzTank: 'Tankers: {a}/day (normal {b})', babH: 'Bab el-Mandeb',
       warnH: 'Active navigational warnings', warnNone: 'No active warnings for the region.',
-      liveAir: 'Live flight map', liveSea: 'Live ship map', placeH: 'Stories: {p}',
+      liveSea: 'Live ship map', placeH: 'Stories: {p}',
       xGeo: 'Politics & military', xEcon: 'Oil & gold', xNote: 'X has no free API; these are posts from credible accounts cited by reputable media, plus Trump\'s Truth Social posts.',
       xEmpty: 'No posts from the selected accounts yet. They are added with each update.', cites: 'cited by {n} outlets', openX: 'Open',
       newRed: 'New critical story', refreshed: 'Updated', loading: 'Loading…', stories: '{n} stories',
@@ -137,14 +135,14 @@
     om: ['وزیر خارجه عمان', 'Omani FM'], uae: ['مقامات امارات', 'UAE leaders'], houthi_l: ['رهبر حوثی‌ها', 'Houthi leader'],
     hzb_l: ['دبیرکل حزب‌الله', 'Hezbollah chief'], putin: ['پوتین', 'Putin'], xi: ['شی جین‌پینگ', 'Xi Jinping'],
     e3: ['رهبران اروپایی', 'European leaders'] };
-  var LAMP_ICON = { strike: 'crosshair', hormuz: 'tanker', airspace: 'planeoff', airsurge: 'plane', deploy: 'ship',
+  var LAMP_ICON = { strike: 'crosshair', hormuz: 'tanker', airspace: 'planeoff', deploy: 'ship',
     evac: 'exit', ultimatum: 'hourglass', oil: 'drop' };
   var TIER_ORDER = ['red', 'orange', 'yellow'];
 
   // ------------------------------------------------------------------ state
   var S = {
     lang: store.get('lang', 'fa'), tab: 'news', range: store.get('range', '24h'), tier: 'all', topic: null, ctry: null,
-    ppl: null, sort: store.get('sort', 'time'), q: '', xseg: 'geo', layers: store.get('layers', { news: true, air: true }),
+    ppl: null, sort: store.get('sort', 'time'), q: '', xseg: 'geo', layers: { news: true },
     sound: store.get('sound', true), d: { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null },
     seen: null, newIds: {}, shown: 0, list: [], gaugeSet: false, mapData: null, offline: false, origX: {}
   };
@@ -880,12 +878,6 @@
       if (md && md.countries) md.countries.forEach(function (cn) { h += '<path class="land' + (cn.id === '364' ? ' focus' : '') + '" d="' + cn.d + '"/>'; });
       SEAS.forEach(function (s) { var p = proj(s[2], s[3]); h += '<text class="sea-label" x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '">' + esc(L() === 'fa' ? s[0] : s[1]) + '</text>'; });
       CLABELS.forEach(function (s) { var p = proj(s[2], s[3]); h += '<text class="clabel" x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '">' + esc(L() === 'fa' ? s[0] : s[1]) + '</text>'; });
-      if (S.layers.air && sig.air && sig.air.list) {
-        sig.air.list.forEach(function (a, i) {
-          var p = proj(a.lat, a.lon);
-          h += '<g class="ac ' + a.cat + '" data-ac="' + i + '" transform="translate(' + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ')"><path d="M0 -6 L4.5 5 L0 2.5 L-4.5 5 Z"/></g>';
-        });
-      }
       var hs = (sig.hotspots && sig.hotspots[S.range === 'week' ? 'week' : '24h']) || [];
       if (S.layers.news) {
         hs.slice().reverse().forEach(function (s, i) {
@@ -905,26 +897,54 @@
       }
       h += '</svg><div class="map-tip" id="mapTip" hidden></div>';
       box.innerHTML = h;
-      $('#mapLegend').innerHTML = '<span><i class="dot-red"></i>' + esc(t('red')) + '</span><span><i class="dot-orange"></i>' + esc(t('orange')) + '</span><span><i class="dot-yellow"></i>' + esc(t('yellow')) + '</span><span><i class="ac-key"></i>' + esc(t('layAir')) + '</span>';
+      $('#mapLegend').innerHTML = '<span><i class="dot-red"></i>' + esc(t('red')) + '</span><span><i class="dot-orange"></i>' + esc(t('orange')) + '</span><span><i class="dot-yellow"></i>' + esc(t('yellow')) + '</span>';
       box.onclick = function (e) {
         var tip = $('#mapTip');
         var hsEl = e.target.closest('[data-hs]');
         if (hsEl) { var spot = hs.filter(function (s) { return s.id === hsEl.dataset.hs; })[0]; if (spot) openPlace(spot); return; }
-        var acEl = e.target.closest('[data-ac]');
-        if (acEl) {
-          var a = sig.air.list[+acEl.dataset.ac];
-          var r = box.getBoundingClientRect(), rr = acEl.getBoundingClientRect();
-          tip.innerHTML = '<b dir="ltr">' + esc(a.cs || a.hex) + '</b> ' + esc(a.type) + ' · ' + esc(T[L()].cats[a.cat] || a.cat);
-          tip.style.left = (rr.left - r.left + rr.width / 2) + 'px'; tip.style.top = (rr.top - r.top) + 'px'; tip.hidden = false;
-          return;
-        }
         tip.hidden = true;
       };
     });
     var lay = '<button class="chip' + (S.layers.news ? ' on' : '') + '" data-layer="news">' + ic('pin', 'ic-sm') + esc(t('layNews')) + '</button>' +
-      '<button class="chip' + (S.layers.air ? ' on' : '') + '" data-layer="air">' + ic('plane', 'ic-sm') + esc(t('layAir')) + '</button>' +
       '<button class="chip" data-range-toggle="1">' + ic('clock', 'ic-sm') + esc(S.range === 'week' ? t('rWeek') : t('r24')) + '</button>';
     $('#mapLayers').innerHTML = lay;
+  }
+
+  var SRC_FA = { France: 'فرانسه', Germany: 'آلمان', Italy: 'ایتالیا', EASA: 'آژانس ایمنی هوانوردی اروپا', USA: 'آمریکا',
+    'United States': 'آمریکا', UK: 'بریتانیا', 'United Kingdom': 'بریتانیا', Canada: 'کانادا', Russia: 'روسیه', Iraq: 'عراق',
+    Israel: 'اسرائیل', Iran: 'ایران', Netherlands: 'هلند', Turkey: 'ترکیه', Australia: 'استرالیا', India: 'هند', China: 'چین',
+    Japan: 'ژاپن', 'Saudi Arabia': 'عربستان', UAE: 'امارات', Qatar: 'قطر', Kuwait: 'کویت', Bahrain: 'بحرین', Oman: 'عمان',
+    Jordan: 'اردن', Lebanon: 'لبنان', Syria: 'سوریه', Egypt: 'مصر', Switzerland: 'سوئیس', Austria: 'اتریش', Poland: 'لهستان',
+    Spain: 'اسپانیا', Belgium: 'بلژیک', 'New Zealand': 'نیوزیلند', Ireland: 'ایرلند', Sweden: 'سوئد', Norway: 'نروژ',
+    Denmark: 'دانمارک', Finland: 'فنلاند', Greece: 'یونان', Cyprus: 'قبرس', Yemen: 'یمن', ICAO: 'ایکائو' };
+  function aviationCard(av) {
+    var h = '<div class="card"><div class="card-h">' + ic('planeoff') + '<h3>' + esc(t('avH')) + '</h3><span class="meta">' + (av && av.updated ? esc(ago(av.updated)) : '') + '</span></div>';
+    var cs = (av && av.countries) || [];
+    if (!cs.length) return h + '<p class="subnote">' + esc(t('avNone')) + '</p></div>';
+    var now = Date.now() / 1000;
+    h += '<div class="av-list">';
+    cs.forEach(function (c) {
+      var lv = c.level || 4;
+      var fresh = (c.warnings || []).filter(function (w) { return w.issued && now - w.issued < 3 * 86400; }).length;
+      h += '<details class="av"><summary><span class="av-lv lv' + lv + '">' + nfmt(lv) + '</span><b>' + esc(L() === 'fa' ? c.fa : c.en) + '</b>' +
+        '<span class="av-t">' + esc(L() === 'fa' ? c.level_fa : c.level_en) + '</span>' + (fresh ? '<span class="av-new">' + esc(t('avNew')) + '</span>' : '') +
+        '<span class="r">' + ic('chev') + '</span></summary>';
+      var sum = L() === 'fa' ? (c.summary_fa || c.summary) : c.summary;
+      if (sum) h += '<p class="av-sum">' + esc(sum) + '</p>';
+      (c.warnings || []).slice(0, 4).forEach(function (w) {
+        var src = L() === 'fa' ? (SRC_FA[w.src] || w.src) : w.src;
+        var until = w.until_t ? t('avUntil', { d: dshort(w.until_t) }) : (/ongoing|further/i.test(w.until || '') ? t('avOngoing') : (w.until || ''));
+        var note = L() === 'fa' ? (w.note_fa || w.note) : w.note;
+        var isNew = w.issued && now - w.issued < 3 * 86400;
+        h += '<div class="av-w' + (isNew ? ' is-new' : '') + '"><div><b>' + esc(src) + '</b> <span dir="ltr">' + esc(w.ref) + '</span></div>' +
+          '<div class="av-d">' + (w.issued ? esc(t('avIssued', { d: dshort(w.issued) })) : '') + (until ? ' · ' + esc(until) : '') + '</div>' +
+          (note ? '<p>' + esc(note) + '</p>' : '') + '</div>';
+      });
+      if (c.url) h += '<a class="av-link" target="_blank" rel="noopener" href="' + esc(c.url) + '">' + esc(t('avMore')) + ' ' + ic('ext', 'ic-sm') + '</a>';
+      h += '</details>';
+    });
+    h += '</div><p class="subnote">' + esc(t('avNote')) + '</p></div>';
+    return h;
   }
 
   function renderSignals() {
@@ -932,33 +952,7 @@
     var box = $('#signals');
     if (!sig) { box.innerHTML = '<div class="skel skel-row" style="margin-top:12px"></div>'; return; }
     var h = '';
-    var air = sig.air;
-    // --- military air
-    h += '<div class="card"><div class="card-h">' + ic('plane') + '<h3>' + esc(t('airH')) + '</h3><span class="meta">' + (air ? esc(ago(air.updated)) : '') + '</span></div>';
-    if (air && air.mil) {
-      var m = air.mil;
-      h += '<div class="readout"><b>' + nfmt(m.total) + '</b><span>' + esc(t('airUnit')) + '</span><span class="vs">' + esc(m.baseline != null ? t('airBase', { n: nfmt(m.baseline, 1) }) : t('airBuilding')) + '</span></div>';
-      var mx = Math.max(1, Math.max.apply(null, Object.keys(m.cats).map(function (k) { return m.cats[k]; })));
-      h += '<div class="hrows">';
-      ['tanker', 'isr', 'bomber', 'transport', 'other'].forEach(function (k) {
-        h += '<div class="hrow"><span class="l">' + esc(T[L()].cats[k]) + '</span><span class="htrack"><i style="--w:' + (100 * m.cats[k] / mx) + '%"></i></span><span class="v">' + nfmt(m.cats[k]) + '</span></div>';
-      });
-      h += '</div>';
-      var notable = (air.list || []).filter(function (a) { return a.cat !== 'other'; }).slice(0, 8);
-      if (notable.length) h += '<div class="aclist">' + notable.map(function (a) { return '<div><b>' + esc(a.cs || a.hex) + '</b><span>' + esc(a.type) + '</span></div>'; }).join('') + '</div>';
-    } else h += '<p class="subnote">—</p>';
-    h += '</div>';
-    // --- civil traffic
-    h += '<div class="card"><div class="card-h">' + ic('planeoff') + '<h3>' + esc(t('civH')) + '</h3></div><div class="hrows">';
-    ((air && air.civil) || []).forEach(function (c) {
-      var pct = c.pct != null ? Math.min(140, c.pct) : null;
-      var word = c.state === 'low' ? t('civLow') : c.state === 'reduced' ? t('civRed') : c.state === 'normal' ? t('civNorm') : t('civNa');
-      h += '<div class="hrow"><span class="l">' + esc(L() === 'fa' ? c.fa : c.en) + '</span><span class="htrack">' +
-        (pct != null ? '<i class="' + c.state + '" style="--w:' + (pct / 1.4) + '%"></i><span class="base" style="--b:' + (100 / 1.4) + '%"></span>' : '') +
-        '</span><span class="v">' + nfmt(c.count) + '</span></div>';
-      h += '<div class="subnote" style="margin:-4px 0 2px;text-align:end">' + esc(c.pct != null ? t('ofNormal', { n: nfmt(c.pct) }) : '') + '<span class="state-word ' + c.state + '">' + esc(word) + '</span></div>';
-    });
-    h += '</div><p class="subnote">' + esc(t('civNote')) + '</p></div>';
+    h += aviationCard(sig.aviation);
     // --- Hormuz
     var hz = sig.sea && sig.sea.hormuz;
     h += '<div class="card"><div class="card-h">' + ic('tanker') + '<h3>' + esc(t('hzH')) + '</h3></div>';
@@ -978,8 +972,7 @@
     if (!ws.length) h += '<p class="subnote">' + esc(t('warnNone')) + '</p>';
     ws.slice(0, 6).forEach(function (w) { h += '<div class="warn-item"><b>' + esc(w.id) + ' — ' + esc(w.date) + '</b>' + esc(w.text) + '</div>'; });
     h += '</div>';
-    h += '<div class="btns"><a class="btn" target="_blank" rel="noopener" href="https://globe.airplanes.live/?lat=27.5&lon=51&zoom=5.4">' + ic('plane') + esc(t('liveAir')) + '</a>' +
-      '<a class="btn" target="_blank" rel="noopener" href="https://www.marinetraffic.com/en/ais/home/centerx:56.3/centery:26.4/zoom:8">' + ic('anchor') + esc(t('liveSea')) + '</a></div>';
+    h += '<div class="btns"><a class="btn" target="_blank" rel="noopener" href="https://www.marinetraffic.com/en/ais/home/centerx:56.3/centery:26.4/zoom:8">' + ic('anchor') + esc(t('liveSea')) + '</a></div>';
     box.innerHTML = h;
     if (hz && hz.series && hz.series.length > 2) {
       var data = hz.series.map(function (r) { return [Date.parse(r[0] + 'T12:00:00Z') / 1000, r[1]]; });

@@ -1,9 +1,9 @@
 """News run (every 30 minutes): sources -> relevance -> translation -> severity -> stories ->
-media & posts on X -> air & sea signals -> index & warning lights -> Telegram alerts -> JSON."""
+media & posts on X -> airspace warnings & sea signals -> index & warning lights -> Telegram alerts -> JSON."""
 import os
 import time
 
-from . import air, alerts, collect, config, media, sea, store, util, xposts
+from . import alerts, aviation, collect, config, media, sea, store, util, xposts
 from .classify import classify
 from .cluster import Clusterer, prune, refresh
 from .http import parallel
@@ -70,6 +70,14 @@ def ensure_texts(clusters, tr):
             c["fa"] = {"ti": ti, "su": su, "fallback": 1}
 
 
+PERSIAN_GROUPS = {"iran", "fa_intl", "tg"}
+
+
+def persian_only(c):
+    """Every report in the story comes from an Iranian, Persian-language-abroad or Telegram source."""
+    return all(BY_ID.get(m["s"], {}).get("group") in PERSIAN_GROUPS for m in c["m"])
+
+
 def rescore(clusters):
     out = []
     for c in clusters:
@@ -131,7 +139,7 @@ def main():
 def news_round(full=True):
     """Collect, score and write all news outputs into DATA_DIR (already prepared). A light round
     (full=False) reads the sources' own feeds and Telegram channels only; Google News / Bing fallbacks
-    run in full rounds, and the air picture is refreshed at most every half hour."""
+    run in full rounds; airspace warnings are refreshed about once an hour."""
     started = time.time()
     T = now()
     st = lambda name, default: load_json(data_path("state", name), default)  # noqa: E731
@@ -139,7 +147,7 @@ def news_round(full=True):
     clusters = st("clusters.json", {"clusters": []})["clusters"]
     seen = st("seen.json", {})
     tcache = st("tcache.json", {})
-    air_hist = st("air_hist.json", [])
+    av_state = st("aviation_state.json", {}) or {}
     idx_hist = st("index_hist.json", [])
     alerts_state = st("alerts.json", {})
     x_state = st("x_state.json", {})
@@ -305,17 +313,15 @@ def news_round(full=True):
             p.setdefault("en", p["text"])
 
     # ---------------------------------------------------------------- 8. signals
-    air_last = st("air_last.json", {}) or {}
-    if full and T - air_last.get("ts", 0) >= 28 * 60 or not air_last.get("summary"):
-        air_sum, air_hist = air.run(air_hist)      # OpenSky allows ~100 anonymous calls a day
-        if air_sum:
-            air_last = {"ts": T, "summary": air_sum}
-    else:
-        air_sum = air_last["summary"]
+    try:
+        av = aviation.run(av_state, translate=lambda texts: tr.translate_many(texts, "en", "fa"))
+    except Exception as e:  # noqa: BLE001
+        log("aviation failed:", str(e)[:200])
+        av = av_state.get("data") or {"status": "fail", "countries": []}
     sea_out = sea.run(sea_state)
     ticker = load_json(data_path("ticker.json"), {}) or {}
-    idx, idx_hist = compute_index(clusters, air_sum, sea_out, idx_hist)
-    lights = compute_lights(clusters, air_sum, sea_out, ticker)
+    idx, idx_hist = compute_index(clusters, av, sea_out, idx_hist)
+    lights = compute_lights(clusters, av, sea_out, ticker)
     log(f"index={idx['value']} news={idx['news']} signals={idx['signals']} lights="
         f"{[l['id'] for l in lights if l['state'] == 'on']}")
 
@@ -324,15 +330,16 @@ def news_round(full=True):
 
     # ---------------------------------------------------------------- 10. outputs
     clusters.sort(key=lambda c: -c["u"])
-    day = [public_cluster(c) for c in clusters if T - c["u"] <= config.H24]
-    week = [public_cluster(c, short=True) for c in clusters]
+    shown = [c for c in clusters if not (c["tier"] == "yellow" and persian_only(c))]
+    day = [public_cluster(c) for c in shown if T - c["u"] <= config.H24]
+    week = [public_cluster(c, short=True) for c in shown]
     counts = lambda lst: {k: sum(1 for c in lst if c["tier"] == k) for k in ("red", "orange", "yellow")}  # noqa: E731
     save_json(data_path("news_24h.json"), {"v": 1, "updated": T, "range": "24h", "counts": counts(day), "clusters": day})
     save_json(data_path("news_week.json"), {"v": 1, "updated": T, "range": "week", "counts": counts(week),
                                             "clusters": week})
     save_json(data_path("signals.json"), {
-        "v": 1, "updated": T, "index": idx, "lights": lights, "air": air_sum, "sea": sea_out,
-        "hotspots": {"24h": hotspots(clusters, T, config.H24), "week": hotspots(clusters, T, config.WEEK)},
+        "v": 1, "updated": T, "index": idx, "lights": lights, "aviation": av, "sea": sea_out,
+        "hotspots": {"24h": hotspots(shown, T, config.H24), "week": hotspots(shown, T, config.WEEK)},
         "alerts": {"enabled": bool(alert_res.get("enabled")), "linked": bool(alert_res.get("chat"))},
         "schedule": {"news_min": 5, "ticker_min": 5, "full_min": 15},
     })
@@ -350,8 +357,7 @@ def news_round(full=True):
         "new_items": len(new), "relevant": len(rel_items), "stories": len(clusters),
         "deferred": len(deferred), "translate": {**tr.stats, "errors": tr.errors}, "x": xstats,
         "pages": [pages_ok, len(targets)],
-        "air": {"status": (air_sum or {}).get("status", "fail"), "providers": (air_sum or {}).get("providers"),
-                "errors": (air_sum or {}).get("errors")},
+        "aviation": {"status": av.get("status"), "errors": av.get("errors")},
         "sea": {"status": sea_out.get("status"), "errors": sea_out.get("errors")},
         "alerts": alert_res, "system_msgs": sys_msgs, "sources": src_health, "log": util.LOGS[-250:],
     }, pretty=True)
@@ -360,8 +366,7 @@ def news_round(full=True):
     save_json(data_path("state", "clusters.json"), {"clusters": clusters})
     save_json(data_path("state", "seen.json"), seen)
     save_json(data_path("state", "tcache.json"), tr.cache)
-    save_json(data_path("state", "air_hist.json"), air_hist)
-    save_json(data_path("state", "air_last.json"), air_last)
+    save_json(data_path("state", "aviation_state.json"), av_state)
     save_json(data_path("state", "index_hist.json"), idx_hist)
     save_json(data_path("state", "alerts.json"), alerts_state)
     save_json(data_path("state", "x_state.json"), x_state)

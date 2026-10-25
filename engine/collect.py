@@ -192,7 +192,7 @@ def collect_all(T, full=True):
         f"{sum(1 for v in per_source.values() if v)} sources with items")
 
     def empty(s):
-        return s["kind"] == "news" and not per_source.get(s["id"])
+        return s["kind"] in ("news", "tg") and not per_source.get(s["id"])
 
     def gn_fetch(url, group, special=False):
         try:
@@ -264,7 +264,7 @@ def collect_all(T, full=True):
         per_source[src["id"]].extend(its)
 
     # ---- 5. Bing News per domain
-    for s in ([s for s in SOURCES if empty(s)][:20] if full else []):
+    for s in ([s for s in SOURCES if empty(s) and s["kind"] == "news"][:20] if full else []):
         if s["kind"] != "news":
             continue
         q = quote(" OR ".join(f"site:{d}" for d in s["domains"]))

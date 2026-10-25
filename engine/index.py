@@ -3,11 +3,13 @@
 News component: a severity-weighted average over the last 24h in which serious events weigh
 exponentially more (so one missile strike is not drowned out by thirty routine statements),
 recent events weigh more (6h half-life), and each story counts once however many outlets
-report it. Signals component: military air activity, civil air traffic drops, Hormuz traffic.
+report it. Signals component: Hormuz traffic and maritime incidents, and the airspace risk picture
+(Safe Airspace risk levels and fresh official warnings for the core countries).
 Index = 70% news + 30% signals.
 """
 import math
 
+from .aviation import recent_warnings
 from .lexicon import PLACES
 from .util import now
 
@@ -17,8 +19,7 @@ ZONES = [(25, "آرام نسبی", "Relative calm"), (50, "تنش متوسط", "
 LIGHTS = [
     ("strike", "حمله نظامی مستقیم", "Direct military strike"),
     ("hormuz", "حادثه دریایی / هرمز", "Hormuz / shipping incident"),
-    ("airspace", "بسته شدن حریم هوایی", "Airspace closure"),
-    ("airsurge", "جهش پروازهای نظامی", "Military air surge"),
+    ("airspace", "هشدار یا بسته شدن حریم هوایی", "Airspace warning / closure"),
     ("deploy", "اعزام ناو و بمب‌افکن", "Carrier / bomber deployment"),
     ("evac", "تخلیه سفارت / هشدار سفر", "Embassy evacuation / travel alert"),
     ("ultimatum", "اولتیماتوم / ضرب‌الاجل", "Ultimatum / deadline"),
@@ -54,12 +55,24 @@ def news_component(clusters, t):
     return round(num / den, 1) if den else 15.0
 
 
-def signals_component(air, sea, clusters, t):
+LEVEL_SCORE = {1: 85, 2: 60, 3: 35, 4: 15}
+
+
+def aviation_score(av, t):
+    """Mean risk level of the core countries' airspace, nudged up by official warnings of the last 3 days."""
+    core = [c for c in (av or {}).get("countries", []) if c.get("core") and c.get("level")]
+    if not core:
+        return None
+    base = sum(LEVEL_SCORE.get(c["level"], 15) for c in core) / len(core)
+    fresh = len(recent_warnings(av, t, 3 * 86400))
+    return min(100.0, base + min(20.0, 4.0 * fresh))
+
+
+def signals_component(av, sea, clusters, t):
     parts = []
-    if air and air.get("mil") and air["mil"].get("baseline"):
-        parts.append(("air_mil", 0.35, 100 * air.get("surge", 0)))
-    if air and any(c.get("state") != "na" for c in air.get("civil", [])):
-        parts.append(("air_civil", 0.30, 100 * air.get("civil_drop", 0)))
+    a = aviation_score(av, t)
+    if a is not None:
+        parts.append(("airspace", 0.35, a))
     sea_score = None
     h = (sea or {}).get("hormuz")
     if h and h.get("pct7") is not None:
@@ -76,7 +89,7 @@ def signals_component(air, sea, clusters, t):
     if incidents:
         sea_score = max(sea_score or 0, 60 if any(c["tier"] == "red" for c in incidents) else 35)
     if sea_score is not None:
-        parts.append(("sea", 0.35, sea_score))
+        parts.append(("sea", 0.65, sea_score))
     if not parts:
         return None, {}
     tw = sum(w for _, w, _ in parts)
@@ -84,10 +97,10 @@ def signals_component(air, sea, clusters, t):
     return round(val, 1), {k: round(v, 1) for k, _, v in parts}
 
 
-def compute_index(clusters, air, sea, hist):
+def compute_index(clusters, av, sea, hist):
     t = now()
     n = news_component(clusters, t)
-    s, parts = signals_component(air, sea, clusters, t)
+    s, parts = signals_component(av, sea, clusters, t)
     v = round(0.7 * n + 0.3 * s) if s is not None else round(n)
     v = int(max(0, min(100, v)))
     zi, zfa, zen = zone(v)
@@ -114,7 +127,7 @@ def _ev_cluster(c):
             "tier": c["tier"], "t": c["u"]}
 
 
-def compute_lights(clusters, air, sea, markets, t=None):
+def compute_lights(clusters, av, sea, markets, t=None):
     t = t or now()
     recent = [c for c in clusters if t - c["u"] <= 72 * 3600]
 
@@ -138,24 +151,14 @@ def compute_lights(clusters, air, sea, markets, t=None):
     on, watch = by_flag({"maritime_incident", "hormuz_closure"}, 60)
     res["hormuz"] = (on, watch, [])
     on, watch = by_flag({"airspace"}, 66)
-    data = []
-    for c in (air or {}).get("civil", []):
-        if c.get("state") == "low" and c["id"] != "gulf":
-            data.append({"type": "data", "fa": f"تردد هوایی {c['fa']}: {c['pct']}٪ حالت عادی",
-                         "en": f"Civil air traffic over {c['en']}: {c['pct']}% of normal"})
-    res["airspace"] = (on, watch, data)
-    data = []
-    if air and air.get("surge", 0) >= 0.5 and air.get("mil"):
-        m = air["mil"]
-        data.append({"type": "data", "fa": f"{m['total']} هواپیمای نظامی در منطقه (میانگین هفته: {m.get('baseline')})",
-                     "en": f"{m['total']} military aircraft in region (7-day avg: {m.get('baseline')})"})
-    res["airsurge"] = ([], [], data)
+    data, watch_data = [], []
+    for c, w in recent_warnings(av, t, 3 * 86400):
+        line = {"type": "data", "fa": f"{c['fa']}: {w.get('src', '')} {w.get('ref', '')}".strip(),
+                "en": f"{c['en']}: {w.get('src', '')} {w.get('ref', '')}".strip()}
+        (data if t - (w.get("issued") or 0) <= 86400 else watch_data).append(line)
+    res["airspace"] = (on, watch + ([{"_data": d} for d in watch_data] if not on and not data else []), data[:3])
     on, watch = by_flag({"deploy"}, 62)
-    data = []
-    if air and air.get("mil") and air["mil"]["cats"].get("bomber"):
-        data.append({"type": "data", "fa": f"{air['mil']['cats']['bomber']} بمب‌افکن در منطقه رصد شد",
-                     "en": f"{air['mil']['cats']['bomber']} bomber(s) tracked in the region"})
-    res["deploy"] = (on, watch, data)
+    res["deploy"] = (on, watch, [])
     on, watch = by_flag({"evac"}, 66)
     res["evac"] = (on, watch, [])
     on, watch = by_flag({"ultimatum"}, 66)
@@ -174,7 +177,8 @@ def compute_lights(clusters, air, sea, markets, t=None):
         ev = [{"type": "data", **d} if "type" not in d else d for d in data]
         ev += [_ev_cluster(c) for c in sorted(on, key=lambda c: -c["sev"])[:4]]
         if state != "on":
-            ev += [_ev_cluster(c) for c in sorted(watch, key=lambda c: -c["sev"])[:3]]
+            ev += [c["_data"] if "_data" in c else _ev_cluster(c)
+                   for c in sorted(watch, key=lambda c: -c.get("sev", 0))[:3]]
         out.append({"id": key, "fa": fa, "en": en, "state": state, "evidence": ev})
     return out
 
