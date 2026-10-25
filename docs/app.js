@@ -337,8 +337,8 @@
   // ------------------------------------------------------------------ flash
   function renderFlash() {
     var d = S.d.news24, box = $('#flash');
-    var reds = d ? d.clusters.filter(function (c) { return c.tier === 'red' && nowS() - c.u < 6 * 3600 && c.flags.indexOf('denial') < 0; }) : [];
-    reds.sort(function (a, b) { return b.u - a.u; });
+    var reds = d ? d.clusters.filter(function (c) { return c.tier === 'red' && nowS() - c.t < 6 * 3600 && c.flags.indexOf('denial') < 0; }) : [];
+    reds.sort(function (a, b) { return b.t - a.t; });
     reds = reds.slice(0, 6);
     if (!reds.length) { box.hidden = true; return; }
     box.hidden = false;
@@ -370,15 +370,16 @@
         return norm(c.fa.ti + ' ' + c.fa.su + ' ' + c.en.ti + ' ' + c.en.su + ' ' + c.src.map(function (s) { return s.n + ' ' + s.nf; }).join(' ')).indexOf(q) >= 0;
       });
     }
-    if (S.sort === 'sev') list.sort(function (a, b) { return b.sev - a.sev || b.u - a.u; });
-    else list.sort(function (a, b) { return b.u - a.u; });
+    // a story's time is its first report; later reports from other outlets don't move it up
+    if (S.sort === 'sev') list.sort(function (a, b) { return b.sev - a.sev || b.t - a.t; });
+    else list.sort(function (a, b) { return b.t - a.t; });
     return list;
   }
   function metaHtml(c) {
     var first = c.src[0] || { n: '', nf: '' };
     var more = c.ns > 1 ? '<span class="more">' + ic('users') + nfmt(c.ns) + '</span>' : '';
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
-    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + fresh + '<span class="time">' + esc(ago(c.u)) + '</span></div>';
+    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
   }
   // a broken image collapses its frame instead of leaving an empty box
   window.imgFail = function (img) {
@@ -456,11 +457,11 @@
     var feed = $('#feed');
     var part = S.list.slice(S.shown, S.shown + PAGE);
     if (!part.length) return;
-    var h = '', lastDay = S.shown ? dayKey(S.list[S.shown - 1].u) : null;
+    var h = '', lastDay = S.shown ? dayKey(S.list[S.shown - 1].t) : null;
     part.forEach(function (c) {
       if (S.sort === 'time' && S.range === 'week') {
-        var dk = dayKey(c.u);
-        if (dk !== lastDay) { h += '<div class="day-sep">' + esc(dlong(c.u)) + '</div>'; lastDay = dk; }
+        var dk = dayKey(c.t);
+        if (dk !== lastDay) { h += '<div class="day-sep">' + esc(dlong(c.t)) + '</div>'; lastDay = dk; }
       }
       h += card(c);
     });

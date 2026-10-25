@@ -102,7 +102,8 @@ def run(state, clusters, lights, index, first_run=False):
     sent = state.setdefault("sent", [])
     prev_lights = state.setdefault("lights", {})
     t = now()
-    red_new = [c for c in clusters if c["tier"] == "red" and c["id"] not in sent and t - c["u"] <= 6 * 3600
+    red_new = [c for c in clusters if c["tier"] == "red" and c["id"] not in sent
+               and not any(x in sent for x in c.get("merged", [])) and t - c["u"] <= 6 * 3600
                and "denial" not in c.get("flags", []) and "past" not in c.get("flags", [])]
     lights_on = [l for l in lights if l["state"] == "on" and prev_lights.get(l["id"]) != "on"]
     zone_up = index and state.get("zone") is not None and index["zone"] > state["zone"]

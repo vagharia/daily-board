@@ -5,7 +5,7 @@ import time
 
 from . import alerts, aviation, collect, config, media, sea, store, util, xposts
 from .classify import classify
-from .cluster import Clusterer, prune, refresh
+from .cluster import Clusterer, prune, recluster, refresh
 from .http import parallel
 from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
@@ -162,6 +162,13 @@ def news_round(full=True):
 
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
+    if misc.get("recluster") != 1:
+        # once after a clustering change: rebuild the last two days' stories from their reports
+        n0 = len(clusters)
+        clusters = recluster(clusters, T)
+        misc["recluster"] = 1
+        first_run = True                      # re-formed stories must not trigger alerts again
+        log(f"re-clustered recent stories: {n0} -> {len(clusters)}")
     if misc.get("reeval") != 2:
         # once after a relevance change: items of the last 36 hours that were left out get another look
         kept = {m["k"] for c in clusters for m in c["m"]}
@@ -236,7 +243,7 @@ def news_round(full=True):
         c, _ = cl.add(slim(it))
         changed[c["id"]] = c
     clusters = prune(cl.clusters, T)
-    alive = {c["id"] for c in clusters}
+    alive = {c["id"] for c in clusters} - cl.merged_away
     changed = {k: v for k, v in changed.items() if k in alive}
     for c in changed.values():
         refresh(c)
