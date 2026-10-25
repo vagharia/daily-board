@@ -46,6 +46,7 @@
       method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ جابه‌جایی هواپیماهای نظامی و سوخت‌رسان، تهدید، تحریم، رزمایش و گزارش آژانس نارنجی؛ بیانیه، مذاکره و تحلیل زرد. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است.',
       method2: 'میانگین ساده نیست: رویدادهای جدی‌تر وزن نمایی بیشتری دارند تا یک حمله زیر سی خبر روتین گم نشود، خبرهای تازه سنگین‌ترند (نیمه‌عمر ۶ ساعت)، و هر رویداد فقط یک بار شمرده می‌شود هر چند رسانه گزارشش کنند. اعتبار منبع هم اثر دارد.',
       method3: 'شاخص نهایی ۷۰٪ اخبار و ۳۰٪ سیگنال‌های عینی است: تردد و حوادث تنگه هرمز، و سطح ریسک و هشدارهای رسمی تازه برای حریم هوایی کشورهای منطقه. این یک نشانگر است، نه پیش‌بینی.',
+      method4: 'گزارش‌های چند رسانه فقط وقتی زیر یک تیتر می‌آیند که تیترهایشان خیلی شبیه باشد و در نوع رویداد، مکان، زمان (حداکثر ۴ ساعت بعد از اولین گزارش برای رویدادها و ۱۰ ساعت برای اظهارات)، گوینده، رسانه‌ی نقل‌شده و عددها هم یکی باشند. زمان هر خبر، زمان اولین گزارش آن است.',
       mkH: 'بازار', lastTrade: 'آخرین معامله', vsPrev: 'نسبت به معامله قبل', vsDay: 'نسبت به دیروز',
       dayHL: 'بیشترین و کمترین امروز', trades: 'تعداد معامله امروز', toman: 'تومان', stale: 'داده قدیمی است',
       usdNote: 'فقط پست‌های «معامله شد ✅» کانال خوانده می‌شود؛ قیمت‌های خرید و فروش نادیده گرفته می‌شوند.',
@@ -92,6 +93,7 @@
       method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; military aircraft and tanker movements, threats, sanctions, exercises and IAEA findings orange; statements, talks and analysis yellow. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight.',
       method2: 'It is not a plain average: serious events weigh exponentially more so one strike is not drowned out by thirty routine stories, recent events weigh more (6-hour half-life), and each event counts once however many outlets report it. Source reliability also counts.',
       method3: 'The index is 70% news and 30% objective signals: Hormuz traffic and incidents, and the risk level and fresh official warnings for the region\'s airspace. It is an indicator, not a forecast.',
+      method4: 'Reports from several outlets share a headline only when the headlines are very close and they also agree on the kind of event, the place, the time (within 4 hours of the first report for events, 10 hours for statements), the speaker, the outlet being cited and the figures. Each story is timed by its first report.',
       mkH: 'Markets', lastTrade: 'Last trade', vsPrev: 'vs previous trade', vsDay: 'vs yesterday',
       dayHL: 'Today high / low', trades: 'Trades today', toman: 'toman', stale: 'Data is stale',
       usdNote: 'Only "traded ✅" posts are read; buy and sell quotes are ignored.',
@@ -633,7 +635,7 @@
     if (idx.signals != null) h += '<div class="hrow"><span class="l">' + esc(t('idxSig')) + '</span><span class="htrack"><i style="--w:' + idx.signals + '%;background:' + rgba(heat(idx.signals), 1) + '"></i></span><span class="v">' + nfmt(Math.round(idx.signals)) + '</span></div>';
     h += '</div>';
     h += '<h4>' + esc(t('idxWeek')) + '</h4><div class="chart" id="idxChart"></div>';
-    h += '<h4>' + esc(t('idxMethod')) + '</h4><div class="method"><p>' + esc(t('method1')) + '</p><p>' + esc(t('method2')) + '</p><p>' + esc(t('method3')) + '</p></div>';
+    h += '<h4>' + esc(t('idxMethod')) + '</h4><div class="method"><p>' + esc(t('method1')) + '</p><p>' + esc(t('method2')) + '</p><p>' + esc(t('method3')) + '</p><p>' + esc(t('method4')) + '</p></div>';
     openSheet(h, function (root) {
       chart($('#idxChart', root), {
         data: idx.history || [], height: 150, min: 0, max: 100, heat: true,
