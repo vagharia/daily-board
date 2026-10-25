@@ -191,6 +191,9 @@ WHITELIST = {
     "reuterscommods": ("econ", "رویترز کامادیتی", "Reuters Commodities"),
 }
 
+# accounts no longer followed: their stored posts and pending look-ups are dropped
+UNFOLLOWED = {"farnazfassihi"}
+
 ECON = re.compile(r"\b(oil|crude|brent|wti|opec|barrels?|gold|bullion|fed$|federal reserve|inflation|tariffs?|gasoline"
                   r"|lng|refiner\w*|tanker rates|freight|insurance|commodit\w+|dollar)\b", re.I)
 # Trump talks about prices at every rally; only energy, gold and rates count as market news from him
@@ -336,7 +339,8 @@ def update(state, candidates, truth_posts, extra_posts=()):
         e = cand.setdefault(tid, {"h": handle, "cites": [], "t": now()})
         if cid and cid not in e["cites"]:
             e["cites"].append(cid)
-    todo = [tid for tid, e in cand.items() if tid not in posts and not e.get("failed")]
+    todo = [tid for tid, e in cand.items() if tid not in posts and not e.get("failed")
+            and e["h"].lower() not in UNFOLLOWED]
     todo.sort(key=lambda t: -len(cand[t]["cites"]))
     stats = {"looked_up": 0, "ok": 0, "failed": 0}
     for tid in todo[: config.MAX_TWEET_LOOKUPS]:
@@ -353,7 +357,11 @@ def update(state, candidates, truth_posts, extra_posts=()):
         if cand[tid].get("own") and not _on_topic(p):
             cand[tid]["failed"] = "off topic"       # linked from the author's own channel, not cited by a story
             continue
-        seg, rfa, ren = WHITELIST.get(p["h"].lower(), WHITELIST.get(cand[tid]["h"].lower()))
+        who = WHITELIST.get(p["h"].lower()) or WHITELIST.get(cand[tid]["h"].lower())
+        if not who or p["h"].lower() in UNFOLLOWED:
+            cand[tid]["failed"] = "not followed"
+            continue
+        seg, rfa, ren = who
         p.update(seg=seg, role_fa=rfa, role_en=ren)
         posts[tid] = p
         stats["ok"] += 1
@@ -481,7 +489,8 @@ def prune_off_topic(state):
     posts, cand = state.get("posts", {}), state.get("cand", {})
     gone = []
     for k, p in posts.items():
-        if p.get("platform") == "telegram" and p.get("h") not in TG_ACCOUNTS:
+        if (p.get("platform") == "telegram" and p.get("h") not in TG_ACCOUNTS) or \
+                (p.get("h") or "").lower() in UNFOLLOWED:
             gone.append(k)
         elif (p.get("platform") == "telegram" or p.get("via") in ("timeline", "eitaa")) and not _on_topic(p):
             gone.append(k)

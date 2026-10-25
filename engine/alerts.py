@@ -12,7 +12,7 @@ import html
 import os
 import time
 
-from . import config, http
+from . import http
 from .util import log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -89,12 +89,18 @@ def _story(c):
         if n and n not in names:
             names.append(n)
     src = "، ".join(html.escape(n) for n in names[:3])
-    more = f" و {len(names) - 3} منبع دیگر" if len(names) > 3 else ""
+    more = f" و {_fa_num(len(names) - 3)} منبع دیگر" if len(names) > 3 else ""
+    label = "منبع" if len(names) == 1 else "منابع"
     body = f"🔴 <b>{title}</b>"
     if summ:
         body += f"\n{summ}"
-    body += f"\n<i>{src}{more}</i>"
+    if names:
+        body += f"\n\n<i>{label}: {src}{more}</i>"       # the sources, one blank line below the story
     return body
+
+
+def _fa_num(n):
+    return "یک" if n == 1 else str(n).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
 
 
 def run(state, clusters, lights, index, first_run=False):
@@ -113,7 +119,7 @@ def run(state, clusters, lights, index, first_run=False):
         for c in red_new[:4]:
             messages.append(_story(c))
         if len(red_new) > 4:
-            messages.append(f"🔴 و {len(red_new) - 4} خبر قرمز دیگر در بولتن.")
+            messages.append(f"🔴 و {_fa_num(len(red_new) - 4)} خبر قرمز دیگر در بولتن.")
         for l in lights_on:
             ev = l["evidence"][0] if l["evidence"] else None
             line = html.escape(ev.get("fa", "")) if ev else ""
@@ -133,11 +139,10 @@ def run(state, clusters, lights, index, first_run=False):
     if not cid:
         return {"enabled": True, "chat": False, "queued": len(messages)}
     ok = 0
-    link = f'\n\n<a href="{config.DASHBOARD_URL}">باز کردن بولتن</a>'
-    for i, msg in enumerate(messages[:7]):
+    for msg in messages[:7]:
         try:
-            _call(token, "sendMessage", chat_id=cid, text=msg + (link if i == len(messages[:7]) - 1 else ""),
-                  parse_mode="HTML", link_preview_options={"is_disabled": True})
+            _call(token, "sendMessage", chat_id=cid, text=msg, parse_mode="HTML",
+                  link_preview_options={"is_disabled": True})
             ok += 1
         except Exception as e:  # noqa: BLE001
             log("telegram send failed:", str(e)[:80])
