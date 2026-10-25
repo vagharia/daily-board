@@ -15,7 +15,6 @@
     return 'data/';
   }
   var BASE = dataBase();
-  var NEWS_EVERY = 30, TICKER_EVERY = 5;   // minutes (engine schedule)
 
   // ------------------------------------------------------------------ storage
   var store = {
@@ -36,7 +35,7 @@
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها',
-      noData: 'هنوز داده‌ای ساخته نشده. موتور هر ۳۰ دقیقه اجرا می‌شود؛ کمی بعد دوباره سر بزن.',
+      noData: 'هنوز داده‌ای ساخته نشده. موتور هر چند دقیقه اجرا می‌شود؛ کمی بعد دوباره سر بزن.',
       offline: 'اتصال برقرار نیست؛ آخرین داده ذخیره‌شده نمایش داده می‌شود.',
       lightsH: 'چراغ‌های هشدار', lightsOn: '{n} چراغ روشن:', lightsWatch: 'چراغی روشن نیست؛ {n} مورد زیر نظر',
       lightsOff: 'همه چراغ‌ها خاموش‌اند', on: 'روشن', watch: 'زیر نظر', off: 'خاموش',
@@ -50,7 +49,7 @@
       mkH: 'بازار', lastTrade: 'آخرین معامله', vsPrev: 'نسبت به معامله قبل', vsDay: 'نسبت به دیروز',
       dayHL: 'بیشترین و کمترین امروز', trades: 'تعداد معامله امروز', toman: 'تومان', stale: 'داده قدیمی است',
       usdNote: 'فقط پست‌های «معامله شد ✅» کانال خوانده می‌شود؛ قیمت‌های خرید و فروش نادیده گرفته می‌شوند.',
-      refresh: 'دلار و بازار هر ۵ دقیقه و اخبار هر ۳۰ دقیقه به‌روز می‌شوند.', nextNews: 'به‌روزرسانی بعدی اخبار: حدود {n} دقیقه دیگر',
+      refresh: 'دلار، بازارها و اخبار حدوداً هر ۵ دقیقه به‌روز می‌شوند؛ گاهی گیت‌هاب اجرا را چند دقیقه دیرتر شروع می‌کند.', nextNews: 'به‌روزرسانی بعدی اخبار: حدود {n} دقیقه دیگر',
       settings: 'تنظیمات', lang: 'زبان', sound: 'صدای هشدار خبر خیلی مهم', lock: 'قفل با رمز',
       lockSet: 'تنظیم رمز', lockOff: 'برداشتن رمز', pinEnter: 'رمز چهاررقمی را وارد کن', pinNew: 'رمز جدید را وارد کن',
       pinAgain: 'دوباره وارد کن', pinWrong: 'رمز اشتباه است', pinMismatch: 'دو رمز یکی نبود؛ دوباره',
@@ -83,7 +82,7 @@
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters',
-      noData: 'No data yet. The engine runs every 30 minutes; check back shortly.',
+      noData: 'No data yet. The engine runs every few minutes; check back shortly.',
       offline: 'You are offline; showing the last saved data.',
       lightsH: 'Warning lights', lightsOn: '{n} lights on:', lightsWatch: 'No lights on; {n} on watch',
       lightsOff: 'All lights are off', on: 'On', watch: 'Watch', off: 'Off',
@@ -97,7 +96,7 @@
       mkH: 'Markets', lastTrade: 'Last trade', vsPrev: 'vs previous trade', vsDay: 'vs yesterday',
       dayHL: 'Today high / low', trades: 'Trades today', toman: 'toman', stale: 'Data is stale',
       usdNote: 'Only "traded ✅" posts are read; buy and sell quotes are ignored.',
-      refresh: 'Dollar and markets refresh every 5 minutes, news every 30 minutes.', nextNews: 'Next news update in about {n} min',
+      refresh: 'Dollar, markets and news refresh about every 5 minutes; GitHub sometimes starts a run a few minutes late.', nextNews: 'Next news update in about {n} min',
       settings: 'Settings', lang: 'Language', sound: 'Sound for critical stories', lock: 'Passcode lock',
       lockSet: 'Set passcode', lockOff: 'Remove passcode', pinEnter: 'Enter your 4-digit passcode', pinNew: 'Enter a new passcode',
       pinAgain: 'Enter it again', pinWrong: 'Wrong passcode', pinMismatch: 'They did not match; try again',
@@ -667,7 +666,7 @@
         h += '<div class="readout"><b>' + nfmt(d.price, m[2]) + '</b><span>$</span>' + chgHtml(null, d.chgPct) + '</div><div class="chart" id="' + m[0] + 'Chart"></div>';
       } else h += '<p class="subnote">—</p>';
     });
-    h += '<h4>' + esc(t('about')) + '</h4><p class="subnote">' + esc(t('refresh')) + '<br>' + esc(t('nextNews', { n: nfmt(nextNewsMin()) })) + '</p>';
+    h += '<h4>' + esc(t('about')) + '</h4><p class="subnote">' + esc(t('refresh')) + nextNewsLine() + '</p>';
     openSheet(h, function (root) {
       if (u.series && u.series.length > 1) chart($('#usdChart', root), { data: u.series, height: 130, step: true, fmt: function (v) { return nfmt(v); }, xfmt: dtime });
       if (b.series && b.series.length > 1) chart($('#brentChart', root), { data: b.series, height: 110, fmt: function (v) { return nfmt(v, 2); }, xfmt: dtime });
@@ -675,9 +674,14 @@
     });
   }
   function nextNewsMin() {
-    var d = new Date(), m = d.getUTCMinutes();
-    var targets = [7, 37, 67], nx = targets.filter(function (x) { return x > m; })[0];
-    return Math.max(1, nx - m + 1);
+    var u = (currentNews() || {}).updated;
+    if (!u) return null;
+    var mins = (Date.now() / 1000 - u) / 60;
+    return mins > 6 ? null : Math.max(1, Math.round(5.5 - mins));
+  }
+  function nextNewsLine() {
+    var n = nextNewsMin();
+    return n == null ? '' : '<br>' + esc(t('nextNews', { n: nfmt(n) }));
   }
 
   function openFilters() {
@@ -727,7 +731,7 @@
     if (!al.linked) h += '<p class="subnote">' + esc(t('tgHelp')) + '</p>';
     h += '<button class="set-row" data-a="sources">' + ic('signal') + '<span>' + esc(t('srcH')) + '</span><span class="r">' + ic('chev', 'flip') + '</span></button>';
     h += '<button class="set-row" data-a="index">' + ic('info') + '<span>' + esc(t('methodH')) + '</span><span class="r">' + ic('chev', 'flip') + '</span></button>';
-    h += '<p class="subnote">' + esc(t('refresh')) + '<br>' + esc(t('nextNews', { n: nfmt(nextNewsMin()) })) + '</p>';
+    h += '<p class="subnote">' + esc(t('refresh')) + nextNewsLine() + '</p>';
     openSheet(h, function (root) {
       root.onclick = function (e) {
         var a = e.target.closest('[data-a]');

@@ -82,7 +82,12 @@ def publish(role):
         return False
     repo = os.getcwd()
     gitdir = os.path.join(repo, ".git")
-    mine = (lambda rel: _owned_by_ticker(rel)) if role == "ticker" else (lambda rel: not _owned_by_ticker(rel))
+    if role == "all":                                     # the live loop writes every file
+        mine = lambda rel: True  # noqa: E731
+    elif role == "ticker":
+        mine = _owned_by_ticker
+    else:
+        mine = lambda rel: not _owned_by_ticker(rel)  # noqa: E731
     for attempt in range(6):
         idx = tempfile.mktemp(prefix="dbidx")
         env = {"GIT_INDEX_FILE": idx}

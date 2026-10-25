@@ -12,13 +12,10 @@ ROUNDS = max(1, int(os.environ.get("DB_TICKER_ROUNDS", "1") or 1))
 INTERVAL = 300
 
 
-def once():
+def update():
+    """Refresh ticker.json in DATA_DIR (already prepared)."""
     started = time.time()
-    store.prepare()
     prev = load_json(data_path("ticker.json"), {}) or {}
-    if ROUNDS > 1 and prev.get("updated") and now() - prev["updated"] < 150:
-        log("ticker refreshed moments ago by another run; skipping this round")
-        return
     state = load_json(data_path("state", "ticker_state.json"), {}) or {}
     try:
         usd = dollar.run(state.setdefault("dollar", {}))
@@ -31,9 +28,18 @@ def once():
     out = {"v": 1, "updated": now(), "dollar": usd, **mk}
     save_json(data_path("ticker.json"), out)
     save_json(data_path("state", "ticker_state.json"), state)
-    store.publish("ticker")
     log(f"ticker done in {time.time() - started:.1f}s: usd={usd.get('price')} brent={mk['brent'].get('price')} "
         f"gold={mk['gold'].get('price')}")
+
+
+def once():
+    store.prepare()
+    prev = load_json(data_path("ticker.json"), {}) or {}
+    if ROUNDS > 1 and prev.get("updated") and now() - prev["updated"] < 150:
+        log("ticker refreshed moments ago by another run; skipping this round")
+        return
+    update()
+    store.publish("ticker")
 
 
 def main():

@@ -122,9 +122,18 @@ def public_cluster(c, short=False):
 
 
 def main():
+    """One full news run (manual runs of the news workflow). The live loop calls news_round()."""
+    store.prepare()
+    news_round(full=True)
+    store.publish("news")
+
+
+def news_round(full=True):
+    """Collect, score and write all news outputs into DATA_DIR (already prepared). A light round
+    (full=False) reads the sources' own feeds and Telegram channels only; Google News / Bing fallbacks
+    run in full rounds, and the air picture is refreshed at most every half hour."""
     started = time.time()
     T = now()
-    store.prepare()
     st = lambda name, default: load_json(data_path("state", name), default)  # noqa: E731
     first_run = not os.path.exists(data_path("state", "clusters.json"))
     clusters = st("clusters.json", {"clusters": []})["clusters"]
@@ -147,7 +156,16 @@ def main():
     clusters = rescore(clusters)
 
     # ---------------------------------------------------------------- 1. collect
-    raw, health = collect.collect_all(T)
+    raw, health = collect.collect_all(T, full=full)
+    if not full:
+        # sources only reachable through Google News / Bing keep their status from the last full round
+        prev = {h["id"]: h for h in (load_json(data_path("health.json"), {}) or {}).get("sources", [])}
+        for sid, h in health.items():
+            p = prev.get(sid)
+            if not h["ok"] and p and p.get("ok") and p.get("via") in ("gn", "bing"):
+                health[sid] = {**h, "ok": True, "via": p["via"], "items": p.get("items", 0), "err": None}
+    else:
+        misc["last_full"] = T
     new = [it for it in raw if it["k"] not in seen]
     for it in raw:
         seen.setdefault(it["k"], T)
@@ -287,7 +305,13 @@ def main():
             p.setdefault("en", p["text"])
 
     # ---------------------------------------------------------------- 8. signals
-    air_sum, air_hist = air.run(air_hist)
+    air_last = st("air_last.json", {}) or {}
+    if full and T - air_last.get("ts", 0) >= 28 * 60 or not air_last.get("summary"):
+        air_sum, air_hist = air.run(air_hist)      # OpenSky allows ~100 anonymous calls a day
+        if air_sum:
+            air_last = {"ts": T, "summary": air_sum}
+    else:
+        air_sum = air_last["summary"]
     sea_out = sea.run(sea_state)
     ticker = load_json(data_path("ticker.json"), {}) or {}
     idx, idx_hist = compute_index(clusters, air_sum, sea_out, idx_hist)
@@ -310,7 +334,7 @@ def main():
         "v": 1, "updated": T, "index": idx, "lights": lights, "air": air_sum, "sea": sea_out,
         "hotspots": {"24h": hotspots(clusters, T, config.H24), "week": hotspots(clusters, T, config.WEEK)},
         "alerts": {"enabled": bool(alert_res.get("enabled")), "linked": bool(alert_res.get("chat"))},
-        "schedule": {"news_min": 30, "ticker_min": 5},
+        "schedule": {"news_min": 5, "ticker_min": 5, "full_min": 15},
     })
     save_json(data_path("x.json"), {"v": 1, "updated": T, "posts": posts[:120], "stats": xstats})
     src_health = []
@@ -319,7 +343,8 @@ def main():
         src_health.append({**h, "group_fa": GROUPS[s["group"]][0], "group_en": GROUPS[s["group"]][1],
                            "lang": s["lang"]})
     save_json(data_path("health.json"), {
-        "v": 1, "updated": T, "duration": round(time.time() - started, 1),
+        "v": 1, "updated": T, "duration": round(time.time() - started, 1), "full": full,
+        "last_full": misc.get("last_full"),
         "ok_sources": sum(1 for h in src_health if h["ok"]), "total_sources": len(src_health),
         "new_items": len(new), "relevant": len(rel_items), "stories": len(clusters),
         "deferred": len(deferred), "translate": {**tr.stats, "errors": tr.errors}, "x": xstats,
@@ -335,14 +360,14 @@ def main():
     save_json(data_path("state", "seen.json"), seen)
     save_json(data_path("state", "tcache.json"), tr.cache)
     save_json(data_path("state", "air_hist.json"), air_hist)
+    save_json(data_path("state", "air_last.json"), air_last)
     save_json(data_path("state", "index_hist.json"), idx_hist)
     save_json(data_path("state", "alerts.json"), alerts_state)
     save_json(data_path("state", "x_state.json"), x_state)
     save_json(data_path("state", "sea_state.json"), sea_state)
     store.heartbeat(misc)
     save_json(data_path("state", "misc.json"), misc)
-    store.publish("news")
-    log(f"done in {time.time() - started:.1f}s")
+    log(f"news round ({'full' if full else 'light'}) done in {time.time() - started:.1f}s")
 
 
 if __name__ == "__main__":

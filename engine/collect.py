@@ -160,7 +160,7 @@ def tg_entries(handle):
     return out
 
 
-def collect_all(T):
+def collect_all(T, full=True):
     health = {s["id"]: {"id": s["id"], "en": s["en"], "fa": s["fa"], "group": s["group"], "ok": False, "via": None,
                         "items": 0, "relevant": 0, "err": None} for s in SOURCES}
     per_source = defaultdict(list)
@@ -215,8 +215,8 @@ def collect_all(T):
             if src and src["id"] in ids:
                 per_source[src["id"]].extend(make_items(src, [e], "gn", T))
 
-    # ---- 2. Google News, grouped with keywords
-    need = [s for s in SOURCES if empty(s) and s["gn"]]
+    # ---- 2. Google News, grouped with keywords (full rounds only: Google throttles frequent queries)
+    need = [s for s in SOURCES if empty(s) and s["gn"]] if full else []
     queries = []
     for s in need:
         if s.get("gnq"):
@@ -233,7 +233,7 @@ def collect_all(T):
         gn_fetch((GN_FA if lang == "fa" else GN_EN).format(q=quote(q)), grp, special)
         _pause(1.1)
     # ---- 3. Google News per domain, no keywords (official agencies rarely use our keywords)
-    second = [s for s in SOURCES if empty(s) and s["gn"] and not s.get("gnq")]
+    second = [s for s in SOURCES if empty(s) and s["gn"] and not s.get("gnq")] if full else []
     for s in second[:16]:
         sites = " OR ".join(f"site:{d}" for d in s["domains"])
         gn_fetch((GN_FA if s["lang"] == "fa" else GN_EN).format(q=quote(f"{sites} when:2d")), [s])
@@ -264,7 +264,7 @@ def collect_all(T):
         per_source[src["id"]].extend(its)
 
     # ---- 5. Bing News per domain
-    for s in [s for s in SOURCES if empty(s)][:20]:
+    for s in ([s for s in SOURCES if empty(s)][:20] if full else []):
         if s["kind"] != "news":
             continue
         q = quote(" OR ".join(f"site:{d}" for d in s["domains"]))

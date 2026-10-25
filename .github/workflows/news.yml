@@ -1,11 +1,7 @@
 name: news
+# Manual runs only; the live workflow does this every 5 minutes.
 on:
-  schedule:
-    - cron: '7,37 * * * *'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['engine/**', 'requirements.txt', '.github/workflows/news.yml']
 permissions:
   contents: write
 concurrency:
