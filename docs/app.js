@@ -67,7 +67,7 @@
       warnH: 'هشدارهای دریانوردی فعال', warnNone: 'هشدار فعالی برای منطقه نیست.',
       liveSea: 'نقشه زنده کشتی‌ها', placeH: 'خبرهای {p}',
       xGeo: 'سیاسی و نظامی', xEcon: 'نفت و طلا', xNote: 'ایکس API رایگان ندارد؛ این‌ها پست‌های حساب‌های معتبرند که رسانه‌های معتبر نقل کرده‌اند، به‌علاوه پست‌های تروث‌سوشال ترامپ.',
-      xEmpty: 'هنوز پستی از حساب‌های منتخب ثبت نشده. با هر به‌روزرسانی اضافه می‌شود.', cites: '{n} رسانه نقل کرده', openX: 'باز کردن',
+      xEmpty: 'هنوز پستی از حساب‌های منتخب ثبت نشده. با هر به‌روزرسانی اضافه می‌شود.', cites: '{n} رسانه نقل کرده', openX: 'باز کردن', telegram: 'تلگرام',
       newRed: 'خبر خیلی مهم جدید', refreshed: 'به‌روز شد', loading: 'در حال دریافت…', stories: '{n} خبر',
       cats: { tanker: 'سوخت‌رسان', isr: 'شناسایی', bomber: 'بمب‌افکن', transport: 'ترابری', other: 'سایر' }
     },
@@ -114,7 +114,7 @@
       warnH: 'Active navigational warnings', warnNone: 'No active warnings for the region.',
       liveSea: 'Live ship map', placeH: 'Stories: {p}',
       xGeo: 'Politics & military', xEcon: 'Oil & gold', xNote: 'X has no free API; these are posts from credible accounts cited by reputable media, plus Trump\'s Truth Social posts.',
-      xEmpty: 'No posts from the selected accounts yet. They are added with each update.', cites: 'cited by {n} outlets', openX: 'Open',
+      xEmpty: 'No posts from the selected accounts yet. They are added with each update.', cites: 'cited by {n} outlets', openX: 'Open', telegram: 'Telegram',
       newRed: 'New critical story', refreshed: 'Updated', loading: 'Loading…', stories: '{n} stories',
       cats: { tanker: 'Tankers', isr: 'ISR', bomber: 'Bombers', transport: 'Transport', other: 'Other' }
     }
@@ -1018,7 +1018,7 @@
     });
     var role = L() === 'fa' ? p.role_fa : p.role_en;
     return '<article class="post"><div class="post-h">' + av + '<div style="min-width:0"><div class="post-n"><span dir="auto">' + esc(p.n || p.h) + '</span>' + (p.v ? ic('check') : '') +
-      (p.platform === 'truth' ? '<span class="platform">Truth Social</span>' : '') + '</div><div class="post-r">' + esc(role || '') + ' <span dir="ltr">@' + esc(p.h) + '</span></div></div>' +
+      (p.platform === 'truth' ? '<span class="platform">Truth Social</span>' : p.platform === 'telegram' ? '<span class="platform">' + esc(t('telegram')) + '</span>' : '') + '</div><div class="post-r">' + esc(role || '') + ' <span dir="ltr">@' + esc(p.h) + '</span></div></div>' +
       '<span class="post-t">' + esc(ago(p.t)) + '</span></div><p class="post-text" dir="auto">' + esc(body) + '</p>' +
       (canToggle ? '<button class="toggle-orig" data-orig="' + esc(p.id) + '">' + esc(showOrig ? t('showTr') : t('showOrig')) + '</button>' : '') + media +
       '<div class="post-f">' + (p.likes ? '<span>' + ic('heart') + nfmt(p.likes) + '</span>' : '') + (p.cites ? '<span>' + ic('news') + esc(t('cites', { n: nfmt(p.cites) })) + '</span>' : '') +

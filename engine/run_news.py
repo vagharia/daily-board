@@ -385,7 +385,17 @@ def news_round(full=True):
     th = health["truth"]
     th.update(ok=bool(truth) or th["ok"], via="direct" if truth else None, items=len(truth),
               relevant=len(truth), err=None if truth else "no relevant posts or feed unreachable")
-    xstats = xposts.update(x_state, candidates, truth)
+    extra = []
+    if full:
+        try:
+            extra += xposts.telegram_posts(x_state, tr)
+        except Exception as e:  # noqa: BLE001
+            log("telegram accounts failed:", str(e)[:120])
+        try:
+            extra += xposts.x_timelines(x_state, tr)[0]
+        except Exception as e:  # noqa: BLE001
+            log("x timelines failed:", str(e)[:120])
+    xstats = xposts.update(x_state, candidates, truth, extra)
     posts = xposts.ranked(x_state.get("posts", {}))
     by_lang = {}
     for p in posts:

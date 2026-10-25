@@ -1,7 +1,13 @@
-"""Posts on X from credible accounts (found through reputable media that cite or embed them)
-and Trump's Truth Social posts. X's own API is paid-only, so this is deliberately selective."""
+"""Posts from credible accounts: on X (found through reputable media that cite or embed them, plus the public
+embedded timelines of some official accounts, read sparingly because X limits them), Trump's Truth Social
+posts, and the public Telegram channels that officials and leading journalists run. X's own API is paid-only,
+so this is deliberately selective. Only posts about the region and the conflict are kept."""
+import json
 import math
 import re
+from datetime import datetime
+
+from bs4 import BeautifulSoup
 
 from . import config, http
 from .feeds import parse_feed
@@ -28,12 +34,26 @@ WHITELIST = {
     "statedeptspox": ("geo", "سخنگوی وزارت خارجه آمریکا", "State Dept spokesperson"),
     "stevewitkoff": ("geo", "فرستاده ویژه آمریکا", "US special envoy"),
     "sepeacemissions": ("geo", "فرستاده ویژه آمریکا", "US special envoy"),
+    "presssec": ("geo", "سخنگوی کاخ سفید", "White House Press Secretary"),
+    "usadarfarsi": ("geo", "وزارت خارجه آمریکا به فارسی", "US State Dept in Persian"),
+    "us5thfleet": ("geo", "ناوگان پنجم آمریکا", "US 5th Fleet"),
+    "usafcent": ("geo", "نیروی هوایی سنتکام", "US Air Forces Central"),
+    "usun": ("geo", "نمایندگی آمریکا در سازمان ملل", "US Mission to the UN"),
+    "statedept_nea": ("geo", "دفتر خاور نزدیک وزارت خارجه آمریکا", "State Dept Near East bureau"),
+    "usambisrael": ("geo", "سفیر آمریکا در اسرائیل", "US Ambassador to Israel"),
+    "govmikehuckabee": ("geo", "سفیر آمریکا در اسرائیل", "US Ambassador to Israel"),
     # --- Israel
     "netanyahu": ("geo", "نخست‌وزیر اسرائیل", "Israeli PM"),
     "israelipm": ("geo", "نخست‌وزیر اسرائیل", "Israeli PM"),
     "idf": ("geo", "ارتش اسرائیل", "IDF"),
     "israel_katz": ("geo", "وزیر جنگ اسرائیل", "Israeli Defense Minister"),
     "israelmfa": ("geo", "وزارت خارجه اسرائیل", "Israel MFA"),
+    "gidonsaar": ("geo", "وزیر خارجه اسرائیل", "Israeli Foreign Minister"),
+    "ltc_shoshani": ("geo", "سخنگوی بین‌المللی ارتش اسرائیل", "IDF international spokesperson"),
+    "avichayadraee": ("geo", "سخنگوی عربی ارتش اسرائیل", "IDF Arabic spokesperson"),
+    "israelpersian": ("geo", "اسرائیل به فارسی", "Israel in Persian"),
+    "israel_mod": ("geo", "وزارت دفاع اسرائیل", "Israel Ministry of Defense"),
+    "dannydanon": ("geo", "سفیر اسرائیل در سازمان ملل", "Israel's UN ambassador"),
     # --- Iran
     "khamenei_ir": ("geo", "رهبر ایران", "Iran's Supreme Leader"),
     "khamenei_fa": ("geo", "رهبر ایران", "Iran's Supreme Leader"),
@@ -42,6 +62,30 @@ WHITELIST = {
     "irimfa_spox": ("geo", "سخنگوی وزارت خارجه ایران", "Iran MFA spokesperson"),
     "irimfa_en": ("geo", "وزارت خارجه ایران", "Iran MFA"),
     "iran_un": ("geo", "نمایندگی ایران در سازمان ملل", "Iran's UN mission"),
+    "irimfa": ("geo", "وزارت خارجه ایران", "Iran MFA"),
+    "mb_ghalibaf": ("geo", "رئیس مجلس ایران", "Iran's Parliament Speaker"),
+    "jzarif": ("geo", "محمدجواد ظریف", "Javad Zarif"),
+    "gharibabadi": ("geo", "معاون وزیر خارجه ایران", "Iran's deputy foreign minister"),
+    "takhtravanchi": ("geo", "معاون وزیر خارجه ایران", "Iran's deputy foreign minister"),
+    # --- Russia
+    "mfa_russia": ("geo", "وزارت خارجه روسیه", "Russian MFA"),
+    "mid_rf": ("geo", "وزارت خارجه روسیه", "Russian MFA"),
+    "kremlinrussia_e": ("geo", "کرملین", "Kremlin"),
+    "kremlinrussia": ("geo", "کرملین", "Kremlin"),
+    "medvedevrussiae": ("geo", "مدودف، نایب‌رئیس شورای امنیت روسیه", "Medvedev, Russian Security Council"),
+    "russiaun": ("geo", "نمایندگی روسیه در سازمان ملل", "Russia's UN mission"),
+    "amb_ulyanov": ("geo", "نماینده روسیه در وین (آژانس)", "Russia's envoy in Vienna (IAEA)"),
+    "dpol_un": ("geo", "معاون نماینده روسیه در سازمان ملل", "Russia's deputy UN envoy"),
+    # --- China
+    "mfa_china": ("geo", "وزارت خارجه چین", "China MFA"),
+    "spokespersonchn": ("geo", "سخنگوی وزارت خارجه چین", "China MFA spokesperson"),
+    "spoxchn_maoning": ("geo", "مائو نینگ، سخنگوی وزارت خارجه چین", "Mao Ning, China MFA spokesperson"),
+    "spoxchn_linjian": ("geo", "لین جیان، سخنگوی وزارت خارجه چین", "Lin Jian, China MFA spokesperson"),
+    "chinamission2un": ("geo", "نمایندگی چین در سازمان ملل", "China's UN mission"),
+    "globaltimesnews": ("geo", "گلوبال تایمز (رسانه دولتی چین)", "Global Times (Chinese state media)"),
+    "huxijin_gt": ("geo", "هو شی‌جین، گلوبال تایمز", "Hu Xijin, Global Times"),
+    "xhnews": ("geo", "خبرگزاری شینهوا", "Xinhua"),
+    "cgtnofficial": ("geo", "سی‌جی‌تی‌ان (رسانه دولتی چین)", "CGTN (Chinese state media)"),
     # --- Persian Gulf & international
     "ksamofaen": ("geo", "وزارت خارجه عربستان", "Saudi MFA"),
     "mofaqatar_en": ("geo", "وزارت خارجه قطر", "Qatar MFA"),
@@ -62,7 +106,46 @@ WHITELIST = {
     "natashabertrand": ("geo", "خبرنگار سی‌ان‌ان", "CNN reporter"),
     "idreesali114": ("geo", "خبرنگار رویترز", "Reuters reporter"),
     "phildstewart": ("geo", "خبرنگار رویترز", "Reuters reporter"),
-    "amichaistein1": ("geo", "خبرنگار اسرائیلی", "Israeli reporter"),
+    "amichaistein1": ("geo", "خبرنگار دیپلماتیک کان", "Kan diplomatic correspondent"),
+    "ckubenbc": ("geo", "خبرنگار امنیت ملی ان‌بی‌سی", "NBC national security reporter"),
+    "jacquiheinrich": ("geo", "خبرنگار کاخ سفید فاکس نیوز", "Fox News White House correspondent"),
+    "kylieatwood": ("geo", "خبرنگار سی‌ان‌ان", "CNN correspondent"),
+    "jongambrellap": ("geo", "خبرنگار آسوشیتدپرس در خلیج فارس", "AP Gulf & Iran correspondent"),
+    "ericschmittnyt": ("geo", "خبرنگار امنیت ملی نیویورک تایمز", "NYT national security correspondent"),
+    "helenecooper": ("geo", "خبرنگار پنتاگون نیویورک تایمز", "NYT Pentagon correspondent"),
+    "laraseligman": ("geo", "خبرنگار پنتاگون وال‌استریت ژورنال", "WSJ Pentagon reporter"),
+    "glubold": ("geo", "خبرنگار امنیت ملی", "National security reporter"),
+    "alexwardvox": ("geo", "خبرنگار امنیت ملی وال‌استریت ژورنال", "WSJ national security reporter"),
+    "jonathanvswan": ("geo", "خبرنگار کاخ سفید نیویورک تایمز", "NYT White House reporter"),
+    "jdiamond1": ("geo", "خبرنگار کاخ سفید سی‌ان‌ان", "CNN White House correspondent"),
+    "danlamothe": ("geo", "خبرنگار نظامی واشنگتن پست", "Washington Post military reporter"),
+    "apdiplowriter": ("geo", "خبرنگار دیپلماتیک آسوشیتدپرس", "AP diplomatic writer"),
+    "humeyra_pamuk": ("geo", "خبرنگار وزارت خارجه رویترز", "Reuters State Dept correspondent"),
+    "jmhansler": ("geo", "خبرنگار وزارت خارجه سی‌ان‌ان", "CNN State Dept reporter"),
+    "manniefabian": ("geo", "خبرنگار نظامی تایمز اسرائیل", "Times of Israel military correspondent"),
+    "amit_segal": ("geo", "تحلیلگر سیاسی شبکه ۱۲ اسرائیل", "Channel 12 political analyst"),
+    "talshalev1": ("geo", "خبرنگار سیاسی والا", "Walla political correspondent"),
+    "yossi_melman": ("geo", "روزنامه‌نگار امنیتی اسرائیلی", "Israeli intelligence journalist"),
+    "yanivkubovich": ("geo", "خبرنگار نظامی هاآرتص", "Haaretz military correspondent"),
+    "doron_kadosh": ("geo", "خبرنگار نظامی رادیو ارتش اسرائیل", "Army Radio military correspondent"),
+    "orheller": ("geo", "خبرنگار نظامی شبکه ۱۳ اسرائیل", "Channel 13 military correspondent"),
+    "nirdvori": ("geo", "خبرنگار نظامی شبکه ۱۲ اسرائیل", "Channel 12 military correspondent"),
+    "aviissacharoff": ("geo", "روزنامه‌نگار اسرائیلی", "Israeli journalist"),
+    "bencaspit": ("geo", "تحلیلگر سیاسی معاریو", "Maariv political analyst"),
+    "arik3000": ("geo", "خبرنگار سیاسی اسرائیل هیوم", "Israel Hayom diplomatic correspondent"),
+    "lahavharkov": ("geo", "خبرنگار جوئیش اینسایدر", "Jewish Insider correspondent"),
+    "sfrantzman": ("geo", "تحلیلگر جروزالم پست", "Jerusalem Post analyst"),
+    "yonahjeremybob": ("geo", "خبرنگار اطلاعاتی جروزالم پست", "Jerusalem Post intelligence correspondent"),
+    "itayblumental": ("geo", "خبرنگار نظامی کان", "Kan military correspondent"),
+    "jasonrezaian": ("geo", "روزنامه‌نگار واشنگتن پست", "Washington Post journalist"),
+    "negarmortazavi": ("geo", "روزنامه‌نگار", "Journalist"),
+    "gesfandiari": ("geo", "روزنامه‌نگار رادیو اروپای آزاد", "RFE/RL journalist"),
+    "sanamvakil": ("geo", "تحلیلگر چتم هاوس", "Chatham House analyst"),
+    "alihashem_tv": ("geo", "خبرنگار الجزیره", "Al Jazeera correspondent"),
+    "abasaslani": ("geo", "تحلیلگر ایرانی", "Iranian analyst"),
+    "s_m_marandi": ("geo", "استاد دانشگاه تهران", "University of Tehran professor"),
+    "hoseindalirian": ("geo", "خبرنگار نظامی", "Military journalist"),
+    "hdagres": ("geo", "تحلیلگر آتلانتیک کانسیل", "Atlantic Council analyst"),
     "bnonews": ("geo", "خبر فوری", "Breaking news"),
     "reuters": ("geo", "رویترز", "Reuters"),
     "ap": ("geo", "آسوشیتدپرس", "AP"),
@@ -238,7 +321,7 @@ def truth_social(source):
     return out
 
 
-def update(state, candidates, truth_posts):
+def update(state, candidates, truth_posts, extra_posts=()):
     """state: {'posts': {id: post}, 'cand': {id: {'h':.., 'cites': [cluster ids]}}}"""
     posts = state.setdefault("posts", {})
     cand = state.setdefault("cand", {})
@@ -267,7 +350,7 @@ def update(state, candidates, truth_posts):
         p.update(seg=seg, role_fa=rfa, role_en=ren)
         posts[tid] = p
         stats["ok"] += 1
-    for p in truth_posts:
+    for p in list(truth_posts) + list(extra_posts):
         if p["id"] not in posts:
             posts[p["id"]] = p
     for tid, p in posts.items():
@@ -279,6 +362,186 @@ def update(state, candidates, truth_posts):
     for tid in [k for k, e in cand.items() if e.get("t", 0) < cut - 86400]:
         cand.pop(tid, None)
     return stats
+
+
+# public Telegram channels of officials and journalists (checked to be active): channel -> (role fa, role en, name)
+TG_ACCOUNTS = {
+    "BarakRavid1": ("خبرنگار اکسیوس", "Axios reporter", "Barak Ravid"),
+    "amitsegal": ("تحلیلگر سیاسی شبکه ۱۲ اسرائیل", "Channel 12 political analyst", "Amit Segal"),
+    "manniefabian": ("خبرنگار نظامی تایمز اسرائیل", "Times of Israel military correspondent", "Emanuel Fabian"),
+    "Doron_Kadosh": ("خبرنگار نظامی رادیو ارتش اسرائیل", "Army Radio military correspondent", "Doron Kadosh"),
+    "idfofficial": ("ارتش اسرائیل", "IDF", "Israel Defense Forces"),
+    "MFARussia": ("وزارت خارجه روسیه", "Russian MFA", "Russian MFA"),
+    "MariaVladimirovnaZakharova": ("سخنگوی وزارت خارجه روسیه", "Russian MFA spokesperson", "Maria Zakharova"),
+    "medvedev_telegram": ("مدودف، نایب‌رئیس شورای امنیت روسیه", "Medvedev, Russian Security Council",
+                          "Dmitry Medvedev"),
+    "news_kremlin": ("کرملین", "Kremlin", "Kremlin"),
+    "Ulyanov_Mikhail": ("نماینده روسیه در وین (آژانس)", "Russia's envoy in Vienna (IAEA)", "Mikhail Ulyanov"),
+}
+# official X accounts whose public embedded timeline is current; X refuses this page after a few requests from a
+# shared server address, so a few are read per full round, in turn, with a pause after a refusal
+X_TIMELINES = ["MFA_China", "mfa_russia", "Chinamission2un", "SpokespersonCHN", "KremlinRussia_E", "Amb_Ulyanov",
+               "MedvedevRussiaE", "RussiaUN", "gidonsaar", "CENTCOM", "StateDept", "IsraeliPM", "IDF", "IsraelMFA",
+               "araghchi", "IRIMFA_SPOX"]
+X_PER_ROUND = 3
+X_COOLDOWN = 3600
+POST_MAX_AGE = 3 * 86400
+_SCRIPTS = [("iw", re.compile(r"[\u0590-\u05FF]")), ("ru", re.compile(r"[\u0400-\u04FF]")),
+            ("zh-CN", re.compile(r"[\u4E00-\u9FFF]")), ("ar", re.compile(r"[\u0600-\u06FF]")),
+            ("en", re.compile(r"[A-Za-z]"))]
+_FA_ONLY = re.compile(r"[\u067E\u0686\u0698\u06AF\u06A9\u06CC]")      # پ چ ژ گ ک ی
+
+
+def _lang(text):
+    """The script most of the post is written in (Persian told apart from Arabic by its own letters)."""
+    counts = {code: len(rx.findall(text or "")) for code, rx in _SCRIPTS}
+    code = max(counts, key=counts.get)
+    if not counts[code]:
+        return "en"
+    if code == "ar" and len(_FA_ONLY.findall(text)) >= 2:
+        return "fa"
+    return code
+
+
+def _views(s):
+    m = re.match(r"([\d.]+)\s*([KM]?)", (s or "").strip())
+    if not m:
+        return 0
+    return int(float(m.group(1)) * {"": 1, "K": 1e3, "M": 1e6}[m.group(2)])
+
+
+def _relevant(posts, tr):
+    """Keep posts about the region and the conflict, judged on their English text (translated when needed)."""
+    todo = {}
+    for p in posts:
+        if p["lang"] != "en" and not p.get("en"):
+            todo.setdefault(p["lang"], []).append(p["text"])
+    for lg, texts in todo.items():
+        res = tr.translate_many(texts, lg, "en") if tr else {}
+        for p in posts:
+            if p["lang"] == lg and res.get(p["text"]):
+                p["en"] = res[p["text"]]
+    out = []
+    for p in posts:
+        en = p["text"] if p["lang"] == "en" else p.get("en")
+        if en and relevance_en(en[:220], en[220:900])[1]:
+            out.append(p)
+    return out
+
+
+def telegram_posts(state, tr):
+    """Recent posts from TG_ACCOUNTS that are about the region; posts already judged are skipped."""
+    seen = state.setdefault("tg_seen", {})
+    t0, fresh = now(), []
+
+    def fetch(ch):
+        r = http.get(f"https://t.me/s/{ch}", timeout=20, retries=1)
+        return BeautifulSoup(r.content, "lxml")
+
+    for ch, soup, err in http.parallel(fetch, list(TG_ACCOUNTS), workers=5):
+        if err is not None or soup is None:
+            continue
+        rfa, ren, name = TG_ACCOUNTS[ch]
+        img = soup.select_one('meta[property="og:image"]')
+        avatar = img["content"] if img and img.get("content", "").startswith("https://") else None
+        for div in soup.select("div.tgme_widget_message[data-post]"):
+            pid = "tg:" + div["data-post"]
+            tm = div.select_one("time[datetime]")
+            node = div.select_one(".tgme_widget_message_text")
+            if pid in seen or not tm or not node:
+                continue
+            seen[pid] = t0
+            ts = parse_date(tm["datetime"]) or t0
+            if t0 - ts > POST_MAX_AGE:
+                continue
+            for br in node.find_all("br"):
+                br.replace_with("\n")
+            text = re.sub(r"[ \t]+", " ", node.get_text("")).strip()
+            if len(text) < 25:
+                continue
+            media = []
+            ph = div.select_one(".tgme_widget_message_photo_wrap")
+            m = re.search(r"background-image:url\('([^']+)'\)", (ph.get("style") or "") if ph else "")
+            if m:
+                media.append({"type": "photo", "url": m.group(1)})
+            views = div.select_one(".tgme_widget_message_views")
+            fresh.append({
+                "id": pid, "platform": "telegram", "h": ch, "n": name, "img": avatar, "v": False, "t": ts,
+                "text": text[:1500], "lang": _lang(text), "media": media,
+                "likes": _views(views.get_text() if views else "") // 20, "replies": 0,
+                "url": "https://t.me/" + div["data-post"], "seg": "geo", "role_fa": rfa, "role_en": ren,
+            })
+    for k in [k for k, v in seen.items() if t0 - v > 8 * 86400]:
+        seen.pop(k, None)
+    kept = _relevant(fresh, tr)
+    log(f"telegram accounts: {len(fresh)} new posts, {len(kept)} about the region")
+    return kept
+
+
+def _tweet(x, t0):
+    """A post from an embedded-timeline entry, or None for retweets, replies and old posts."""
+    text = x.get("full_text") or x.get("text") or ""
+    if not x.get("id_str") or text.startswith("RT @") or x.get("in_reply_to_status_id_str"):
+        return None
+    try:
+        ts = int(datetime.strptime(x.get("created_at", ""), "%a %b %d %H:%M:%S %z %Y").timestamp())
+    except ValueError:
+        return None
+    if t0 - ts > POST_MAX_AGE:
+        return None
+    ent = x.get("entities") or {}
+    for u in ent.get("urls", []):
+        if u.get("url") and u.get("display_url"):
+            text = text.replace(u["url"], u["display_url"])
+    text = re.sub(r"\s*https://t\.co/\w+\s*$", "", text).strip()
+    media = []
+    for m in (x.get("extended_entities") or ent).get("media", []) or []:
+        if m.get("type") == "photo":
+            media.append({"type": "photo", "url": m.get("media_url_https")})
+    u = x.get("user") or {}
+    return {"id": x["id_str"], "platform": "x", "h": u.get("screen_name"), "n": u.get("name"),
+            "img": u.get("profile_image_url_https"), "v": bool(u.get("verified") or u.get("is_blue_verified")),
+            "t": ts, "text": text, "lang": _lang(text), "media": media[:2],
+            "likes": int(x.get("favorite_count") or 0), "replies": int(x.get("reply_count") or 0),
+            "url": f"https://x.com/{u.get('screen_name')}/status/{x['id_str']}"}
+
+
+def x_timelines(state, tr):
+    """A few official accounts' recent posts per call, in turn; stops for an hour once X refuses."""
+    st = state.setdefault("xt", {"next": 0, "cool": 0})
+    t0 = now()
+    if t0 < st.get("cool", 0):
+        return [], "cooling down"
+    got, status = [], "ok"
+    for _ in range(X_PER_ROUND):
+        h = X_TIMELINES[st["next"] % len(X_TIMELINES)]
+        try:
+            r = http.get(f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{h}", timeout=20, retries=0,
+                         headers={"Accept": "text/html"})
+        except Exception as e:  # noqa: BLE001
+            if "429" in str(e):
+                st["cool"] = t0 + X_COOLDOWN
+                status = "rate limited"
+                break
+            st["next"] += 1
+            continue
+        st["next"] += 1
+        m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', r.text or "", re.S)
+        if not m:
+            continue
+        try:
+            entries = json.loads(m.group(1))["props"]["pageProps"]["timeline"]["entries"]
+        except (KeyError, TypeError, ValueError):
+            continue
+        for e in entries:
+            p = _tweet((e.get("content") or {}).get("tweet") or {}, t0) if e.get("type") == "tweet" else None
+            if p and p["h"] and p["h"].lower() in WHITELIST:
+                seg, rfa, ren = WHITELIST[p["h"].lower()]
+                p.update(seg=seg, role_fa=rfa, role_en=ren)
+                got.append(p)
+    kept = _relevant(got, tr)
+    log(f"x timelines: {status}, {len(got)} recent posts, {len(kept)} about the region")
+    return kept, status
 
 
 def ranked(posts):

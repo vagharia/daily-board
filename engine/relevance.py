@@ -34,6 +34,11 @@ EN_AIR = en_rx([
     "transport planes", "awacs", "stealth bomber", "bomber",
     r"re:\b(?:kc|c|f|b|e|p|mq|rq)-?(?:135|46|10|17|5|15|16|22|35|52|2|1b?|3|8|9|4)s?\b",
 ])
+# Russian and Chinese leaders and diplomats: what they say about the region is news
+EN_POWERS = en_rx(["putin", "lavrov", "peskov", "zakharova", "kremlin", "medvedev", "shoigu", "ryabkov", "nebenzia",
+                   "ulyanov", "russian foreign ministry", "russia's foreign ministry", "xi jinping", "president xi",
+                   "wang yi", "mao ning", "lin jian", "guo jiakun", "fu cong", "chinese foreign ministry",
+                   "china's foreign ministry", "beijing", "moscow"])
 # weak signals: enough together with a core term, not enough to make a Middle East item relevant on their own
 EN_WEAK = en_rx(["talks$", "negotiat", "envoy", "diplomat", "oil price", "shipping", "warn", "summit", "minister"])
 ECON_A = re.compile(r"\b(oil|crude|brent|wti|opec\+?|lng|tankers?|gasoline|diesel|jet fuel)\b", re.I)
@@ -73,8 +78,15 @@ FA_MID = fa_rx([
     "سوخت رسان", "ترابری", "هواپیماهای نظامی", "هواپیمای نظامی", "پروازهای نظامی", "پایگاه نظامی", "پایگاه هوایی",
     "پایگاه دریایی", "پایگاه موشکی", "پایگاه های نظامی", "پایگاه های آمریکا", "پایگاه آمریکا", "العدید",
     "دیه گو گارسیا", "هواپیمای نظارتی", "هواپیمای جاسوسی", "نیروی هوایی", "حریم هوایی", "دبی$", "نطنز", "فردو$",
-    "خارگ", "خارک",
+    "خارگ", "خارک", "خاورمیانه",
+    # Russian and Chinese leaders and diplomats
+    "پوتین", "لاوروف", "پسکوف", "زاخارووا", "کرملین", "مدودف", "شویگو", "ریابکوف", "نبنزیا", "اولیانوف",
+    "شی جین پینگ", "وانگ یی", "مائو نینگ", "لین جیان", "مسکو", "پکن",
 ])
+# Iran's top officials: with a foreign power or a regional term (a trip to Moscow, talks in Beijing) it is news;
+# with an Iranian city alone it is domestic politics
+FA_IR_TOP = fa_rx(["پزشکیان", "خامنه ای", "رهبر انقلاب", "عراقچی", "لاریجانی", "قالیباف", "ظریف", "ولایتی",
+                   "شمخانی", "عارف", "وزیر امور خارجه", "وزیر خارجه ایران", "وزیر دفاع", "هیئت ایرانی", "هیات ایرانی"])
 # words that are everywhere in the news: they count only next to an actor, a region or a military term
 FA_GEN = fa_rx(["حمله", "حملات", "جنگ$", "تجاوز", "انفجار", "تهدید", "هشدار", "ضرب الاجل", "تنگه"])
 FA_WAR = fa_rx(["حمله", "حملات", "جنگ$", "تجاوز", "انفجار"])
@@ -141,6 +153,7 @@ def relevance_en(title: str, summary: str):
     at = _distinct(EN_AIR, t)
     st |= at
     ut, us = _distinct(EN_US, t), _distinct(EN_US, s)
+    pt = _distinct(EN_POWERS, t)
     score = 1.5 * (4 * len(ct) + 2 * len(mt) + len(st) + 0.5 * len(wt) + len(ut)) + \
         (3 * len(cs - ct) + 1.5 * len(ms - mt) + 0.7 * len(ss - st) + 0.3 * len(ws - wt) + 0.7 * len(us - ut))
     other = len(mt | ms) + len(st | ss) + len(wt | ws) + len(ut | us)
@@ -148,7 +161,7 @@ def relevance_en(title: str, summary: str):
         or (bool(mt) and bool(st) and score >= 4.5) \
         or (bool(mt) and bool(ss) and len(mt | ms) >= 2 and score >= 6) \
         or (bool(ut) and bool(mt | cs) and bool(st | ss | wt)) or score >= 10 \
-        or (bool(at) and bool(ut | mt | ms | cs)) \
+        or (bool(at) and bool(ut | mt | ms | cs)) or (bool(pt) and bool(ct | mt | cs)) \
         or bool(ECON_A.search(t) and ECON_B.search(t)) or bool(GOLD.search(t))
     if ok and EN_NOISE.search(t) and not ct:
         ok = False
@@ -168,8 +181,9 @@ def relevance_fa(title: str, summary: str):
     mt, ms = _distinct(FA_MID, t), _distinct(FA_MID, s)
     gt, city, kin = _distinct(FA_GEN, t), _distinct(FA_CITY, t), _distinct(FA_KIN, t)
     iran_war = bool(FA_IRAN.search(t) and FA_WAR.search(t))          # "ایران" with attack, war or explosion
+    top = bool(FA_IR_TOP.search(t) and (mt or ct))
     score = 4 * len(ct) + 2 * len(mt) + len(gt) + len(city) + 2.5 * len(cs - ct) + 1 * len(ms - mt)
-    ok = bool(ct) or len(mt) >= 2 or bool(mt and (gt or city)) or bool(city and kin) or iran_war \
+    ok = bool(ct) or len(mt) >= 2 or bool(mt and (gt or city)) or bool(city and kin) or iran_war or top \
         or (score >= 6 and bool(ct | mt | cs))
     if ok and not ct and FA_FOREIGN.search(t) and not FA_IRAN.search(t):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France

@@ -21,6 +21,14 @@ AIR = (r"tankers? (aircraft|planes|jets)|refuel(l)?ing (tankers?|aircraft|planes
        r"|f-?15s?|f-?16s?|f-?22s?|f-?35s?|e-?3s?|awacs|p-?8s?|mq-?9s?|reapers?|b-?52s?|b-?2s?|b-?1b?s?|bombers?")
 
 
+POWERS = (r"putin|lavrov|peskov|zakharova|kremlin|medvedev|shoigu|ryabkov|nebenzia|ulyanov|xi jinping|president xi"
+          r"|wang yi|mao ning|lin jian|guo jiakun|fu cong|(russian|chinese|russia's|china's) foreign (ministry|minister)")
+REGION = (r"iran\w*|tehran|israel\w*|middle east|gulf|hormuz|gaza|lebanon|yemen|houthis?|syria|strikes?|war|nuclear"
+          r"|sanctions")
+IR_TOP = (r"araghchi|pezeshkian|larijani|ghalibaf|zarif|velayati|shamkhani|iran(ian|'s)? (president|foreign minister"
+          r"|defen[cs]e minister|delegation|officials?)")
+
+
 def P(rx, base, topics=(), flags=()):
     return (re.compile(rx, I), base, set(topics), set(flags))
 
@@ -153,6 +161,11 @@ PATTERNS = [
       r"|mediat\w+|envoy|proposal|framework|agreement|deal)\b", 30, ["diplomacy"], []),
     P(r"\b(says|said|stated|statement|remarks|told|interview|press conference|briefing)\b", 26, ["statement"], []),
     P(r"\b(econom\w+|inflation|currency|rial|markets?|stocks?|oil exports?)\b", 28, ["economy"], []),
+    # Russia and China on the conflict, and Iran's leaders in Moscow or Beijing
+    P(r"\b(" + POWERS + r")\b.{0,80}\b(" + REGION + r")\b|\b(" + REGION + r")\b.{0,80}\b(" + POWERS + r")\b", 50,
+      ["diplomacy", "statement"], ["powers"]),
+    P(r"\b(" + IR_TOP + r")\b.{0,60}\b(moscow|beijing|kremlin|putin|xi|russia|china)\b"
+      r"|\b(moscow|beijing|kremlin|putin|xi|russia|china)\b.{0,60}\b(" + IR_TOP + r")\b", 52, ["diplomacy"], ["powers"]),
 ]
 
 KINETIC_BASE = 70
