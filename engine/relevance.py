@@ -60,7 +60,7 @@ FA_CORE = fa_rx([
     "هرمز", "خلیج فارس", "دریای عمان", "سنتکام", "ترامپ", "روبیو", "ونس$", "بسنت", "هگست", "هگزث", "ویتکاف",
     "ویتکوف", "نتانیاهو", "حزب الله", "انصارالله", "حوثی", "پنتاگون", "کاخ سفید", "ناو هواپیمابر", "هواپیمابر",
     "بمب افکن", "گروسی", "اسنپ بک", "مکانیسم ماشه", "شورای امنیت سازمان ملل", "آژانس بین المللی انرژی اتمی",
-    "موساد", "سیا$", "ناوگان",
+    "موساد", "سیا$", "ناوگان پنجم", "ناوگان دریایی آمریکا",
 ])
 FA_MID = fa_rx([
     "عربستان", "ریاض$", "امارات", "ابوظبی", "قطر$", "قطری", "دوحه", "عمان", "مسقط", "بحرین", "کویت", "عراق$",
@@ -68,16 +68,25 @@ FA_MID = fa_rx([
     "سوریه", "دمشق", "لبنان", "بیروت", "یمن", "صنعا", "دریای سرخ", "باب المندب", "غزه", "حماس", "اروپا",
     "تروئیکا", "روسیه", "چین$", "چینی$", "غنی سازی", "اورانیوم", "هسته ای", "نفتکش", "تحریم", "مذاکره",
     "مذاکرات", "عراقچی", "لاریجانی", "وحیدی", "بقائی", "بقایی", "قالیباف", "شورای عالی امنیت ملی", "سپاه$",
-    "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "حمله", "حملات", "جنگ$", "جنگنده", "آتش بس", "تجاوز",
-    "انفجار", "رزمایش", "تهدید", "هشدار", "اولتیماتوم", "ضرب الاجل", "تنگه", "شورای امنیت",
+    "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "جنگنده", "آتش بس", "رزمایش", "اولتیماتوم", "شورای امنیت",
+    "ترور",
     "سوخت رسان", "ترابری", "هواپیماهای نظامی", "هواپیمای نظامی", "پروازهای نظامی", "پایگاه نظامی", "پایگاه هوایی",
     "پایگاه دریایی", "پایگاه موشکی", "پایگاه های نظامی", "پایگاه های آمریکا", "پایگاه آمریکا", "العدید",
-    "دیه گو گارسیا", "هواپیمای نظارتی", "هواپیمای جاسوسی", "نیروی هوایی", "حریم هوایی", "دبی$",
-    # Iranian places: an explosion or air defence activity in Tabriz is news even without a foreign actor
-    "تهران", "تبریز", "اصفهان", "شیراز", "مشهد", "کرج", "قم$", "اهواز", "بندرعباس", "بوشهر", "کرمانشاه",
-    "ارومیه", "خرمشهر", "آبادان", "چابهار", "کیش", "قشم", "نطنز", "فردو$", "خارگ", "هرمزگان", "خوزستان",
-    "سیستان", "بلوچستان", "کردستان", "آذربایجان",
+    "دیه گو گارسیا", "هواپیمای نظارتی", "هواپیمای جاسوسی", "نیروی هوایی", "حریم هوایی", "دبی$", "نطنز", "فردو$",
+    "خارگ", "خارک",
 ])
+# words that are everywhere in the news: they count only next to an actor, a region or a military term
+FA_GEN = fa_rx(["حمله", "حملات", "جنگ$", "تجاوز", "انفجار", "تهدید", "هشدار", "ضرب الاجل", "تنگه"])
+FA_WAR = fa_rx(["حمله", "حملات", "جنگ$", "تجاوز", "انفجار"])
+# Iranian places: an explosion or air defence activity in Tabriz is news even without a foreign actor, but two
+# city names ("Tehran - Mashhad flight") or a city and a warning ("bear on the Shiraz road; a warning") are not
+FA_CITY = fa_rx([
+    "تهران", "تبریز", "اصفهان", "شیراز", "مشهد", "کرج", "قم$", "اهواز", "بندرعباس", "بوشهر", "کرمانشاه",
+    "ارومیه", "خرمشهر", "آبادان", "چابهار", "کیش", "قشم", "هرمزگان", "خوزستان", "سیستان", "بلوچستان",
+    "کردستان", "آذربایجان",
+])
+FA_KIN = fa_rx(["انفجار", "حمله", "حملات", "پدافند", "موشک", "پهپاد", "شلیک", "آژیر", "بمباران", "رهگیری",
+                "جنگنده", "پرتابه", "سقوط"])
 # far-away conflicts and politics: not relevant unless the headline also names one of the core actors or Iran
 FA_FOREIGN = fa_rx([
     "اوکراین", "کی یف", "کییف", "بلغارستان", "دریای سیاه", "ونزوئلا", "تایوان", "کره شمالی", "میانمار", "سودان",
@@ -104,6 +113,7 @@ FA_NOISE = fa_rx([
     "هواشناسی", "توده تندری", "توده های تندری", "بارش", "بارندگی", "سیلاب", "گرد و خاک", "طوفان شن", "آبگرفتگی",
     "قیمت بلیط", "قیمت بلیت", "نرخ بلیط", "قیمت پرواز", "بوت کمپ", "بوتکمپ",
     "حمله قلبی", "حمله عصبی", "حمله آسم", "حمله سگ", "سگ ولگرد", "سگهای ولگرد", "سگ های ولگرد", "زورگیری",
+    "پدافند غیرعامل", "پدافند غیر عامل", "آلودگی هوا", "کیفیت هوا", "هوای آلوده", "زلزله", "زمین لرزه", "ترافیک",
 ])
 # sport, checked in the headline and the start of the text: "attack" and "war" are figures of speech there
 FA_SPORT = fa_rx([
@@ -150,11 +160,17 @@ def relevance_en(title: str, summary: str):
 
 
 def relevance_fa(title: str, summary: str):
+    """Read in Persian. Relevant if the headline names a core actor or place (the US, Israel, Hormuz…), two
+    regional or military terms, one of them with a generic war word or an Iranian place, an Iranian place with an
+    explosion, attack or air-defence word, or enough of these in the text as well."""
     t, s = fa_norm(title or ""), fa_norm(summary or "")
     ct, cs = _distinct(FA_CORE, t), _distinct(FA_CORE, s)
     mt, ms = _distinct(FA_MID, t), _distinct(FA_MID, s)
-    score = 4 * len(ct) + 2 * len(mt) + 2.5 * len(cs - ct) + 1 * len(ms - mt)
-    ok = bool(ct) or score >= 6 or len(mt) >= 2
+    gt, city, kin = _distinct(FA_GEN, t), _distinct(FA_CITY, t), _distinct(FA_KIN, t)
+    iran_war = bool(FA_IRAN.search(t) and FA_WAR.search(t))          # "ایران" with attack, war or explosion
+    score = 4 * len(ct) + 2 * len(mt) + len(gt) + len(city) + 2.5 * len(cs - ct) + 1 * len(ms - mt)
+    ok = bool(ct) or len(mt) >= 2 or bool(mt and (gt or city)) or bool(city and kin) or iran_war \
+        or (score >= 6 and bool(ct | mt | cs))
     if ok and not ct and FA_FOREIGN.search(t) and not FA_IRAN.search(t):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France
     if ok and (FA_NOISE.search(t) or FA_SPORT.search(t) or FA_SPORT.search(s[:300])) and not FA_HARD.search(t):

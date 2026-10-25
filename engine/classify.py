@@ -8,8 +8,9 @@ import math
 import re
 
 from . import config
+from .classify_fa import score_fa
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
-from .util import fa_norm, to_latin_digits
+from .util import to_latin_digits
 
 I = re.I
 
@@ -215,57 +216,6 @@ TARGET = re.compile(r"\b(hormuz|nuclear (site|facility|facilities|plant)|natanz|
                     r"|embassy|al udeid|al dhafra|ain al-asad|airbase|air base|naval base|power plant)\b", I)
 CASUALTIES = re.compile(r"\b(\d{1,5})\s+(people |civilians |soldiers |troops |sailors |crew )?(killed|dead|died)\b", I)
 
-# ------------------------------------------------------------------ Persian patterns (original text)
-def FP(terms, base, flags=()):
-    rx = re.compile("|".join(re.escape(fa_norm(t)).replace(r"\ ", r"\s*") for t in terms))
-    return (rx, base, set(flags))
-
-
-FA_PATTERNS = [
-    FP(["اعلام جنگ", "عملیات زمینی", "تهاجم زمینی"], 88, ["kinetic"]),
-    FP(["حمله موشکی", "حمله پهپادی", "حمله هوایی", "حملات هوایی", "بمباران", "اصابت موشک", "حملات موشکی",
-        "مورد حمله قرار"], 80, ["kinetic"]),
-    FP(["حمله به", "شلیک موشک"], 62, []),
-    FP(["پرتاب موشک", "شلیک موشک ضد کشتی", "پرتاب پهپاد"], 76, ["kinetic"]),
-    FP(["رهگیری", "سرنگون", "آژیر خطر", "پدافند فعال شد", "فعال شدن پدافند", "صدای انفجار", "انفجار",
-        "شکار پهپاد", "انهدام پهپاد", "ساقط شد", "ساقط کرد"], 74, ["kinetic"]),
-    FP(["توقیف نفتکش", "توقیف کشتی", "حمله به نفتکش", "حمله به کشتی"], 82, ["kinetic", "maritime_incident"]),
-    FP(["بستن تنگه هرمز", "بسته شدن تنگه هرمز", "انسداد تنگه", "مسدود شدن تنگه"], 85, ["maritime_incident", "hormuz_closure"]),
-    FP(["بسته شدن حریم هوایی", "بستن حریم هوایی", "تعلیق پروازها", "لغو پروازها", "توقف پروازها"], 78, ["airspace"]),
-    FP(["تخلیه سفارت", "خروج اتباع", "تخلیه اتباع"], 76, ["evac"]),
-    FP(["اعزام ناو", "استقرار ناو", "ناو هواپیمابر", "استقرار بمب افکن", "بمب افکن های", "اعزام نیرو"], 70, ["deploy"]),
-    FP(["سوخت رسان", "هواپیماهای ترابری", "هواپیمای ترابری", "ترابری نظامی", "پروازهای نظامی", "پرواز نظامی",
-        "اعزام جنگنده", "استقرار جنگنده", "ورود جنگنده", "جنگنده های آمریکایی", "جنگنده های اسرائیلی", "جنگنده های اف"],
-       64, ["deploy"]),
-    FP(["اولتیماتوم", "ضرب الاجل"], 72, ["ultimatum"]),
-    FP(["ترور", "به شهادت رسید", "شهادت"], 70, ["kinetic"]),
-    FP(["کشته", "جان باخت", "زخمی"], 50, []),
-    FP(["انتقام", "پاسخ کوبنده", "پاسخ قاطع", "پاسخ پشیمان کننده", "تلافی", "پاسخ سخت"], 62, ["retaliation"]),
-    FP(["تهدید", "هشدار"], 52, ["threat"]),
-    FP(["تحریم"], 52, ["sanctions"]),
-    FP(["رزمایش"], 50, ["exercise"]),
-    FP(["غنی سازی", "سانتریفیوژ", "اورانیوم"], 50, []),
-    FP(["مذاکره", "مذاکرات", "دیدار", "گفتگو", "رایزنی", "میانجی"], 30, []),
-    FP(["گفت", "اعلام کرد", "بیانیه", "تاکید کرد"], 26, []),
-]
-FA_ANALYSIS = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
-    "گفتگو با", "گفت‌وگو با", "گفت وگو با", "مصاحبه", "نظرسنجی", "تماشا کنید", "یادداشت", "سرمقاله", "تحلیل", "پادکست"]])))
-FA_CONTROLLED = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
-    "عمل نکرده", "خنثی سازی", "خنثی‌سازی", "انفجار کنترل شده", "انفجار کنترل‌شده", "پاکسازی مهمات", "انهدام مهمات",
-    "منفجر نشده", "مهمات باقیمانده"]])))
-FA_DENIAL = re.compile("|".join(map(re.escape, [fa_norm(x) for x in ["تکذیب", "شایعه", "کذب", "صحت ندارد", "جعلی"]])))
-# "حمله ساکت الهامی به فردوسی‌پور… انتقاد": a person attacked in words. Translated, it reads "attack on …", so the
-# Persian original decides: criticism words and nothing concrete (weapons, casualties, targets) means a speech
-FA_ATTACK_WORD = re.compile("|".join(map(re.escape, [fa_norm(x) for x in ["حمله", "حملات", "تاخت"]])))
-FA_VERBAL = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
-    "انتقاد", "نقد", "لفظی", "توهین", "کنایه", "طعنه", "تاخت", "بدگویی", "هتاکی", "فحاشی", "حمله تند",
-    "حمله رسانه", "حمله سیاسی", "شدید اللحن", "شدیداللحن"]])))
-FA_CONCRETE = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
-    "موشک", "پهپاد", "هوایی", "بمب", "انفجار", "شلیک", "کشته", "شهید", "شهادت", "زخمی", "مجروح", "پایگاه",
-    "حمله نظامی", "پدافند", "توپخانه", "خمپاره", "راکت", "نفتکش", "کشتی", "ناو", "تاسیسات", "پالایشگاه",
-    "فرودگاه", "رزمنده", "تروریست"]])))
-
-
 def score_en(title: str, summary: str):
     t, s = title or "", summary or ""
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
@@ -358,39 +308,6 @@ def _strong_kinetic(t):
     return {"kinetic"} if _STRONG.search(t) else set()
 
 
-def score_fa(title: str, summary: str):
-    t, s = fa_norm(title or ""), fa_norm(summary or "")
-    best, flags = 0.0, set()
-    for rx, base, fl in FA_PATTERNS:
-        if rx.search(t):
-            val = base
-        elif s and rx.search(s):
-            val = base * (0.78 if base >= KINETIC_BASE else 0.9)
-        else:
-            continue
-        flags |= fl
-        best = max(best, val)
-    if FA_DENIAL.search(t) and best >= 45:
-        best *= 0.65
-        flags.add("denial")
-    if FA_ANALYSIS.search(t):
-        best = min(best, 44)
-        flags.add("analysis")
-    if FA_CONTROLLED.search(t) or FA_CONTROLLED.search(s[:200]):
-        best = min(best, 40)
-        flags -= {"kinetic", "maritime_incident", "hormuz_closure"}
-        flags.add("controlled")
-    if QUESTION.search(t):
-        best = min(best, 56)
-        flags.add("speculative")
-    lead = t + " " + s[:300]
-    if FA_ATTACK_WORD.search(t) and FA_VERBAL.search(lead) and not FA_CONCRETE.search(lead):
-        best = min(best, 40)
-        flags -= HARD_EVENTS
-        flags.add("verbal")
-    return best, flags
-
-
 def _head(t, s, limit=170):
     """Only the start of a very long headline counts as headline; the rest is scored like the summary."""
     if len(t) <= limit:
@@ -399,32 +316,18 @@ def _head(t, s, limit=170):
 
 
 def classify(item):
-    """Fill severity, topics, flags, people, places, countries on an item (needs English text)."""
-    en_t, en_s = _head(item.get("en_ti") or "", item.get("en_su") or "")
-    fa_t, fa_s = _head(item.get("ti", ""), item.get("su", "")) if item.get("lang") == "fa" else ("", "")
-    sev, topics, flags = score_en(en_t, en_s)
-    if fa_t:
-        fsev, fflags = score_fa(fa_t, fa_s)
-        if not en_t:
-            sev, flags = fsev or sev, flags | fflags
-        else:
-            # the translation is scored with the richer English rules; the Persian original can lift it halfway
-            hypothetical = bool(HYPO.search(en_t)) and not _strong_kinetic(en_t)
-            if fsev > sev and not hypothetical and not flags & {"speculative", "quote", "controlled", "denial",
-                                                                "analysis"}:
-                sev = (fsev + sev) / 2
-                flags |= {f for f in fflags if f != "kinetic" or sev >= KINETIC_BASE}
-            flags |= {f for f in fflags if f in ("denial", "analysis", "speculative", "controlled")}
-            if "controlled" in flags:
-                sev = min(sev, 40)
-                flags -= {"kinetic", "maritime_incident", "hormuz_closure"}
-            if "analysis" in flags:
-                sev = min(sev, 44)
-            if "speculative" in fflags:
-                sev = min(sev, 56)
-            if "verbal" in fflags:                       # the translation's "attack on …" is a figure of speech
-                sev = min(sev, 40)
-                flags -= HARD_EVENTS
+    """Fill severity, topics, flags, people, places, countries on an item. Each report is read in its own
+    language: a Persian report by the Persian rules and lexicon on its original text (its English translation is
+    only for display and for matching it with foreign reports), anything else by the English rules."""
+    if item.get("lang") == "fa":
+        t, s = _head(item.get("ti") or "", item.get("su") or "")
+        sev, topics, flags = score_fa(t, s)
+        en_t = en_s = ""
+        fa_t, fa_s = t, s
+    else:
+        en_t, en_s = _head(item.get("en_ti") or item.get("ti") or "", item.get("en_su") or item.get("su") or "")
+        sev, topics, flags = score_en(en_t, en_s)
+        fa_t = fa_s = ""
     title_topics = match_keys(TOPICS_RX, en_t, fa_t)
     body_topics = [k for k in match_keys(TOPICS_RX, en_s, fa_s) if k != "statement"]
     topics |= set(title_topics) | set(body_topics)
@@ -475,4 +378,4 @@ if __name__ == "__main__":
         s, tp, fl = score_en(t, "")
         print(f"{s:5.1f} {tier(s):6s} {sorted(fl)} | {t}")
     for t in ["حمله موشکی به پایگاه آمریکا در عراق", "عراقچی: آماده مذاکره هستیم", "تکذیب شایعه حمله به نفتکش"]:
-        print(score_fa(t, ""), t)
+        print(score_fa(t, "")[0], score_fa(t, "")[2], t)

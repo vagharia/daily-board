@@ -241,11 +241,11 @@ def news_round(full=True):
         log(f"live-page reports retimed: {fix_live_pages(clusters, seen)}")
         misc["live_fix"] = 1
         misc["recluster"] = 0                 # so their stories are rebuilt just below
-    if misc.get("recluster") != 4:
+    if misc.get("recluster") != 5:
         # once after a clustering change: rebuild the last two days' stories from their reports
         n0 = len(clusters)
         clusters = recluster(clusters, T)
-        misc["recluster"] = 4
+        misc["recluster"] = 5
         # re-formed stories must not trigger alerts again; new reports in this round still can
         sent = alerts_state.setdefault("sent", [])
         sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
