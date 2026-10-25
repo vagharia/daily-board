@@ -19,8 +19,15 @@ def sha(s: str, n: int = 12) -> str:
     return hashlib.sha1((s or "").encode("utf-8")).hexdigest()[:n]
 
 
+LOGS = []
+
+
 def log(*a):
-    print(time.strftime("%H:%M:%S"), *a, flush=True)
+    line = time.strftime("%H:%M:%S") + " " + " ".join(str(x) for x in a)
+    print(line, flush=True)
+    LOGS.append(line[:400])
+    if len(LOGS) > 400:
+        del LOGS[:100]
 
 
 # ---------------------------------------------------------------- text

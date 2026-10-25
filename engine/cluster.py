@@ -29,7 +29,24 @@ SYN = {
 
 ENTITY = set("""iran israel us trump hormuz tanker hezbollah houthi saudi qatar oman uae iraq yemen lebanon syria
 gaza netanyahu khamenei irgc centcom pentagon nuclear iaea missile drone strike navy carrier bahrain kuwait
-rubio vance bessent hegseth witkoff araghchi pezeshkian russia china europe""".split())
+rubio vance bessent hegseth witkoff araghchi pezeshkian russia china europe jordan egypt turkey riyadh doha
+dubai baghdad beirut damascus jerusalem hebron aramco opec brent oil embassy sanaa jeddah""".split())
+
+# Stories outside the core theatre (Iran, the Persian Gulf states, Iraq, Yemen / Red Sea, Lebanon) are kept but
+# toned down, so West Bank raids or Israeli domestic politics don't outrank the Iran-US-Israel confrontation.
+CORE_CTRY = {"ir", "gulf", "yemen", "iraq", "lebanon"}
+CORE_GEO = {"hormuz", "persian_gulf", "gulf_oman", "tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas",
+            "kharg", "tabriz", "shiraz", "chabahar", "baghdad", "erbil", "ain_asad", "sanaa", "hodeidah", "red_sea",
+            "bab", "riyadh", "east_sa", "doha", "bahrain", "uae", "fujairah", "oman", "kuwait", "lebanon"}
+CORE_FLAGS = {"oil_spike", "maritime_incident", "hormuz_closure", "airspace", "nuclear_red"}
+CORE_PPL = {"ir_leader", "ir_pres", "ir_fm", "ir_snsc", "irgc_cmd", "ir_army", "ghalibaf", "ir_spox", "houthi_l",
+            "hzb_l", "grossi", "mbs", "sa_fm", "qa", "om", "uae"}
+NONCORE_FACTOR, NONCORE_CAP = 0.6, 55.0
+
+
+def is_core(c):
+    return bool(set(c.get("ctry", [])) & CORE_CTRY or set(c.get("geo", [])) & CORE_GEO
+                or set(c.get("flags", [])) & CORE_FLAGS or set(c.get("ppl", [])) & CORE_PPL)
 
 
 def tokens(title: str):
@@ -134,6 +151,10 @@ def refresh(c):
                 if x not in acc:
                     acc.append(x)
         c[f] = acc[:8]
+    c["core"] = is_core(c)
+    if not c["core"]:
+        c["sev"] = round(min(NONCORE_CAP, c["sev"] * NONCORE_FACTOR), 1)
+        c["tier"] = tier(c["sev"])
     en_rep = _pick(ms, "en")
     fa_native = [m for m in ms if m.get("lang") == "fa" and m.get("rel", 0) >= 0.8]
     fa_rep = _pick(fa_native, "fa") if fa_native else None

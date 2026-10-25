@@ -194,6 +194,44 @@ w("air_point_other.json", json.dumps({"ac": [
     {"hex": f"8800{i:02d}", "flight": f"QTR{i}", "t": "B77W", "lat": 25.5 + (i % 4) * 0.4, "lon": 51 + (i % 6) * 0.7,
      "alt_baro": 35000, "dbFlags": 0} for i in range(30)]}))
 
+# OpenSky states: [icao24, callsign, country, t_pos, last, lon, lat, baro_alt, on_ground, ...]
+states = []
+for i in range(40):        # Persian Gulf
+    states.append([f"89{i:04x}", f"UAE{i}", "United Arab Emirates", 0, 0, 51.5 + (i % 8) * 0.6, 25.0 + (i % 5) * 0.5,
+                   11000, False, 230, 0, 0, None, 11200, None, False, 0])
+for i in range(6):         # Iraq
+    states.append([f"73{i:04x}", f"IAW{i}", "Iraq", 0, 0, 44.0 + i * 0.3, 32.5, 9000, False, 220, 0, 0, None, 9100,
+                   None, False, 0])
+for i in range(14):        # Israel
+    states.append([f"73a{i:03x}", f"ELY{i}", "Israel", 0, 0, 34.8, 31.5 + (i % 7) * 0.2, 8000, False, 210, 0, 0, None,
+                   8100, None, False, 0])
+states.append(["ae0001", "QUID45", "United States", 0, 0, 52.3, 26.1, 8200, False, 200, 0, 0, None, 8300, None, False, 0])
+w("opensky.json", json.dumps({"time": int(NOW.timestamp()), "states": states}))
+
+# a Persian Telegram channel (fallback for sources whose website is unreachable)
+tgp = []
+for i, (h, text, photo) in enumerate([
+    (1.0, "🔴 فوری | حمله پهپادی به یک نفتکش در نزدیکی تنگه هرمز\nمنابع محلی از شنیده شدن صدای انفجار خبر دادند. @radiofarda", True),
+    (3.0, "📌 وزیر خارجه عمان: دور تازه مذاکرات ایران و آمریکا به‌زودی برگزار می‌شود\nبدر البوسعیدی گفت تاریخ دقیق هنوز مشخص نیست.", False),
+    (5.0, "🎥 ویدیو | کنسرت خیابانی در تهران", False),
+]):
+    ts = (NOW - timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    ph = ("<a class='tgme_widget_message_photo_wrap' style=\"width:600px;background-image:url('https://cdn4.telesco.pe/file/"
+          f"p{i}.jpg')\"></a>") if photo else ""
+    body = text.replace("\n", "<br/>")
+    tgp.append(f"<div class='tgme_widget_message_wrap'><div class='tgme_widget_message' data-post='radiofarda/{5000 + i}'>"
+               f"{ph}<div class='tgme_widget_message_text js-message_text'>{body}</div>"
+               f"<a class='tgme_widget_message_date'><time datetime='{ts}'>x</time></a></div></div>")
+w("tg_radiofarda.html", "<html><body><section>" + "".join(tgp) + "</section></body></html>")
+
+# Bing News RSS (fallback): links go through bing.com/news/apiclick.aspx?url=<real url>
+w("bing_spa.xml", rss([
+    {"title": "Saudi Arabia condemns attack on tanker off Hormuz, calls for restraint",
+     "link": "http://www.bing.com/news/apiclick.aspx?ref=FexRss&aid=&tid=1&url=https%3a%2f%2fwww.spa.gov.sa%2fen%2fN2001"
+             "&c=1&mkt=en-us", "desc": "The Kingdom expressed concern over the escalation in the Strait of Hormuz.",
+     "date": ago(2.5)},
+], "Bing News"))
+
 # ---- PortWatch: ~90/day before the crisis, ~5/day after
 rows = []
 d = datetime(2025, 3, 1, tzinfo=timezone.utc)
@@ -277,9 +315,13 @@ index = {
     r"t\.me/s/dollar_tehran3bze": "tg.html",
     r"finance\.yahoo\.com/v8/finance/chart/BZ": "yahoo_brent.json",
     r"finance\.yahoo\.com/v8/finance/chart/GC": "yahoo_gold.json",
-    r"api\.airplanes\.live/v2/mil": "air_mil.json",
-    r"api\.airplanes\.live/v2/point/(35|32|29|36|38|27)\.": "air_point_iran.json",
-    r"api\.airplanes\.live/v2/point/": "air_point_other.json",
+    r"opendata\.adsb\.fi/api/v2/mil": "air_mil.json",
+    r"api\.adsb\.lol/v2/mil": "air_mil.json",
+    r"api\.adsb\.lol/v2/point/(35|32|29|36|38|27)\.": "air_point_iran.json",
+    r"api\.adsb\.lol/v2/point/": "air_point_other.json",
+    r"opensky-network\.org/api/states": "opensky.json",
+    r"t\.me/s/radiofarda": "tg_radiofarda.html",
+    r"bing\.com/news/search\?q=site%3Aspa\.gov\.sa": "bing_spa.xml",
     r"Daily_Chokepoints_Data.*Hormuz": "portwatch_hormuz.json",
     r"Daily_Chokepoints_Data.*Mandeb": "portwatch_bab.json",
     r"msi\.nga\.mil": "nga.json",

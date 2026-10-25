@@ -48,7 +48,7 @@ def news_component(clusters, t):
         decay = 0.5 ** (max(0, age) / half)
         rel = max(m.get("rel", 0.6) for m in c["m"])
         s = c["sev"]
-        w = math.exp(beta * s / 100) * decay * (0.6 + 0.4 * rel)
+        w = math.exp(beta * s / 100) * decay * (0.6 + 0.4 * rel) * (1.0 if c.get("core", True) else 0.4)
         num += s * w
         den += w
     return round(num / den, 1) if den else 15.0
@@ -118,7 +118,7 @@ def compute_lights(clusters, air, sea, markets, t=None):
     def by_flag(flags, min_sev=60, need_state_actor=False, exclude=()):
         on, watch = [], []
         for c in recent:
-            if not (set(c.get("flags", [])) & flags) or c["sev"] < min_sev:
+            if not (set(c.get("flags", [])) & flags) or c["sev"] < min_sev or not c.get("core", True):
                 continue
             if set(c.get("flags", [])) & set(exclude):
                 continue

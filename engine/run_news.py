@@ -3,7 +3,7 @@ media & posts on X -> air & sea signals -> index & warning lights -> Telegram al
 import os
 import time
 
-from . import air, alerts, collect, config, media, sea, store, xposts
+from . import air, alerts, collect, config, media, sea, store, util, xposts
 from .classify import classify
 from .cluster import Clusterer, prune, refresh
 from .http import parallel
@@ -26,17 +26,35 @@ def slim(it):
 def ensure_texts(clusters, tr):
     """Fill c['en'] / c['fa'] (title + summary) from the best member in each language,
     translating the English representative into Persian when no good Persian original exists."""
+    # Persian-only stories whose English translation failed earlier: try again
+    redo = []
+    for c in clusters:
+        byk = {m["k"]: m for m in c["m"]}
+        en_m = byk.get(c.get("en_from")) or c["m"][0]
+        if en_m.get("lang") == "fa" and not en_m.get("en_ti"):
+            redo.append(en_m)
+    if redo:
+        texts = [m["ti"] for m in redo] + [first_sentences(m["su"], 330) for m in redo if m.get("su")]
+        res = tr.translate_many(texts, "fa", "en")
+        for m in redo:
+            m["en_ti"] = res.get(m["ti"], "")
+            if m.get("su"):
+                m["en_su"] = res.get(first_sentences(m["su"], 330), "")
     need = []
     for c in clusters:
         byk = {m["k"]: m for m in c["m"]}
         en_m = byk.get(c.get("en_from")) or c["m"][0]
         if en_m.get("lang") == "en":
             c["en"] = {"ti": en_m["ti"], "su": en_m.get("su", "")}
+        elif en_m.get("en_ti"):
+            c["en"] = {"ti": en_m["en_ti"], "su": en_m.get("en_su") or "", "mt": 1}
         else:
-            c["en"] = {"ti": en_m.get("en_ti") or en_m["ti"], "su": en_m.get("en_su") or "", "mt": 1}
+            c["en"] = {"ti": en_m["ti"], "su": en_m.get("su") or "", "fallback": 1}
         fa_m = byk.get(c.get("fa_from")) if c.get("fa_from") else None
         if fa_m and fa_m.get("lang") == "fa":
             c["fa"] = {"ti": fa_m["ti"], "su": fa_m.get("su", "")}
+        elif c["en"].get("fallback"):
+            c["fa"] = {"ti": en_m["ti"], "su": en_m.get("su") or ""}          # Persian original, untranslated
         else:
             c["_fa_src"] = (c["en"]["ti"], first_sentences(c["en"]["su"], 330))
             need += [x for x in c["_fa_src"] if x]
@@ -88,10 +106,16 @@ def main():
     x_state = st("x_state.json", {})
     sea_state = st("sea_state.json", {})
     misc = st("misc.json", {})
+    if misc.get("state_version") != config.STATE_VERSION:
+        log(f"state version {misc.get('state_version')} -> {config.STATE_VERSION}: starting stories afresh")
+        clusters, seen, x_state, idx_hist = [], {}, {}, []
+        alerts_state = {k: v for k, v in alerts_state.items() if k == "chat"}
+        misc["state_version"] = config.STATE_VERSION
+        first_run = True
 
     # ---------------------------------------------------------------- 1. collect
     raw, health = collect.collect_all(T)
-    new = [it for it in raw if it["k"] not in seen][: config.MAX_NEW_PER_RUN]
+    new = [it for it in raw if it["k"] not in seen]
     for it in raw:
         seen.setdefault(it["k"], T)
     seen = {k: v for k, v in seen.items() if T - v <= 9 * 86400}
@@ -108,7 +132,24 @@ def main():
 
     # ---------------------------------------------------------------- 3. Persian items -> English
     tr = Translator(tcache)
-    fa_items = [it for it in rel_items if it["lang"] == "fa"]
+    fa_items, deferred, budget = [], [], config.MAX_FA_TRANSLATE
+    for it in sorted([it for it in rel_items if it["lang"] == "fa"], key=lambda x: -x["t"]):
+        if tr.get(it["ti"], "fa", "en") is not None:
+            fa_items.append(it)
+        elif budget > 0:
+            fa_items.append(it)
+            budget -= 1
+        else:
+            deferred.append(it)
+    if deferred:
+        # too many Persian items for one run: the oldest wait for the next run
+        dk = {it["k"] for it in deferred}
+        rel_items = [it for it in rel_items if it["k"] not in dk]
+        for k in dk:
+            seen.pop(k, None)
+        for it in deferred:
+            health[it["s"]]["relevant"] -= 1
+        log(f"persian items deferred to the next run: {len(deferred)}")
     texts = []
     for it in fa_items:
         texts.append(it["ti"])
@@ -169,7 +210,8 @@ def main():
 
     # ---------------------------------------------------------------- 6. display texts
     retry = [c for c in clusters if c["id"] not in changed and
-             ("en" not in c or "fa" not in c or (c.get("fa") or {}).get("fallback"))]
+             ("en" not in c or "fa" not in c or (c.get("fa") or {}).get("fallback")
+              or (c.get("en") or {}).get("fallback"))]
     for c in retry:
         if "en_from" not in c:
             refresh(c)
@@ -182,19 +224,27 @@ def main():
               relevant=len(truth), err=None if truth else "no relevant posts or feed unreachable")
     xstats = xposts.update(x_state, candidates, truth)
     posts = xposts.ranked(x_state.get("posts", {}))
-    need_fa = [p["text"] for p in posts if p.get("lang") != "fa" and not p.get("fa")]
-    need_en = [p["text"] for p in posts if p.get("lang") == "fa" and not p.get("en")]
-    r_fa = tr.translate_many(need_fa, "auto", "fa") if need_fa else {}
-    r_en = tr.translate_many(need_en, "fa", "en") if need_en else {}
+    by_lang = {}
     for p in posts:
-        if p.get("lang") == "fa":
+        lg = p.get("lang") or "en"
+        lg = {"und": "auto", "zxx": "auto", "qme": "auto", "qht": "auto"}.get(lg, lg)
+        by_lang.setdefault(lg, []).append(p)
+    for lg, group in by_lang.items():
+        if lg != "fa":
+            todo = [p["text"] for p in group if not p.get("fa") or p.get("fa") == p["text"]]
+            res = tr.translate_many(todo, lg, "fa") if todo else {}
+            for p in group:
+                if res.get(p["text"]):
+                    p["fa"] = res[p["text"]]
+        if lg != "en":
+            todo = [p["text"] for p in group if not p.get("en") or p.get("en") == p["text"]]
+            res = tr.translate_many(todo, lg, "en") if todo else {}
+            for p in group:
+                if res.get(p["text"]):
+                    p["en"] = res[p["text"]]
+        for p in group:
             p.setdefault("fa", p["text"])
-            if r_en.get(p["text"]):
-                p["en"] = r_en[p["text"]]
-        else:
             p.setdefault("en", p["text"])
-            if r_fa.get(p["text"]):
-                p["fa"] = r_fa[p["text"]]
 
     # ---------------------------------------------------------------- 8. signals
     air_sum, air_hist = air.run(air_hist)
@@ -232,10 +282,12 @@ def main():
         "v": 1, "updated": T, "duration": round(time.time() - started, 1),
         "ok_sources": sum(1 for h in src_health if h["ok"]), "total_sources": len(src_health),
         "new_items": len(new), "relevant": len(rel_items), "stories": len(clusters),
-        "translate": tr.stats, "x": xstats, "pages": [pages_ok, len(targets)],
-        "air": {"status": (air_sum or {}).get("status", "fail")}, "sea": {"status": sea_out.get("status"),
-                                                                           "errors": sea_out.get("errors")},
-        "alerts": alert_res, "sources": src_health,
+        "deferred": len(deferred), "translate": {**tr.stats, "errors": tr.errors}, "x": xstats,
+        "pages": [pages_ok, len(targets)],
+        "air": {"status": (air_sum or {}).get("status", "fail"), "providers": (air_sum or {}).get("providers"),
+                "errors": (air_sum or {}).get("errors")},
+        "sea": {"status": sea_out.get("status"), "errors": sea_out.get("errors")},
+        "alerts": alert_res, "sources": src_health, "log": util.LOGS[-250:],
     }, pretty=True)
 
     tr.prune()

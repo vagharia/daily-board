@@ -106,6 +106,9 @@ WHITELIST = {
 
 ECON = re.compile(r"\b(oil|crude|brent|wti|opec|barrels?|gold|bullion|fed$|federal reserve|inflation|tariffs?|gasoline"
                   r"|lng|refiner\w*|tanker rates|freight|insurance|commodit\w+|dollar)\b", re.I)
+# Trump talks about prices at every rally; only energy, gold and rates count as market news from him
+ECON_TRUTH = re.compile(r"\b(oil|crude|opec|energy|gasoline|gas prices?|drill\w*|gold|federal reserve|the fed"
+                        r"|interest rates?|rate cuts?|tariffs? on (china|oil))\b", re.I)
 
 
 def _js_radix36(value: float) -> str:
@@ -213,11 +216,13 @@ def truth_social(source):
             continue
         for e in parse_feed(r.content):
             text = clean_summary(e.get("content") or e.get("summary") or e.get("title"))
-            if not text or len(text) < 12:
+            if not text or len(text) < 12 or re.match(r"^\s*(RT:|RT @)", text):
                 continue
+            if len(re.sub(r"https?://\S+", "", text).strip()) < 12:
+                continue                            # a bare link or a reposted video
             ts = parse_date(e.get("date")) or now()
             sc, rel = relevance_en(text[:200], text[200:900])
-            econ = bool(ECON.search(text))
+            econ = bool(ECON_TRUTH.search(text))
             if not rel and not econ:
                 continue
             pid = "t" + re.sub(r"\D", "", e.get("link") or "")[-18:] if re.search(r"\d", e.get("link") or "") \

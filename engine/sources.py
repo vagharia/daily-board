@@ -21,11 +21,14 @@ GROUPS = {
 }
 
 
-def S(id, en, fa, group, rel, domains, feeds=(), lang="en", gn=True, gnq=None, kind="news"):
+def S(id, en, fa, group, rel, domains, feeds=(), lang="en", gn=True, gnq=None, kind="news", tg=(), tz=0,
+      via_media=False):
+    """tz: correction in seconds for feeds that print local time as UTC. via_media: the source is found
+    through other outlets' reports (UKMTO, CENTCOM), so items show the reporting outlet's name."""
     if isinstance(domains, str):
         domains = [domains]
     return dict(id=id, en=en, fa=fa, group=group, rel=rel, domains=list(domains),
-                feeds=list(feeds), lang=lang, gn=gn, gnq=gnq, kind=kind)
+                feeds=list(feeds), lang=lang, gn=gn, gnq=gnq, kind=kind, tg=list(tg), tz=tz, via_media=via_media)
 
 
 SOURCES = [
@@ -41,9 +44,7 @@ SOURCES = [
     S("bbc", "BBC", "بی‌بی‌سی", "wire", 0.95, "bbc.com", [
         "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml",
         "https://feeds.bbci.co.uk/news/world/rss.xml"]),
-    S("cnn", "CNN", "سی‌ان‌ان", "wire", 0.85, "cnn.com", [
-        "http://rss.cnn.com/rss/edition_meast.rss",
-        "http://rss.cnn.com/rss/edition_world.rss"]),
+    S("cnn", "CNN", "سی‌ان‌ان", "wire", 0.85, "cnn.com"),          # CNN's RSS feeds are stale
     S("aljazeera", "Al Jazeera", "الجزیره", "wire", 0.85, "aljazeera.com", [
         "https://www.aljazeera.com/xml/rss/all.xml"]),
     S("skynews", "Sky News", "اسکای نیوز", "wire", 0.85, "news.sky.com", [
@@ -146,7 +147,8 @@ SOURCES = [
     # ------------------------------------------------------------ official Persian Gulf agencies (6)
     S("spa", "Saudi Press Agency", "خبرگزاری عربستان", "gulf", 0.75, "spa.gov.sa"),
     S("wam", "WAM (UAE)", "خبرگزاری امارات", "gulf", 0.75, "wam.ae"),
-    S("qna", "Qatar News Agency", "خبرگزاری قطر", "gulf", 0.75, "qna.org.qa"),
+    S("qna", "Qatar News Agency", "خبرگزاری قطر", "gulf", 0.75, "qna.org.qa", [
+        "https://qna.org.qa/en/Pages/RSS-Feeds/General"], tz=-3 * 3600),
     S("ona", "Oman News Agency", "خبرگزاری عمان", "gulf", 0.75, "omannews.gov.om"),
     S("kuna", "KUNA (Kuwait)", "خبرگزاری کویت", "gulf", 0.75, "kuna.net.kw"),
     S("bna", "Bahrain News Agency", "خبرگزاری بحرین", "gulf", 0.75, "bna.bh"),
@@ -183,7 +185,7 @@ SOURCES = [
 
     # ------------------------------------------------------------ maritime & energy (6)
     S("ukmto", "UKMTO (via media)", "UKMTO", "maritime", 0.85, "ukmto.org",
-      gnq='(UKMTO OR "Maritime Trade Operations" OR JMIC)'),
+      gnq='(UKMTO OR "Maritime Trade Operations" OR JMIC)', via_media=True),
     S("lloyds", "Lloyd's List", "لویدز لیست", "maritime", 0.85, "lloydslist.com"),
     S("gcaptain", "gCaptain", "جی‌کاپیتان", "maritime", 0.8, "gcaptain.com", [
         "https://gcaptain.com/feed/"]),
@@ -205,8 +207,9 @@ SOURCES = [
         "https://www.war.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945&max=15",
         "https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945&max=15"]),
     S("treasury", "US Treasury", "خزانه‌داری آمریکا", "official", 0.8, "home.treasury.gov"),
-    S("centcom", "CENTCOM", "سنتکام", "official", 0.8, "centcom.mil", [
-        "https://www.centcom.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=808&max=15"]),
+    S("centcom", "CENTCOM (via media)", "سنتکام", "official", 0.8, "centcom.mil", [
+        "https://www.centcom.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=808&max=15"],
+      gnq='(CENTCOM OR "Central Command") (statement OR said OR says OR announced)', via_media=True),
     S("iaea", "IAEA", "آژانس انرژی اتمی", "official", 0.85, "iaea.org", [
         "https://www.iaea.org/feeds/topnews"]),
     S("un", "UN News", "اخبار سازمان ملل", "official", 0.85, "news.un.org", [
@@ -216,34 +219,37 @@ SOURCES = [
 
     # ------------------------------------------------------------ Persian-language international (4)
     S("bbcpersian", "BBC Persian", "بی‌بی‌سی فارسی", "fa_intl", 0.85, "bbc.com/persian", [
-        "https://feeds.bbci.co.uk/persian/rss.xml"], lang="fa"),
+        "https://feeds.bbci.co.uk/persian/rss.xml"], lang="fa", tg=["bbcpersian"]),
     S("iranintl", "Iran International", "ایران اینترنشنال", "fa_intl", 0.7, "iranintl.com", [
-        "https://www.iranintl.com/fa/feed"], lang="fa"),
-    S("radiofarda", "Radio Farda", "رادیو فردا", "fa_intl", 0.75, "radiofarda.com", lang="fa"),
+        "https://www.iranintl.com/fa/feed", "https://www.iranintl.com/en/feed"], lang="fa", tg=["iranintltv"]),
+    S("radiofarda", "Radio Farda", "رادیو فردا", "fa_intl", 0.75, "radiofarda.com", [
+        "https://www.radiofarda.com/api/", "https://www.radiofarda.com/api/zpoqil-vomx-tpe_kip",
+        "https://www.radiofarda.com/api/zmoqpl-vomx-tpeykim"], lang="fa", tg=["radiofarda"]),
     S("indypersian", "Independent Persian", "ایندیپندنت فارسی", "fa_intl", 0.7,
-      "independentpersian.com", lang="fa"),
+      "independentpersian.com", ["https://www.independentpersian.com/rss.xml"], lang="fa", tg=["indypersian"]),
 
     # ------------------------------------------------------------ Iranian (10)
     S("tasnim", "Tasnim", "تسنیم", "iran", 0.6, "tasnimnews.com", [
-        "https://www.tasnimnews.com/fa/rss/feed/0/7/0/"], lang="fa"),
+        "https://www.tasnimnews.com/fa/rss/feed/0/7/0/"], lang="fa",
+      tg=["tasnimnews", "tasnimnews_ir", "tasnim_news", "tasnimnewsen"]),
     S("fars", "Fars", "فارس", "iran", 0.55, "farsnews.ir", [
-        "https://www.farsnews.ir/rss"], lang="fa"),
+        "https://www.farsnews.ir/rss"], lang="fa", tg=["farsna"]),
     S("irna", "IRNA", "ایرنا", "iran", 0.65, "irna.ir", [
-        "https://www.irna.ir/rss"], lang="fa"),
+        "https://www.irna.ir/rss"], lang="fa", tg=["irna_1313"]),
     S("isna", "ISNA", "ایسنا", "iran", 0.65, "isna.ir", [
-        "https://www.isna.ir/rss"], lang="fa"),
+        "https://www.isna.ir/rss"], lang="fa", tg=["isna94"]),
     S("mehr", "Mehr", "مهر", "iran", 0.6, "mehrnews.com", [
-        "https://www.mehrnews.com/rss"], lang="fa"),
+        "https://www.mehrnews.com/rss"], lang="fa", tg=["mehrnews"]),
     S("iribnews", "IRIB News", "خبرگزاری صداوسیما", "iran", 0.6, "iribnews.ir", [
-        "https://www.iribnews.ir/fa/rss/allnews"], lang="fa"),
+        "https://www.iribnews.ir/fa/rss/allnews"], lang="fa", tg=["iribnews"]),
     S("nournews", "Nour News", "نورنیوز", "iran", 0.6, "nournews.ir", [
-        "https://nournews.ir/fa/rss"], lang="fa"),
+        "https://nournews.ir/fa/rss/allnews"], lang="fa", tg=["nournews_ir"]),
     S("defapress", "Defa Press", "دفاع‌پرس", "iran", 0.55, "defapress.ir", [
-        "https://www.defapress.ir/fa/rss/allnews"], lang="fa"),
+        "https://www.defapress.ir/fa/rss/allnews"], lang="fa", tg=["defapress_ir"]),
     S("khabaronline", "Khabar Online", "خبرآنلاین", "iran", 0.65, "khabaronline.ir", [
-        "https://www.khabaronline.ir/rss"], lang="fa"),
+        "https://www.khabaronline.ir/rss"], lang="fa", tg=["khabaronline_ir"]),
     S("entekhab", "Entekhab", "انتخاب", "iran", 0.65, "entekhab.ir", [
-        "https://www.entekhab.ir/fa/rss/allnews"], lang="fa"),
+        "https://www.entekhab.ir/fa/rss/allnews"], lang="fa", tg=["entekhab_ir"]),
 ]
 
 BY_ID = {s["id"]: s for s in SOURCES}

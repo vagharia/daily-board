@@ -1,5 +1,6 @@
-"""Free machine translation (Google web endpoint, Microsoft Edge endpoint as fallback),
-with caching, batching and a small glossary so names and terms come out right in Persian."""
+"""Free machine translation through Google's public web endpoints (two independent endpoints,
+so one being throttled doesn't stop the run), with caching, size-limited batching and a small
+glossary so names and terms come out right in Persian."""
 import json
 import re
 import time
@@ -33,9 +34,11 @@ FA_RX_POST = [
     (re.compile(r"(?<![؀-ۿ])نمی (?=[؀-ۿ])"), "نمی‌"),
     (re.compile(r"\s+([،.؛:!؟])"), r"\1"),
 ]
+_LINEBREAKS = re.compile(r"[\r\n  \u0085\v\f]+")
 
 
 def _pre(text, sl):
+    text = _LINEBREAKS.sub(" ", text)
     if sl == "en":
         for rx, rep in EN_PRE:
             text = rx.sub(rep, text)
@@ -52,35 +55,33 @@ def _post(text, tl):
 
 
 # ------------------------------------------------------------------ engines
-def _google(texts, sl, tl):
-    """Translate a list of single-line texts in one request (newline separated)."""
-    joined = "\n".join(t.replace("\n", " ") for t in texts)
-    r = http.post("https://translate.googleapis.com/translate_a/single",
-                  params={"client": "gtx", "sl": sl, "tl": tl, "dt": "t"},
-                  data={"q": joined}, timeout=25, retries=1)
+def _single(texts, sl, tl, host="translate.googleapis.com", client="gtx"):
+    """Several single-line texts in one request, newline separated."""
+    r = http.post(f"https://{host}/translate_a/single", params={"client": client, "sl": sl, "tl": tl, "dt": "t"},
+                  data={"q": "\n".join(texts)}, timeout=25, retries=1)
     data = r.json()
-    out = "".join(seg[0] for seg in data[0] if seg and seg[0])
+    out = "".join(seg[0] for seg in (data[0] or []) if seg and seg[0])
     parts = [p.strip() for p in out.split("\n")]
     if len(parts) != len(texts):
-        raise ValueError(f"google split mismatch {len(parts)} != {len(texts)}")
+        raise ValueError(f"split mismatch {len(parts)} != {len(texts)}")
     return parts
 
 
-_MS_TOKEN = {"t": None, "exp": 0}
+def _multi(texts, sl, tl, host="translate.googleapis.com", client="gtx"):
+    """One request, one q parameter per text (no newline juggling)."""
+    r = http.post(f"https://{host}/translate_a/t", params={"client": client, "sl": sl, "tl": tl},
+                  data=[("q", t) for t in texts], timeout=25, retries=1)
+    d = r.json()
+    if len(texts) == 1 and isinstance(d, list) and d and isinstance(d[0], str) and len(d) == 2:
+        d = [d]                       # single text with sl=auto comes back as [text, lang]
+    out = [x if isinstance(x, str) else x[0] for x in d]
+    if len(out) != len(texts):
+        raise ValueError(f"multi mismatch {len(out)} != {len(texts)}")
+    return out
 
 
-def _microsoft(texts, sl, tl):
-    if not _MS_TOKEN["t"] or time.time() > _MS_TOKEN["exp"]:
-        tok = http.get("https://edge.microsoft.com/translate/auth", timeout=15).text.strip()
-        _MS_TOKEN.update(t=tok, exp=time.time() + 480)
-    params = {"to": tl, "api-version": "3.0"}
-    if sl != "auto":
-        params["from"] = sl
-    r = http.post("https://api-edge.cognitive.microsofttranslator.com/translate",
-                  params=params,
-                  headers={"Authorization": "Bearer " + _MS_TOKEN["t"], "Content-Type": "application/json"},
-                  json_body=[{"Text": t} for t in texts], timeout=25, retries=1)
-    return [x["translations"][0]["text"] for x in r.json()]
+def _clients5(texts, sl, tl):
+    return _multi(texts, sl, tl, host="clients5.google.com", client="dict-chrome-ex")
 
 
 def _offline(texts, sl, tl):
@@ -94,10 +95,17 @@ def _offline(texts, sl, tl):
     return [table.get(t, ("[FA] " if tl == "fa" else "[EN] ") + t) for t in texts]
 
 
+ENGINES = [("single", _single), ("multi", _multi), ("clients5", _clients5)]
+MAX_ITEMS = 10
+MAX_BYTES = 2600          # UTF-8 bytes of source text per request (Persian is 2 bytes a letter)
+
+
 class Translator:
     def __init__(self, cache):
         self.cache = cache if cache is not None else {}
-        self.stats = {"google": 0, "microsoft": 0, "cached": 0, "failed": 0}
+        self.stats = {"cached": 0, "failed": 0, "requests": 0}
+        self.errors = []
+        self._dead = {}           # engine -> consecutive failures
 
     def key(self, text, sl, tl):
         return sha(f"{sl}>{tl}:{text}", 20)
@@ -119,45 +127,67 @@ class Translator:
                 todo.append(t)
         batch, size = [], 0
         for t in todo:
-            if batch and (size + len(t) > 3200 or len(batch) >= 12):
+            n = len(t.encode("utf-8"))
+            if batch and (size + n > MAX_BYTES or len(batch) >= MAX_ITEMS):
                 self._run(batch, sl, tl, result)
                 batch, size = [], 0
             batch.append(t)
-            size += len(t)
+            size += n
         if batch:
             self._run(batch, sl, tl, result)
         return result
 
+    def _err(self, msg):
+        log(msg)
+        if len(self.errors) < 12:
+            self.errors.append(msg[:160])
+
     def _run(self, batch, sl, tl, result):
-        pre = [_pre(t, sl) for t in batch]
+        pre = [_pre(t, sl)[:1800] for t in batch]
         out = None
-        engines = [("offline", _offline)] if config.OFFLINE else [("google", _google), ("microsoft", _microsoft)]
+        engines = [("offline", _offline)] if config.OFFLINE else ENGINES
         for name, fn in engines:
+            if self._dead.get(name, 0) >= 3:
+                continue
             try:
+                self.stats["requests"] += 1
                 out = fn(pre, sl, tl)
                 self.stats[name] = self.stats.get(name, 0) + len(batch)
+                self._dead[name] = 0
                 break
             except Exception as e:  # noqa: BLE001
-                log(f"translate {name} failed ({len(batch)} items): {str(e)[:100]}")
-                if name == "google" and len(batch) > 1 and "mismatch" in str(e):
-                    # translate one by one with google before giving up on it
-                    try:
-                        out = [_google([p], sl, tl)[0] for p in pre]
-                        self.stats["google"] += len(batch)
-                        break
-                    except Exception as e2:  # noqa: BLE001
-                        log("translate google single failed:", str(e2)[:100])
-                time.sleep(1.0)
+                self._dead[name] = self._dead.get(name, 0) + 1
+                self._err(f"translate {name} {sl}>{tl} ({len(batch)} items, "
+                          f"{sum(len(p.encode()) for p in pre)}B): {str(e)[:100]}")
+                time.sleep(0.6)
+        if out is None and len(batch) > 1:
+            # last resort: one text per request so a single bad text can't sink the batch
+            out = []
+            for p in pre:
+                try:
+                    self.stats["requests"] += 1
+                    out.append(_multi([p], sl, tl)[0])
+                except Exception as e:  # noqa: BLE001
+                    self._err(f"translate one-by-one {sl}>{tl}: {str(e)[:100]}")
+                    out.append(None)
+                time.sleep(0.1)
         if out is None:
             self.stats["failed"] += len(batch)
             return
+        if not config.OFFLINE:
+            time.sleep(0.12)
         for src, tr in zip(batch, out):
-            tr = _post(tr, tl)
+            tr = _post(tr, tl) if tr else ""
             if tr:
                 result[src] = tr
                 self.cache[self.key(src, sl, tl)] = [tr, now()]
+            else:
+                self.stats["failed"] += 1
 
-    def prune(self, max_age=9 * 24 * 3600):
+    def prune(self, max_age=9 * 24 * 3600, max_entries=24000):
         cut = now() - max_age
         for k in [k for k, v in self.cache.items() if v[1] < cut]:
             del self.cache[k]
+        if len(self.cache) > max_entries:
+            for k, _ in sorted(self.cache.items(), key=lambda kv: kv[1][1])[: len(self.cache) - max_entries]:
+                del self.cache[k]

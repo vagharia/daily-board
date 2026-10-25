@@ -29,7 +29,10 @@ TG_CHANNEL = "dollar_tehran3bze"
 TIER_RED = 70
 TIER_ORANGE = 45
 
+# Bump to discard stored stories / seen items after a logic change (translations are kept).
+STATE_VERSION = 2
+
 # Run budgets
-MAX_NEW_PER_RUN = 900          # safety cap on new items processed per run
+MAX_FA_TRANSLATE = 320         # Persian items translated per run (the rest wait for the next run)
 MAX_PAGE_FETCHES = 45          # article pages fetched for images / embedded posts
 MAX_TWEET_LOOKUPS = 30

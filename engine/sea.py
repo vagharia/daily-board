@@ -1,6 +1,7 @@
 """Shipping picture: daily transits through Hormuz and Bab el-Mandeb (IMF PortWatch, free but
 about a week behind) and active navigational warnings for the region (NGA)."""
 import re
+import time
 import statistics
 from datetime import date, datetime, timedelta, timezone
 
@@ -64,8 +65,15 @@ def portwatch(key):
     return out
 
 
-WARN_RX = re.compile(r"PERSIAN GULF|STRAIT OF HORMUZ|GULF OF OMAN|ARABIAN SEA|RED SEA|GULF OF ADEN|BAB EL MANDEB"
-                     r"|BAB AL MANDAB|IRAN|OMAN|UNITED ARAB EMIRATES|QATAR|BAHRAIN|KUWAIT|SAUDI ARABIA|YEMEN", re.I)
+WARN_RX = re.compile(r"\b(PERSIAN GULF|STRAIT OF HORMUZ|GULF OF OMAN|ARABIAN SEA|RED SEA|GULF OF ADEN|BAB EL MANDEB"
+                     r"|BAB AL MANDAB|IRAN|OMAN|UNITED ARAB EMIRATES|U\.A\.E|QATAR|BAHRAIN|KUWAIT|SAUDI ARABIA|YEMEN"
+                     r"|ERITREA|DJIBOUTI|IRAQ)\b", re.I)
+SECURITY_RX = re.compile(r"\b(MILITARY|NAVAL|EXERCISES?|MISSILES?|ROCKETS?|FIRING|GUNNERY|HAZARDOUS OPERATIONS|MINES?"
+                         r"|MINED|ATTACK\w*|GPS|GNSS|JAMMING|INTERFERENCE|DRONES?|UAVS?|UNMANNED|SECURITY|THREAT\w*"
+                         r"|PIRACY|HIJACK\w*|BOARDED|EXPLOSI\w+|WARSHIPS?|AIRCRAFT|PROHIBITED|RESTRICTED|DANGER AREA)\b",
+                         re.I)
+ROUTINE_RX = re.compile(r"\b(WRECK|RACON|BUOY|LIGHT\b.{0,20}INOPERATIVE|BEACON|SURVEY|CABLE|PIPELINE|ANCHOR|DREDG\w+"
+                        r"|OBSTRUCTION|DERELICT|AIS)\b", re.I)
 
 
 def nga_warnings():
@@ -74,18 +82,35 @@ def nga_warnings():
                  headers={"Accept": "application/json"})
     data = r.json()
     rows = data.get("broadcast-warn") if isinstance(data, dict) else data
+    year = time.gmtime(now()).tm_year
     out = []
     for w in rows or []:
-        text = (w.get("text") or "").strip()
-        area = " ".join(str(w.get(k) or "") for k in ("navArea", "subregion", "area"))
-        if not WARN_RX.search(text[:400] + " " + area):
+        text = re.sub(r"\s+", " ", (w.get("text") or "")).strip()
+        head = text[:140]
+        if not WARN_RX.search(head):
             continue
+        try:
+            y = int(w.get("msgYear") or 0)
+        except (TypeError, ValueError):
+            y = 0
+        if y and y < year - 1:
+            continue                                    # long-standing notices (old wrecks, buoys)
+        sec = bool(SECURITY_RX.search(text[:600]))
+        if not sec and ROUTINE_RX.search(text[:300]):
+            continue
+        try:
+            num = int(w.get("msgNumber") or 0)
+        except (TypeError, ValueError):
+            num = 0
         out.append({
             "id": f"{w.get('navArea', '')} {w.get('msgNumber', '')}/{w.get('msgYear', '')}".strip(),
-            "date": str(w.get("issueDate") or "")[:20],
-            "text": re.sub(r"\s+", " ", text)[:600],
+            "date": str(w.get("issueDate") or "")[:20], "sec": sec, "_k": (y, num),
+            "text": text[:600],
         })
-    return out[:25]
+    out.sort(key=lambda x: (x["sec"], x["_k"]), reverse=True)
+    for x in out:
+        x.pop("_k", None)
+    return out[:12]
 
 
 def run(state):

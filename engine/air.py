@@ -1,12 +1,16 @@
-"""Air picture from open ADS-B networks (airplanes.live): military aircraft in the region and
-civil traffic levels over Iran, Iraq, Israel and the Persian Gulf compared with recent days."""
+"""Air picture from open ADS-B networks: military aircraft in the region (adsb.fi + adsb.lol, with
+airplanes.live as a fallback) and civil traffic levels over Iran, Iraq, Israel and the Persian Gulf
+(OpenSky Network, falling back to point queries) compared with the same time of day on recent days."""
 import statistics
 import time
 
 from . import http
 from .util import log, now
 
-API = "https://api.airplanes.live/v2"
+MIL_URLS = [("adsb.fi", "https://opendata.adsb.fi/api/v2/mil"), ("adsb.lol", "https://api.adsb.lol/v2/mil"),
+            ("airplanes.live", "https://api.airplanes.live/v2/mil")]
+OPENSKY = "https://opensky-network.org/api/states/all?lamin=12&lomin=32&lamax=42&lomax=64"
+POINT_URL = "https://api.adsb.lol/v2/point/{lat}/{lon}/250"
 REGION = (10.0, 42.5, 24.0, 66.0)   # lat_min, lat_max, lon_min, lon_max
 
 CATS = {
@@ -62,15 +66,75 @@ def _cat(t):
     return "other"
 
 
-def _get(path):
-    r = http.get(f"{API}/{path}", timeout=20, retries=1, headers={"Accept": "application/json"})
-    return r.json().get("ac") or []
+def _json(url, timeout=15):
+    r = http.get(url, timeout=timeout, retries=0, headers={"Accept": "application/json"})
+    return r.json()
+
+
+def _military(snap):
+    """Union of the military feeds that answer (they share contributors but not all of them)."""
+    got, used = {}, []
+    for name, url in MIL_URLS:
+        if name == "airplanes.live" and got:
+            break                                  # only needed when the other two failed
+        try:
+            for a in _json(url).get("ac") or []:
+                if a.get("hex"):
+                    got.setdefault(a["hex"], a)
+            used.append(name)
+        except Exception as e:  # noqa: BLE001
+            snap["errors"].append(f"mil {name}: {str(e)[:60]}")
+    return list(got.values()), used
+
+
+def _civil_opensky(mil_hex):
+    d = _json(OPENSKY, timeout=25)
+    counts = {reg: 0 for reg in POLY}
+    for st in d.get("states") or []:
+        try:
+            hexid, lon, lat, ground = st[0], st[5], st[6], st[8]
+        except (IndexError, TypeError):
+            continue
+        if lon is None or lat is None or ground or hexid in mil_hex:
+            continue
+        for reg, poly in POLY.items():
+            if _inside(lon, lat, poly):
+                counts[reg] += 1
+                break
+    return counts
+
+
+def _civil_points(snap, mil_hex):
+    counts, fails = {}, 0
+    for reg, pts in POINTS.items():
+        seen, ok = {}, False
+        for lat, lon in pts:
+            if fails >= 2:
+                break
+            time.sleep(1.05)
+            try:
+                for a in _json(POINT_URL.format(lat=lat, lon=lon)).get("ac") or []:
+                    if a.get("lat") is None or a.get("alt_baro") == "ground" or a.get("hex") in mil_hex:
+                        continue
+                    if (a.get("dbFlags") or 0) & 1:
+                        continue
+                    if _inside(a["lon"], a["lat"], POLY[reg]):
+                        seen[a.get("hex")] = 1
+                ok, fails = True, 0
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                snap["errors"].append(f"point {reg}: {str(e)[:60]}")
+        if ok:
+            counts[reg] = len(seen)
+    return counts
 
 
 def snapshot():
-    snap = {"ts": now(), "mil": None, "civil": {}, "list": [], "errors": []}
-    try:
-        ac = _get("mil")
+    snap = {"ts": now(), "mil": None, "civil": {}, "csrc": None, "list": [], "errors": [], "providers": []}
+    ac, used = _military(snap)
+    snap["providers"] = used
+    mil_hex = set()
+    if used:
         lat0, lat1, lon0, lon1 = REGION
         sel = [a for a in ac if a.get("lat") is not None and lat0 <= a["lat"] <= lat1 and lon0 <= a["lon"] <= lon1]
         cats = {k: 0 for k in list(CATS) + ["other"]}
@@ -81,28 +145,16 @@ def snapshot():
             lst.append({"hex": a.get("hex"), "cs": (a.get("flight") or "").strip(), "type": a.get("t") or "",
                         "cat": c, "lat": round(a["lat"], 3), "lon": round(a["lon"], 3),
                         "alt": a.get("alt_baro") if isinstance(a.get("alt_baro"), int) else 0})
+        mil_hex = {a.get("hex") for a in ac}
         snap["mil"] = {"total": len(sel), "cats": cats}
         snap["list"] = sorted(lst, key=lambda x: ["tanker", "bomber", "isr", "transport", "other"].index(x["cat"]))[:80]
+    try:
+        snap["civil"] = _civil_opensky(mil_hex)
+        snap["csrc"] = "opensky"
     except Exception as e:  # noqa: BLE001
-        snap["errors"].append(f"mil: {str(e)[:80]}")
-    for reg, pts in POINTS.items():
-        seen = {}
-        ok = False
-        for lat, lon in pts:
-            time.sleep(1.1)      # the API allows ~1 request per second
-            try:
-                for a in _get(f"point/{lat}/{lon}/250"):
-                    if a.get("lat") is None or a.get("alt_baro") == "ground":
-                        continue
-                    if (a.get("dbFlags") or 0) & 1:
-                        continue
-                    if _inside(a["lon"], a["lat"], POLY[reg]):
-                        seen[a.get("hex")] = 1
-                ok = True
-            except Exception as e:  # noqa: BLE001
-                snap["errors"].append(f"{reg}: {str(e)[:60]}")
-        if ok:
-            snap["civil"][reg] = len(seen)
+        snap["errors"].append(f"opensky: {str(e)[:60]}")
+        snap["civil"] = _civil_points(snap, mil_hex)
+        snap["csrc"] = "points" if snap["civil"] else None
     return snap
 
 
@@ -131,8 +183,11 @@ def _baseline(hist, getter, ts, window_h=1.0, days=7, exclude_h=3):
 
 def summarize(snap, hist):
     ts = snap["ts"]
-    out = {"updated": ts, "status": "ok" if not snap["errors"] else ("partial" if (snap["mil"] or snap["civil"]) else "fail"),
-           "mil": None, "civil": [], "list": snap["list"], "surge": 0.0, "civil_drop": 0.0}
+    ok_parts = bool(snap["mil"]) + bool(snap["civil"])
+    out = {"updated": ts, "status": "ok" if ok_parts == 2 else ("partial" if ok_parts else "fail"),
+           "mil": None, "civil": [], "list": snap["list"], "surge": 0.0, "civil_drop": 0.0,
+           "providers": snap.get("providers", []) + ([snap["csrc"]] if snap.get("csrc") else []),
+           "errors": snap["errors"][:6]}
     if snap["mil"]:
         b, n = _baseline(hist, lambda h: (h.get("mil") or {}).get("total"), ts, window_h=24, days=7)
         bt, _ = _baseline(hist, lambda h: ((h.get("mil") or {}).get("cats") or {}).get("tanker"), ts, window_h=24, days=7)
@@ -153,7 +208,8 @@ def summarize(snap, hist):
         if reg not in snap["civil"]:
             continue
         cnt = snap["civil"][reg]
-        b, n = _baseline(hist, lambda h, r=reg: (h.get("civil") or {}).get(r), ts)
+        b, n = _baseline(hist, lambda h, r=reg: (h.get("civil") or {}).get(r)
+                         if h.get("csrc", "points") == snap.get("csrc") else None, ts)
         pct = round(100 * cnt / b) if b else None
         state = "na"
         if b is not None and b >= 12:
@@ -174,6 +230,7 @@ def run(hist):
         return None, hist
     hist = [h for h in hist if h["ts"] >= snap["ts"] - 14 * 86400]
     summary = summarize(snap, hist)
-    hist.append({"ts": snap["ts"], "mil": snap["mil"], "civil": snap["civil"]})
-    log(f"air: mil={summary['mil'] and summary['mil']['total']} civil={snap['civil']} errors={len(snap['errors'])}")
+    hist.append({"ts": snap["ts"], "mil": snap["mil"], "civil": snap["civil"], "csrc": snap.get("csrc")})
+    log(f"air: mil={summary['mil'] and summary['mil']['total']} via {snap.get('providers')} civil={snap['civil']} "
+        f"({snap.get('csrc')}) errors={snap['errors'][:3]}")
     return summary, hist

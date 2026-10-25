@@ -1,20 +1,32 @@
-"""Fetch all 94 sources: direct feeds first, then Google News for whatever failed."""
+"""Fetch all 94 sources. Order of attempts per source:
+1. its own feeds;  2. Google News (grouped, with topic keywords);  3. Google News per domain without
+keywords;  4. the source's public Telegram channel;  5. Bing News per domain."""
 import re
 import time
 from collections import defaultdict
-from urllib.parse import quote, urlparse, urlunparse, parse_qsl, urlencode
+from urllib.parse import parse_qs, parse_qsl, quote, urlencode, urlparse, urlunparse
+
+from bs4 import BeautifulSoup
 
 from . import config, http, media
 from .feeds import parse_feed
-from .sources import SOURCES, BY_ID, source_for_domain
-from .util import clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha
+from .sources import SOURCES, source_for_domain
+from .util import clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha, norm_url
 
 KW_EN = '(Iran OR Iranian OR Israel OR Israeli OR Hormuz OR Tehran OR IRGC OR Hezbollah OR Houthi OR "Persian Gulf" OR Gulf OR CENTCOM)'
 KW_FA = "(آمریکا OR اسرائیل OR هرمز OR ترامپ OR سپاه OR حمله OR تحریم OR مذاکره OR موشک)"
 GN_EN = "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
 GN_FA = "https://news.google.com/rss/search?q={q}&hl=fa&gl=IR&ceid=IR:fa"
+BING = "https://www.bing.com/news/search?q={q}&format=rss&setlang={lang}&mkt={mkt}"
 
 _TRACK = re.compile(r"^(utm_|fbclid|gclid|cmpid|ito|ref|smid|mod|taid|ftag|guccounter|at_|ns_)", re.I)
+_OLD_DATE = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2},? ((?:19|20)\d\d)\b", re.I)
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍]+")
+
+
+def _pause(sec):
+    if not config.OFFLINE:
+        time.sleep(sec)
 
 
 def canonical(url: str) -> str:
@@ -24,8 +36,7 @@ def canonical(url: str) -> str:
         host = p.netloc.lower()
         if host.startswith("www."):
             host = host[4:]
-        path = p.path.rstrip("/")
-        return urlunparse(("https", host, path, "", urlencode(q), ""))
+        return urlunparse(("https", host, p.path.rstrip("/"), "", urlencode(q), ""))
     except Exception:  # noqa: BLE001
         return url
 
@@ -34,14 +45,30 @@ def make_items(src, entries, via, T, gn_source=None):
     out = []
     for e in entries:
         title = clean_title(e.get("title", ""))
-        if via == "gn" and e.get("source_name"):
+        if via in ("gn", "bing") and e.get("source_name"):
             suf = " - " + e["source_name"]
             if title.endswith(suf):
                 title = title[: -len(suf)].strip()
+        if via == "gn" and " - " in title:
+            head, _, tail = title.rpartition(" - ")
+            if len(tail) <= 45 and len(head) >= 20:
+                title = head.strip()             # Google News appends the outlet ("… - AP")
         link = (e.get("link") or "").strip()
+        if via == "bing" and "apiclick" in link:
+            real = parse_qs(urlparse(link).query).get("url", [None])[0]
+            if real:
+                link = real
         if not title or len(title) < 12 or not link.startswith("http"):
             continue
-        ts = parse_date(e.get("date")) or T
+        if src["lang"] != "fa" and has_fa(title):
+            continue                     # Arabic-language items from Arab outlets (we read their English output)
+        m = _OLD_DATE.search(title)
+        if m and int(m.group(1)) < time.gmtime(T).tm_year:
+            continue                     # "June 17, 2024 - Israel-Gaza news": an old live page
+        ts = parse_date(e.get("date"))
+        if ts is None:
+            continue                     # undated items are usually stale feed leftovers
+        ts += src.get("tz", 0)
         if ts > T + 900:
             ts = T
         if T - ts > config.WEEK:
@@ -51,101 +78,190 @@ def make_items(src, entries, via, T, gn_source=None):
             su = su[len(title):].strip(" .-—") if su.startswith(title) else ""
         su = first_sentences(su, 400)
         img, vid = media.from_entry(e, link)
-        lang = "fa" if has_fa(title) else "en"
         name_en, name_fa = src["en"], src["fa"]
         if gn_source:
             name_en = name_fa = gn_source
         out.append({
             "k": sha(canonical(link) if via != "gn" else (title.lower() + src["id"]), 16),
             "s": src["id"], "sn": name_en, "sn_fa": name_fa, "rel": src["rel"], "u": link, "t": ts,
-            "ti": title, "su": su, "img": img, "vid": vid, "lang": lang, "via": via,
+            "ti": title, "su": su, "img": img, "vid": vid, "lang": "fa" if has_fa(title) else "en", "via": via,
             "html": ((e.get("summary") or "") + " " + (e.get("content") or ""))[:40000],
         })
     return out
 
 
-def _fetch_feed(task):
-    src, url = task
-    r = http.get(url, timeout=20, retries=1)
-    entries = parse_feed(r.content)
-    if not entries:
-        raise ValueError("empty or invalid feed")
-    return entries
+# ------------------------------------------------------------------ Telegram channels (public web preview)
+_BG = re.compile(r"background-image:url\('([^']+)'\)")
 
 
-def _gn_query(sources, lang):
-    if len(sources) == 1 and sources[0].get("gnq"):
-        base = sources[0]["gnq"]
-    else:
-        sites = []
-        for s in sources:
-            sites += [f"site:{d}" for d in s["domains"]]
-        base = "(" + " OR ".join(sites) + ")" if len(sites) > 1 else sites[0]
-    kw = KW_FA if lang == "fa" else KW_EN
-    q = f"{base} {kw} when:2d"
-    return (GN_FA if lang == "fa" else GN_EN).format(q=quote(q))
+_TG_PREFIX = re.compile(r"^(فوری|خبر فوری|مهم|ویدیو|ویدئو|فیلم|عکس|تصاویر|اینفوگرافیک|گزارش|breaking|video)\s*[|:｜/-]\s*",
+                        re.I)
+
+
+def _clean_tg_line(s):
+    s = _EMOJI.sub(" ", s)
+    s = re.sub(r"(?:^|\s)[#@]\S+", " ", s)
+    s = re.sub(r"https?://\S+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip(" -–—|•*▪◾🔹")
+    s = _TG_PREFIX.sub("", s)
+    return s.strip(" -–—|•*")
+
+
+def tg_entries(handle):
+    r = http.get(f"https://t.me/s/{handle}", timeout=20, retries=1)
+    soup = BeautifulSoup(r.content, "lxml")
+    out = []
+    for div in soup.select("div.tgme_widget_message[data-post]"):
+        tnode = div.select_one(".tgme_widget_message_text")
+        tm = div.select_one("time[datetime]")
+        if not tnode or not tm:
+            continue
+        for br in tnode.find_all("br"):
+            br.replace_with("\n")
+        lines = [_clean_tg_line(x) for x in tnode.get_text("").split("\n")]
+        lines = [x for x in lines if x and "t.me/" not in x]
+        if len(lines) > 1 and len(lines[0]) < 30 and lines[0].endswith(":"):
+            lines = [lines[0] + " " + lines[1]] + lines[2:]          # "عراقچی:" + the quote
+        lines = [x for x in lines if len(x) >= 8]
+        if not lines:
+            continue
+        title, rest = lines[0], " ".join(lines[1:])
+        if len(title) > 170:
+            cut = title[:170]
+            title, rest = cut[: cut.rfind(" ")] + "…", title + " " + rest
+        img = None
+        ph = div.select_one(".tgme_widget_message_photo_wrap")
+        if ph and ph.get("style"):
+            m = _BG.search(ph["style"])
+            if m:
+                img = norm_url(m.group(1))
+        out.append({"title": title, "link": f"https://t.me/{div['data-post']}", "summary": rest[:900], "content": "",
+                    "date": tm["datetime"], "media": [{"url": img, "type": "image/jpeg", "medium": "image", "w": 0}] if img else [],
+                    "source_name": "", "source_url": ""})
+    return out
 
 
 def collect_all(T):
     health = {s["id"]: {"id": s["id"], "en": s["en"], "fa": s["fa"], "group": s["group"], "ok": False, "via": None,
                         "items": 0, "relevant": 0, "err": None} for s in SOURCES}
     per_source = defaultdict(list)
+
+    def note(sid, msg):
+        h = health[sid]
+        h["err"] = ((h["err"] + " | ") if h["err"] else "") + msg[:90]
+
+    # ---- 1. direct feeds
     tasks = [(s, u) for s in SOURCES if s["kind"] == "news" for u in s["feeds"]]
     t0 = time.time()
-    for (src, url), entries, err in http.parallel(_fetch_feed, tasks, workers=16):
+
+    def fetch_feed(task):
+        r = http.get(task[1], timeout=20, retries=1)
+        entries = parse_feed(r.content)
+        if not entries:
+            raise ValueError("empty or invalid feed")
+        return entries
+
+    for (src, url), entries, err in http.parallel(fetch_feed, tasks, workers=16):
         if err is not None:
-            if not per_source.get(src["id"]):
-                health[src["id"]]["err"] = f"{type(err).__name__}: {str(err)[:70]}"
+            note(src["id"], f"feed: {type(err).__name__}: {str(err)[:60]}")
             continue
         its = make_items(src, entries, "direct", T)
+        if not its:
+            note(src["id"], "feed: no dated items in the last week")
         per_source[src["id"]].extend(its)
-        health[src["id"]]["err"] = None
     log(f"direct feeds: {len(tasks)} requests in {time.time() - t0:.1f}s, "
-        f"{sum(1 for v in per_source.values() if v)} sources ok")
+        f"{sum(1 for v in per_source.values() if v)} sources with items")
 
-    # ---- Google News fallback
-    need = [s for s in SOURCES if s["kind"] == "news" and s["gn"] and not per_source.get(s["id"])]
-    special = [s for s in need if s.get("gnq")]
-    normal = [s for s in need if not s.get("gnq")]
-    queries = [([s], s["lang"]) for s in special]
-    for lang in ("en", "fa"):
-        pool = [s for s in normal if s["lang"] == lang]
-        for i in range(0, len(pool), 5):
-            queries.append((pool[i:i + 5], lang))
-    t0 = time.time()
-    for group, lang in queries:
-        url = _gn_query(group, lang)
+    def empty(s):
+        return s["kind"] == "news" and not per_source.get(s["id"])
+
+    def gn_fetch(url, group, special=False):
         try:
             r = http.get(url, timeout=20, retries=1)
             entries = parse_feed(r.content)
         except Exception as e:  # noqa: BLE001
             for s in group:
-                health[s["id"]]["err"] = (health[s["id"]]["err"] or "") + f" | gn: {str(e)[:50]}"
-            time.sleep(1.5)
-            continue
+                note(s["id"], f"gn: {str(e)[:50]}")
+            return
         ids = {s["id"] for s in group}
         for e in entries:
             host = urlparse(e.get("source_url") or "").netloc
-            if len(group) == 1 and group[0].get("gnq"):
+            if special:
                 src = group[0]
-                gn_name = e.get("source_name") or src["en"] if src["id"] == "ukmto" else None
-                its = make_items(src, [e], "gn", T, gn_source=gn_name)
-            else:
-                src = source_for_domain(host)
-                cand = [s for s in group if any(host.endswith(d.split("/")[0]) for d in s["domains"])]
-                if cand:
-                    src = cand[0]
-                if not src or src["id"] not in ids:
-                    continue
-                its = make_items(src, [e], "gn", T)
-            per_source[src["id"]].extend(its)
-        time.sleep(1.2)
-    log(f"google news: {len(queries)} queries in {time.time() - t0:.1f}s")
+                gn_name = (e.get("source_name") or src["en"]) if src.get("via_media") else None
+                per_source[src["id"]].extend(make_items(src, [e], "gn", T, gn_source=gn_name))
+                continue
+            cand = [s for s in group if any(host.endswith(d.split("/")[0]) for d in s["domains"])]
+            src = cand[0] if cand else source_for_domain(host)
+            if src and src["id"] in ids:
+                per_source[src["id"]].extend(make_items(src, [e], "gn", T))
+
+    # ---- 2. Google News, grouped with keywords
+    need = [s for s in SOURCES if empty(s) and s["gn"]]
+    queries = []
+    for s in need:
+        if s.get("gnq"):
+            queries.append(([s], s["lang"], True, f"{s['gnq']} {KW_FA if s['lang'] == 'fa' else KW_EN} when:2d"))
+    for lang in ("en", "fa"):
+        pool = [s for s in need if not s.get("gnq") and s["lang"] == lang]
+        for i in range(0, len(pool), 5):
+            grp = pool[i:i + 5]
+            sites = [f"site:{d}" for s in grp for d in s["domains"]]
+            base = "(" + " OR ".join(sites) + ")" if len(sites) > 1 else sites[0]
+            queries.append((grp, lang, False, f"{base} {KW_FA if lang == 'fa' else KW_EN} when:2d"))
+    t0 = time.time()
+    for grp, lang, special, q in queries:
+        gn_fetch((GN_FA if lang == "fa" else GN_EN).format(q=quote(q)), grp, special)
+        _pause(1.1)
+    # ---- 3. Google News per domain, no keywords (official agencies rarely use our keywords)
+    second = [s for s in SOURCES if empty(s) and s["gn"] and not s.get("gnq")]
+    for s in second[:16]:
+        sites = " OR ".join(f"site:{d}" for d in s["domains"])
+        gn_fetch((GN_FA if s["lang"] == "fa" else GN_EN).format(q=quote(f"{sites} when:2d")), [s])
+        _pause(1.1)
+    log(f"google news: {len(queries)} grouped + {len(second[:16])} single queries in {time.time() - t0:.1f}s")
+
+    # ---- 4. Telegram channels
+    def tg_source(src):
+        errs = []
+        for handle in src["tg"]:
+            try:
+                its = make_items(src, tg_entries(handle), "tg", T)
+            except Exception as e:  # noqa: BLE001
+                errs.append(f"tg {handle}: {str(e)[:40]}")
+                continue
+            if its:
+                return its, errs
+            errs.append(f"tg {handle}: no posts")
+        return [], errs
+
+    for src, res, err in http.parallel(tg_source, [s for s in SOURCES if empty(s) and s.get("tg")], workers=4):
+        if err is not None:
+            note(src["id"], f"tg: {str(err)[:60]}")
+            continue
+        its, errs = res
+        for m in errs:
+            note(src["id"], m)
+        per_source[src["id"]].extend(its)
+
+    # ---- 5. Bing News per domain
+    for s in [s for s in SOURCES if empty(s)][:20]:
+        if s["kind"] != "news":
+            continue
+        q = quote(" OR ".join(f"site:{d}" for d in s["domains"]))
+        try:
+            r = http.get(BING.format(q=q, lang="fa" if s["lang"] == "fa" else "en", mkt="en-US"), timeout=20, retries=1)
+            its = make_items(s, parse_feed(r.content), "bing", T)
+            per_source[s["id"]].extend(its)
+            if not its:
+                note(s["id"], "bing: no items")
+        except Exception as e:  # noqa: BLE001
+            note(s["id"], f"bing: {str(e)[:50]}")
+        _pause(0.8)
 
     items, keys = [], set()
     for sid, its in per_source.items():
-        uniq = []
-        titles = set()
+        uniq, titles = [], set()
         for it in sorted(its, key=lambda x: -x["t"]):
             tkey = it["ti"].lower()[:90]
             if it["k"] in keys or tkey in titles:
@@ -157,7 +273,7 @@ def collect_all(T):
             h = health[sid]
             h["ok"] = True
             h["items"] = len(uniq)
-            h["via"] = "gn" if all(i["via"] == "gn" for i in uniq) else "direct"
-            h["err"] = None if h["via"] == "direct" else h["err"]
+            vias = {i["via"] for i in uniq}
+            h["via"] = "direct" if "direct" in vias else sorted(vias)[0]
         items.extend(uniq)
     return items, health

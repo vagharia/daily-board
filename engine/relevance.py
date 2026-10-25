@@ -7,11 +7,11 @@ from .util import fa_norm
 # ------------------------------------------------------------------ English
 EN_CORE = en_rx([
     "iran", "tehran", "irgc", "revolutionary guard", "khamenei", "hormuz", "persian gulf", "gulf of oman",
-    "israel", "idf$", "netanyahu", "hezbollah", "houthi", "centcom", "natanz", "fordow", "fordo$", "bushehr",
-    "kharg", "bandar abbas", "araghchi", "araqchi", "pezeshkian", "larijani", "vahidi", "quds force", "mossad",
-    "tel aviv", "ayatollah", "basij", "isfahan",
+    "hezbollah", "houthi", "centcom", "natanz", "fordow", "fordo$", "bushehr", "kharg", "bandar abbas",
+    "araghchi", "araqchi", "pezeshkian", "larijani", "vahidi", "quds force", "ayatollah", "basij", "isfahan",
 ])
 EN_MID = en_rx([
+    "israel", "idf$", "netanyahu", "tel aviv", "mossad", "katz$",
     "middle east", "mideast", "gulf states", "gulf countries", "gulf arab", "saudi", "riyadh", "uae$", "emirat",
     "abu dhabi", "qatar", "doha", "oman$", "omani", "muscat", "bahrain", "kuwait", "iraq", "baghdad", "erbil",
     "syria", "damascus", "lebanon", "lebanese", "beirut", "yemen", "sanaa", "hodeidah", "red sea", "bab el-mandeb",
@@ -22,10 +22,17 @@ EN_MID = en_rx([
 EN_SEC = en_rx([
     "strike$", "strikes$", "struck$", "airstrike", "air strike", "missile", "drone", "attack", "war$", "wars$",
     "warfare", "ceasefire", "cease-fire", "truce", "sanction", "military", "troops", "navy$", "naval", "warship",
-    "aircraft carrier", "carrier strike", "bomber", "retaliat", "escalat", "threat", "warn", "nuclear", "blockade",
+    "aircraft carrier", "carrier strike", "bomber", "retaliat", "escalat", "threat", "nuclear", "blockade",
     "airspace", "evacuat", "intercept", "explosion", "blast$", "killed", "invasion", "ultimatum", "mobiliz",
-    "deploy", "talks$", "negotiat", "envoy", "diplomat", "oil price", "shipping",
+    "deploy", "shrapnel", "air defen", "airport",
 ])
+# weak signals: enough together with a core term, not enough to make a Middle East item relevant on their own
+EN_WEAK = en_rx(["talks$", "negotiat", "envoy", "diplomat", "oil price", "shipping", "warn", "summit", "minister"])
+ECON_A = re.compile(r"\b(oil|crude|brent|wti|opec\+?|lng|tankers?|gasoline|diesel|jet fuel)\b", re.I)
+ECON_B = re.compile(r"\b(prices?|surg\w*|jump\w*|soar\w*|spik\w*|rall\w*|climb\w*|fall\w*|drop\w*|slump\w*|plung\w*"
+                    r"|tumbl\w*|suppl\w*|output|exports?|imports?|market\w*|barrels?|futures|rates?|insurance)\b", re.I)
+GOLD = re.compile(r"\bgold\b.{0,60}\b(war|tension\w*|geopolitic\w*|safe[- ]haven|middle east|iran\w*|conflict|record)\b"
+                  r"|\b(war|tension\w*|geopolitic\w*|safe[- ]haven|middle east|iran\w*|conflict)\b.{0,60}\bgold\b", re.I)
 EN_US = en_rx(["trump", "rubio", "vance$", "bessent", "hegseth", "witkoff", "pentagon", "white house",
                "state department", "treasury"])
 EN_NOISE = en_rx([
@@ -65,13 +72,16 @@ def relevance_en(title: str, summary: str):
     ct, cs = _distinct(EN_CORE, t), _distinct(EN_CORE, s)
     mt, ms = _distinct(EN_MID, t), _distinct(EN_MID, s)
     st, ss = _distinct(EN_SEC, t), _distinct(EN_SEC, s)
+    wt, ws = _distinct(EN_WEAK, t), _distinct(EN_WEAK, s)
     ut, us = _distinct(EN_US, t), _distinct(EN_US, s)
-    score = 1.5 * (4 * len(ct) + 2 * len(mt) + len(st) + len(ut)) + \
-        (3 * len(cs - ct) + 1.5 * len(ms - mt) + 0.7 * len(ss - st) + 0.7 * len(us - ut))
-    other = len(mt | ms) + len(st | ss) + len(ut | us)
+    score = 1.5 * (4 * len(ct) + 2 * len(mt) + len(st) + 0.5 * len(wt) + len(ut)) + \
+        (3 * len(cs - ct) + 1.5 * len(ms - mt) + 0.7 * len(ss - st) + 0.3 * len(ws - wt) + 0.7 * len(us - ut))
+    other = len(mt | ms) + len(st | ss) + len(wt | ws) + len(ut | us)
     ok = bool(ct) or (bool(cs) and other >= 1) \
-        or (bool(mt) and bool(st | ss | ut | us) and score >= 4.5) \
-        or (bool(ut) and bool(mt | ms | cs)) or score >= 9
+        or (bool(mt) and bool(st) and score >= 4.5) \
+        or (bool(mt) and bool(ss) and len(mt | ms) >= 2 and score >= 6) \
+        or (bool(ut) and bool(mt | cs) and bool(st | ss | wt)) or score >= 10 \
+        or bool(ECON_A.search(t) and ECON_B.search(t)) or bool(GOLD.search(t))
     if ok and EN_NOISE.search(t) and not ct:
         ok = False
     if ok and EN_NOISE.search(t) and ct and not (st | ss):

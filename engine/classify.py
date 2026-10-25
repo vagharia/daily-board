@@ -28,12 +28,23 @@ PATTERNS = [
     P(r"\b(struck|bombed|bombing|bombard\w*|shell(ed|ing))\b", 78, ["military"], ["kinetic"]),
     P(r"\b(missile|rocket|drone|ballistic)s? (attack|strike|barrage|salvo|assault)s?\b", 82, ["military"], ["kinetic"]),
     P(r"\b(launch(es|ed|ing)?|fir(es|ed|ing)) (\w+ ){0,3}(missiles?|rockets?|drones?)\b", 82, ["military"], ["kinetic"]),
-    P(r"\bintercept(s|ed|ion|ions)?\b", 76, ["military"], ["kinetic"]),
+    P(r"\bintercept\w*\b.{0,40}\b(missiles?|rockets?|drones?|projectiles?|ballistic|uavs?|cruise)\b"
+      r"|\b(missiles?|rockets?|drones?|projectiles?|uavs?)\b.{0,60}\bintercept\w*", 78, ["military"], ["kinetic"]),
+    P(r"\bshrapnel\b|\bdebris (from|of) (an? )?(intercept\w*|missiles?|drones?)", 72, ["military"], ["kinetic"]),
+    P(r"\bintercept(s|ed|ion|ions)?\b", 50, ["military"], []),
     P(r"\b(air[- ]raid )?sirens?\b", 74, ["military"], ["kinetic"]),
     P(r"\bshot down\b|\bdowned (a |an |the )?(drone|jet|aircraft)", 80, ["military"], ["kinetic"]),
     P(r"\b(attack(ed|s)? on|attacked|under attack|came under fire)\b", 74, ["military"], ["kinetic"]),
     P(r"\b(explosions?|blasts?|detonat\w+)\b", 70, ["military"], ["kinetic"]),
-    P(r"\bassassinat\w+|\bkilled (a |an |the )?(senior|top) (commander|official|general)", 84, ["military"], ["kinetic"]),
+    P(r"\b(was |were |been |is |are )?assassinated\b|\bassassination of\b|\bkilled (a |an |the )?(senior|top) "
+      r"(commander|official|general)", 84, ["military"], ["kinetic"]),
+    P(r"\bassassination attempt\b|\battempt(ed)? to assassinate\b", 72, ["military"], ["kinetic"]),
+    P(r"\bassassinat\w+", 60, ["military"], ["threat"]),
+    P(r"\b(plot|plots|plotting|planning|plann?ed)\b.{0,40}\b(attacks?|strikes?|kill|killing|assassinat\w*|bomb\w*)\b",
+      60, ["military"], ["threat"]),
+    P(r"\bprepar\w+ (\w+ ){0,3}(for )?(\w+ )?escalat\w+|\bescalat\w+ (\w+ ){0,2}(war|conflict|fighting|strikes?)\b",
+      62, ["military"], ["threat"]),
+    P(r"\bescalat\w+", 48, ["military"], []),
     P(r"\b(seiz(e|es|ed|ing|ure)|hijack(s|ed|ing)?|board(s|ed|ing)?|captur(e|es|ed)) (\w+ ){0,3}(tanker|vessel|ship|cargo ship)s?\b",
       82, ["maritime"], ["kinetic", "maritime_incident"]),
     P(r"\b(tanker|vessel|ship|freighter)s? (was |were |is )?(seized|attacked|hit|struck|ablaze|on fire|explod\w+|sunk|sank|damaged|targeted)",
@@ -46,11 +57,17 @@ PATTERNS = [
     P(r"\bhormuz\b.{0,20}\b(closed|closure|blockade|shut)\b", 85, ["maritime"], ["maritime_incident", "hormuz_closure"]),
     P(r"\bairspace\b.{0,25}\b(closed|closure|shut|closing|reopen\w*)\b|\bclos(e|es|ed|ing) (its |the )?airspace\b",
       80, ["air"], ["airspace"]),
-    P(r"\bflights? (suspended|cancell?ed|halted|grounded|diverted)|\b(suspend|cancel|halt)s? (all )?flights?\b",
-      66, ["air"], ["airspace"]),
-    P(r"\b(evacuat\w+|order(s|ed|ing)? (the )?(departure|evacuation)|ordered departure|authorized departure"
-      r"|leave (the country |iran |israel |lebanon |iraq )?immediately|shelter in place|travel warning|do not travel"
+    P(r"\bflights? (suspended|cancell?ed|halted|grounded|diverted)|\b(suspend|cancel|halt)s? (all )?flights?\b"
+      r"|\b(rerout\w*|divert\w*|avoid\w*)\b.{0,40}\bairspace\b", 66, ["air"], ["airspace"]),
+    P(r"\bevacuat\w*\b.{0,40}\b(embass\w+|consulat\w+|diplomat\w*|staff|citizens|nationals|personnel|troops"
+      r"|outposts?|bases?|americans|britons|foreigners|expats|employees|families of)\b"
+      r"|\b(embass\w+|consulat\w+|diplomats?|staff|citizens|nationals|personnel|troops|outposts?|bases?|americans"
+      r"|foreigners|employees)\b.{0,40}\bevacuat\w*"
+      r"|\b(order(s|ed|ing)? (the )?(departure|evacuation)|ordered departure|authorized departure"
+      r"|leave (the country |iran |israel |lebanon |iraq )?immediately|shelter in place"
       r"|(non-?emergency|non-?essential) (staff|personnel|employees|diplomats))\b", 76, ["diplomacy"], ["evac"]),
+    P(r"\b(travel warning|do not travel|travel advisory|level 4)\b", 58, ["diplomacy"], []),
+    P(r"\bevacuat\w+", 52, ["diplomacy"], []),
     P(r"\b(deploy\w*|dispatch\w*|send(s|ing)?|sent|mov(e|es|ed|ing)|head(s|ing|ed)?|sail\w*|arriv\w*|redirect\w*)"
       r" (\w+ ){0,4}(aircraft carriers?|carrier strike groups?|carriers?|bombers?|b-2s?|b-52s?|b-1b?s?|f-35s?|f-22s?"
       r"|fighter jets?|warships?|destroyers?|thaad|patriot batter\w+|submarines?)\b", 72, ["military"], ["deploy"]),
