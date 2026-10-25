@@ -11,7 +11,7 @@ from .http import parallel
 from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
 from .sources import BY_ID, GROUPS, SOURCES
-from .translate import Translator
+from .translate import Translator, fix_terms
 from .util import data_path, first_sentences, load_json, log, now, save_json, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
@@ -421,6 +421,7 @@ def news_round(full=True):
         for p in group:
             p.setdefault("fa", p["text"])
             p.setdefault("en", p["text"])
+            p["fa"] = fix_terms(p["text"], p["fa"], "fa")
 
     # ---------------------------------------------------------------- 8. signals
     try:

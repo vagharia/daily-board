@@ -34,6 +34,8 @@ FA_RX_POST = [
     (re.compile(r"(?<![؀-ۿ])نمی (?=[؀-ۿ])"), "نمی‌"),
     (re.compile(r"\s+([،.؛:!؟])"), r"\1"),
 ]
+# Google renders a shekel as a mithqal (the old weight) in Persian; put the currency back when the source names it
+_SHEKEL = re.compile(r"shekel|\bNIS\b|שקל|ש\"ח|ש״ח", re.I)
 _LINEBREAKS = re.compile(r"[\r\n  \u0085\v\f]+")
 
 
@@ -43,6 +45,13 @@ def _pre(text, sl):
         for rx, rep in EN_PRE:
             text = rx.sub(rep, text)
     return text
+
+
+def fix_terms(src, out, tl):
+    """Corrections that depend on the source text."""
+    if tl == "fa" and out and "مثقال" in out and _SHEKEL.search(src or ""):
+        out = out.replace("مثقال", "شِکِل")
+    return out
 
 
 def _post(text, tl):
@@ -135,7 +144,7 @@ class Translator:
             size += n
         if batch:
             self._run(batch, sl, tl, result)
-        return result
+        return {k: fix_terms(k, v, tl) for k, v in result.items()}
 
     def _err(self, msg):
         log(msg)

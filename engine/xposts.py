@@ -49,7 +49,7 @@ WHITELIST = {
     "netanyahu": ("geo", "نخست‌وزیر اسرائیل", "Israeli PM"),
     "israelipm": ("geo", "نخست‌وزیر اسرائیل", "Israeli PM"),
     "idf": ("geo", "ارتش اسرائیل", "IDF"),
-    "israel_katz": ("geo", "وزیر جنگ اسرائیل", "Israeli Defense Minister"),
+    "israel_katz": ("geo", "وزیر دفاع اسرائیل", "Israeli Defense Minister"),
     "israelmfa": ("geo", "وزارت خارجه اسرائیل", "Israel MFA"),
     "gidonsaar": ("geo", "وزیر خارجه اسرائیل", "Israeli Foreign Minister"),
     "ltc_shoshani": ("geo", "سخنگوی بین‌المللی ارتش اسرائیل", "IDF international spokesperson"),
@@ -381,11 +381,12 @@ TG_ACCOUNTS = {
     "news_kremlin": ("کرملین", "Kremlin", "Kremlin"),
     "Ulyanov_Mikhail": ("نماینده روسیه در وین (آژانس)", "Russia's envoy in Vienna (IAEA)", "Mikhail Ulyanov"),
 }
-# official X accounts whose public embedded timeline is current; X refuses this page after a few requests from a
-# shared server address, so a few are read per full round, in turn, with a pause after a refusal
+# official X accounts whose public embedded timeline is current (government-labelled accounts; for others, Iranian
+# officials included, X serves an old snapshot); X refuses this page after a few requests from a shared server
+# address, so a few are read per full round, in turn, with a pause after a refusal
 X_TIMELINES = ["MFA_China", "mfa_russia", "Chinamission2un", "SpokespersonCHN", "KremlinRussia_E", "Amb_Ulyanov",
-               "MedvedevRussiaE", "RussiaUN", "gidonsaar", "CENTCOM", "StateDept", "IsraeliPM", "IDF", "IsraelMFA",
-               "araghchi", "IRIMFA_SPOX"]
+               "MedvedevRussiaE", "RussiaUN", "gidonsaar", "CENTCOM", "DeptofWar", "StateDept", "IsraeliPM", "IDF",
+               "IsraelMFA"]
 X_PER_ROUND = 3
 X_COOLDOWN = 3600
 POST_MAX_AGE = 3 * 86400
