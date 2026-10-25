@@ -390,6 +390,19 @@ def news_round(full=True):
     th = health["truth"]
     th.update(ok=bool(truth) or th["ok"], via="direct" if truth else None, items=len(truth),
               relevant=len(truth), err=None if truth else "no relevant posts or feed unreachable")
+    if misc.get("posts_fix") != 1:
+        # once: forget everything that came in through a channel this project no longer reads
+        ps, cand, seen_p = x_state.get("posts", {}), x_state.get("cand", {}), x_state.get("tg_seen", {})
+        drop = [k for k, p in ps.items() if p.get("via") == "eitaa"
+                or (cand.get(k, {}).get("own") and cand[k].get("h", "").lower() == "aghplt")]
+        for k in drop:
+            ps.pop(k, None)
+        for k in [k for k, e in cand.items() if e.get("own") and e.get("h", "").lower() == "aghplt"]:
+            cand.pop(k, None)
+        for k in [k for k in seen_p if k.startswith("eitaa:")]:
+            seen_p.pop(k, None)
+        misc["posts_fix"] = 1
+        log(f"posts from a dropped channel removed: {len(drop)}")
     extra = []
     if full:
         try:
@@ -399,10 +412,6 @@ def news_round(full=True):
             extra += xposts.telegram_posts(x_state, tr)
         except Exception as e:  # noqa: BLE001
             log("telegram accounts failed:", str(e)[:120])
-        try:
-            extra += xposts.eitaa_posts(x_state, tr)
-        except Exception as e:  # noqa: BLE001
-            log("eitaa accounts failed:", str(e)[:120])
         try:
             extra += xposts.x_timelines(x_state, tr)[0]
         except Exception as e:  # noqa: BLE001

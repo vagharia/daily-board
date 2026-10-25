@@ -1,7 +1,6 @@
 """Posts from credible accounts: on X (found through reputable media that cite or embed them, plus the public
 embedded timelines of some official accounts, read sparingly because X limits them), Trump's Truth Social
-posts, the public Telegram channels that officials and leading journalists run, and the Eitaa channel where an
-Iranian commentator repeats his tweets. X's own API is paid-only,
+posts, and the public Telegram channels that officials and leading journalists run. X's own API is paid-only,
 so this is deliberately selective. Only posts about the region and the conflict are kept."""
 import json
 import math
@@ -389,11 +388,6 @@ TG_ACCOUNTS = {
     # mostly links to his interviews and tweets; the tweets are looked up on X
     "s_m_marandi": ("استاد دانشگاه تهران", "University of Tehran professor", "Seyed Mohammad Marandi"),
 }
-# public Eitaa channels (an Iranian messenger whose public web preview works like Telegram's), for commentators who
-# post there what they tweet: channel -> (role fa, role en, name, X handle)
-EITAA_ACCOUNTS = {
-    "aligholhaky": ("روزنامه‌نگار", "Iranian journalist", "علی قلهکی", "aghplt"),
-}
 _TWEET_LINK = re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/(\w{1,15})/status/(\d{8,25})")
 # official X accounts whose public embedded timeline is current (government-labelled accounts; for others, Iranian
 # officials included, X serves an old snapshot); X refuses this page after a few requests from a shared server
@@ -492,7 +486,7 @@ def prune_off_topic(state):
         if (p.get("platform") == "telegram" and p.get("h") not in TG_ACCOUNTS) or \
                 (p.get("h") or "").lower() in UNFOLLOWED:
             gone.append(k)
-        elif (p.get("platform") == "telegram" or p.get("via") in ("timeline", "eitaa")) and not _on_topic(p):
+        elif (p.get("platform") == "telegram" or p.get("via") == "timeline") and not _on_topic(p):
             gone.append(k)
         elif _ukraine(p):
             gone.append(k)
@@ -575,58 +569,6 @@ def telegram_posts(state, tr):
         seen.pop(k, None)
     kept = _relevant(fresh, tr)
     log(f"telegram accounts: {len(fresh)} new posts, {len(kept)} about the region")
-    return kept
-
-
-def _eitaa_text(node):
-    for br in node.find_all("br"):
-        br.replace_with("\n")
-    text = node.get_text("")
-    text = re.split(r"\n[^\n]*(?:لینک\s*توییت|کانال\S*\s*«)", text)[0]      # the channel's own footer
-    text = re.sub(r"(?m)^\s*(#\S+\s*)+$", "", text)                          # lines of hashtags only
-    text = re.sub(r"#(\S+)", lambda m: m.group(1).replace("_", " "), text)
-    return re.sub(r"\n{3,}", "\n\n", re.sub(r"[ \t]+", " ", text)).strip()
-
-
-def eitaa_posts(state, tr):
-    """Recent posts of EITAA_ACCOUNTS that repeat the author's tweets and are about the conflict. Each one becomes
-    that tweet: looked up on X for the author's picture and likes, with the channel's copy standing in until then."""
-    seen = state.setdefault("tg_seen", {})
-    t0, fresh = now(), []
-
-    def fetch(ch):
-        r = http.get(f"https://eitaa.com/{ch}", timeout=20, retries=1)
-        return BeautifulSoup(r.content, "lxml")
-
-    for ch, soup, err in http.parallel(fetch, list(EITAA_ACCOUNTS), workers=2):
-        if err is not None or soup is None:
-            continue
-        rfa, ren, name, xh = EITAA_ACCOUNTS[ch]
-        for div in soup.select("div.etme_widget_message[data-post]"):
-            pid = "eitaa:" + div["data-post"]
-            tm = div.select_one("time[datetime]")
-            node = div.select_one(".etme_widget_message_text")
-            if pid in seen or not tm or not node:
-                continue
-            seen[pid] = t0
-            ts = parse_date(tm["datetime"]) or t0
-            if t0 - ts > POST_MAX_AGE:
-                continue
-            link = next((m for m in _TWEET_LINK.finditer(node.get_text(" ")) if m.group(1).lower() == xh.lower()), None)
-            text = _eitaa_text(node)
-            if not link or len(text) < 25:
-                continue                    # only what the author also tweeted
-            tid = link.group(2)
-            fresh.append({
-                "id": tid, "platform": "x", "h": xh, "n": name, "img": None, "v": False, "t": ts,
-                "text": text[:1500], "lang": _lang(text), "media": [], "likes": 0, "replies": 0,
-                "url": f"https://x.com/{xh}/status/{tid}", "seg": "geo", "role_fa": rfa, "role_en": ren,
-                "via": "eitaa",
-            })
-    kept = _relevant(fresh, tr)
-    for p in kept:
-        _own_tweet(state, p["h"], p["id"])
-    log(f"eitaa accounts: {len(fresh)} new posts, {len(kept)} about the region")
     return kept
 
 
