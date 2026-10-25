@@ -1,101 +1,69 @@
 """Connectivity probe run inside GitHub Actions (the dev sandbox has no internet).
 Writes _probe/probe.json, which the workflow pushes to the `probe` branch.
 
-This round: can we read recent posts of chosen X accounts without X's paid API (syndication timeline,
-Nitter mirrors, RSSHub), and which officials and journalists publish on public Telegram channels?"""
+This round: X's embedded-timeline (syndication) page for a list of officials and journalists: does the handle
+exist, how many posts come back, how recent the newest is, and how many are from the last three days."""
 import json
 import os
 import re
 import sys
 import time
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine import http  # noqa: E402
 
-HANDLES = ["barakravid", "araghchi", "MFA_China", "mfa_russia"]
-X_ENDPOINTS = [
-    "https://syndication.twitter.com/srv/timeline-profile/screen-name/{h}",
-    "https://syndication.twitter.com/srv/timeline-profile/screen-name/{h}?showReplies=false",
-    "https://cdn.syndication.twimg.com/timeline/profile?screen_name={h}",
-    "https://xcancel.com/{h}/rss",
-    "https://nitter.net/{h}/rss",
-    "https://nitter.poast.org/{h}/rss",
-    "https://nitter.privacydev.net/{h}/rss",
-    "https://nitter.space/{h}/rss",
-    "https://lightbrd.com/{h}/rss",
-    "https://nitter.tiekoetter.com/{h}/rss",
-    "https://nitter.kuuro.net/{h}/rss",
-    "https://nuku.trabun.org/{h}/rss",
-    "https://nitter.catsarch.com/{h}/rss",
-    "https://rsshub.app/twitter/user/{h}",
-]
-TG = ["MID_Russia", "MFARussia", "MariaVladimirovnaZakharova", "medvedev_telegram", "news_kremlin", "tass_agency",
-      "khamenei_ir", "Khamenei_fa", "araghchi", "araghchi_ir", "IRIMFA", "irimfa_spox", "baghaei_ir", "dolat_ir",
-      "president_ir", "pezeshkian_ir", "mb_ghalibaf", "ghalibaf_ir", "idfofficial", "IDFofficial", "avichayadraee",
-      "LTC_Shoshani", "IsraelMFA", "IsraelPersian", "israelinpersian", "amitsegal", "barakravid", "BarakRavid1",
-      "AmichaiStein1", "amichaistein", "manniefabian", "abualiexpress", "SepahNews", "sepah_news", "PressTV",
-      "Tasnimnews_EN", "chinaembassy", "globaltimesnews", "XHNews", "CGTNOfficial", "rtnews", "RT_com"]
+HANDLES = """
+realDonaldTrump POTUS WhiteHouse SecRubio StateDept StateDeptSpox DeptofWar SecWar PeteHegseth CENTCOM PressSec
+USAdarFarsi US5thFleet USAFCENT USUN StateDept_NEA USAmbIsrael GovMikeHuckabee SEPeaceMissions JDVance
+IsraeliPM netanyahu IDF Israel_katz IsraelMFA gidonsaar LTC_Shoshani AvichayAdraee IsraelPersian Israel_MOD dannydanon
+khamenei_ir Khamenei_fa drpezeshkian araghchi IRIMFA_SPOX IRIMFA_EN Iran_UN mb_ghalibaf JZarif IRIMFA Gharibabadi
+Takhtravanchi
+mfa_russia MID_RF KremlinRussia_E MedvedevRussiaE RussiaUN Amb_Ulyanov Dpol_un
+MFA_China SpokespersonCHN SpoxCHN_MaoNing SpoxCHN_LinJian Chinamission2un globaltimesnews HuXijin_GT XHNews
+CGTNOfficial
+BarakRavid laurnorman farnazfassihi JenGriffinFNC NatashaBertrand idreesali114 phildstewart lrozen ckubeNBC
+JacquiHeinrich kylieatwood jongambrellAP EricSchmittNYT helenecooper laraseligman glubold AlexWardVox jonathanvswan
+JDiamond1 DanLamothe APDiploWriter humeyra_pamuk jmhansler
+manniefabian amit_segal talshalev1 yossi_melman AmosHarel yanivkubovich Doron_Kadosh OrHeller nirdvori
+AviIssacharoff BenCaspit arik3000 LahavHarkov sfrantzman yonahjeremybob AmichaiStein1 ItayBlumental
+jasonrezaian NegarMortazavi GEsfandiari SanamVakil alihashem_tv abasaslani s_m_marandi HoseinDalirian maziarbahari
+hdagres
+""".split()
+URL = "https://syndication.twitter.com/srv/timeline-profile/screen-name/{h}"
 
 
-def strip(s, n=200):
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s or "")).strip()[:n]
-
-
-def x_probe(url):
+def ts(s):
     try:
-        r = http.get(url, timeout=20, retries=0, headers={"Accept": "text/html,application/xml,application/json"})
-    except Exception as e:  # noqa: BLE001
-        return {"err": str(e)[:160]}
+        return int(datetime.strptime(s, "%a %b %d %H:%M:%S %z %Y").timestamp())
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def probe(h):
+    r = http.get(URL.format(h=h), timeout=25, retries=1, headers={"Accept": "text/html"})
     t = r.text or ""
-    out = {"code": r.status_code, "len": len(t), "ctype": r.headers.get("content-type", "")[:40]}
-    if "__NEXT_DATA__" in t:
-        m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', t, re.S)
-        try:
-            d = json.loads(m.group(1)) if m else {}
-            entries = (((d.get("props") or {}).get("pageProps") or {}).get("timeline") or {}).get("entries") or []
-            tw = [e.get("content", {}).get("tweet") for e in entries if e.get("type") == "tweet"]
-            out["entries"] = len(entries)
-            out["tweets"] = [{"id": x.get("id_str"), "t": x.get("created_at"), "text": strip(x.get("full_text") or x.get("text"), 140)}
-                             for x in tw[:4] if x]
-        except Exception as e:  # noqa: BLE001
-            out["parse_err"] = str(e)[:100]
-    items = re.findall(r"<item>(.*?)</item>", t, re.S)
-    if items:
-        out["items"] = len(items)
-        out["first"] = [strip(re.search(r"<title>(.*?)</title>", i, re.S).group(1) if re.search(r"<title>", i) else "", 120)
-                        + " | " + (re.search(r"<pubDate>(.*?)</pubDate>", i).group(1) if re.search(r"<pubDate>", i) else "")
-                        for i in items[:3]]
-    if not items and "__NEXT_DATA__" not in t:
-        out["head"] = strip(t, 220)
-    return out
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', t, re.S)
+    if not m:
+        return {"code": r.status_code, "len": len(t), "no_data": re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))[:160]}
+    d = json.loads(m.group(1))
+    entries = (((d.get("props") or {}).get("pageProps") or {}).get("timeline") or {}).get("entries") or []
+    tw = [e.get("content", {}).get("tweet") or {} for e in entries if e.get("type") == "tweet"]
+    times = sorted((ts(x.get("created_at", "")) for x in tw), reverse=True)
+    now = time.time()
+    newest = max(tw, key=lambda x: ts(x.get("created_at", "")), default={})
+    user = (newest.get("user") or {})
+    return {"code": r.status_code, "n": len(tw), "newest": newest.get("created_at"),
+            "last3d": sum(1 for x in times if now - x < 3 * 86400), "last24h": sum(1 for x in times if now - x < 86400),
+            "name": user.get("name"), "followers": user.get("followers_count"),
+            "sample": re.sub(r"\s+", " ", newest.get("full_text") or newest.get("text") or "")[:140]}
 
 
-def tg(handle):
-    try:
-        r = http.get(f"https://t.me/s/{handle}", timeout=20, retries=0)
-    except Exception as e:  # noqa: BLE001
-        return {"err": str(e)[:120]}
-    t = r.text
-    dates = re.findall(r'<time datetime="([^"]+)"', t)
-    title = re.search(r'<meta property="og:title" content="([^"]*)"', t)
-    subs = re.search(r'counter_value">([^<]*)</span>\s*<span class="counter_type">subscribers', t)
-    texts = re.findall(r'class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', t, re.S)
-    return {"code": r.status_code, "posts": len(texts), "last": dates[-1] if dates else None,
-            "title": title.group(1)[:60] if title else None, "subs": subs.group(1) if subs else None,
-            "sample": strip(texts[-1], 160) if texts else None}
-
-
-out = {"t": int(time.time()), "x": {}, "tg": {}}
-for h in HANDLES:
-    for tpl in X_ENDPOINTS:
-        if h != HANDLES[0] and not any(k in tpl for k in ("syndication.twitter.com", "xcancel", "nitter.net")):
-            continue                          # the other handles only on the most promising endpoints
-        url = tpl.format(h=h)
-        out["x"][url] = x_probe(url)
-for h in TG:
-    out["tg"][h] = tg(h)
+out = {"t": int(time.time()), "x": {}}
+for h, res, err in http.parallel(probe, HANDLES, workers=6):
+    out["x"][h] = res if err is None else {"err": str(err)[:140]}
 os.makedirs("_probe", exist_ok=True)
 with open("_probe/probe.json", "w", encoding="utf-8") as f:
     json.dump(out, f, ensure_ascii=False, indent=1)
-print("probe done")
+print("probe done", len(out["x"]))
