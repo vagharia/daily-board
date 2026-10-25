@@ -96,6 +96,9 @@ PATTERNS = [
     P(r"\b(" + AIR + r")\b.{0,50}\b(deploy\w*|arriv\w*|land(s|ed|ing)?|head(s|ing|ed)? (to|for|toward)|spotted"
       r"|cross\w*|surge\w*|en route|redeploy\w*|stationed)\b", 66, ["military", "air"], ["deploy"]),
     P(r"\b(airlift|air bridge)\b", 56, ["military", "air"], ["deploy"]),
+    P(r"\b(load\w*|arm(s|ed|ing)|stockpil\w+|pre-?position\w*|mov(e|es|ed|ing))\b.{0,40}\b(missiles?|bombs?|munitions"
+      r"|bunker[- ]?bust\w*|tomahawks?|interceptors?)\b.{0,40}\b(warships?|bombers?|bases?|aircraft|submarines?"
+      r"|destroyers?|region|middle east)\b", 66, ["military"], ["deploy"]),
     P(r"\bscrambl\w+\b.{0,30}\b(jets|fighters|aircraft|warplanes|interceptors)\b"
       r"|\b(jets|fighters|warplanes|interceptors)\b.{0,20}\bscrambl\w+", 62, ["military", "air"], ["deploy"]),
     P(r"\bultimatum\b", 74, ["statement"], ["ultimatum"]),
