@@ -42,7 +42,7 @@ def ts(s):
 
 
 def probe(h):
-    r = http.get(URL.format(h=h), timeout=25, retries=1, headers={"Accept": "text/html"})
+    r = http.get(URL.format(h=h), timeout=25, retries=0, headers={"Accept": "text/html"})
     t = r.text or ""
     m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', t, re.S)
     if not m:
@@ -60,9 +60,21 @@ def probe(h):
             "sample": re.sub(r"\s+", " ", newest.get("full_text") or newest.get("text") or "")[:140]}
 
 
-out = {"t": int(time.time()), "x": {}}
-for h, res, err in http.parallel(probe, HANDLES, workers=6):
-    out["x"][h] = res if err is None else {"err": str(err)[:140]}
+# sequential with a pause, to see how many requests the endpoint allows before it starts refusing (HTTP 429)
+ORDER = ["BarakRavid", "araghchi", "MFA_China", "mfa_russia", "IDF", "CENTCOM", "IRIMFA_SPOX", "manniefabian",
+         "amit_segal", "jongambrellAP", "Amb_Ulyanov", "KremlinRussia_E", "SpoxCHN_MaoNing", "netanyahu",
+         "SecRubio", "StateDept", "IsraeliPM", "Israel_katz", "khamenei_ir", "drpezeshkian", "laurnorman",
+         "farnazfassihi", "AvichayAdraee", "gidonsaar", "MedvedevRussiaE", "Chinamission2un", "LTC_Shoshani",
+         "s_m_marandi", "abasaslani", "jasonrezaian"]
+out = {"t": int(time.time()), "x": {}, "log": []}
+for i, h in enumerate(ORDER):
+    t0 = time.time()
+    try:
+        out["x"][h] = probe(h)
+    except Exception as e:  # noqa: BLE001
+        out["x"][h] = {"err": str(e)[:140]}
+    out["log"].append([i, h, round(time.time() - t0, 1), out["x"][h].get("err") or out["x"][h].get("n")])
+    time.sleep(4)
 os.makedirs("_probe", exist_ok=True)
 with open("_probe/probe.json", "w", encoding="utf-8") as f:
     json.dump(out, f, ensure_ascii=False, indent=1)
