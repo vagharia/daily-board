@@ -388,6 +388,9 @@ def news_round(full=True):
     extra = []
     if full:
         try:
+            n_off = xposts.prune_off_topic(x_state)
+            if n_off:
+                log(f"posts no longer kept: {n_off}")
             extra += xposts.telegram_posts(x_state, tr)
         except Exception as e:  # noqa: BLE001
             log("telegram accounts failed:", str(e)[:120])

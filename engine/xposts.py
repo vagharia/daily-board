@@ -10,7 +10,10 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 from . import config, http
+from .classify import classify
+from .cluster import is_core
 from .feeds import parse_feed
+from .lexicon import COUNTRIES_RX, match_keys
 from .relevance import relevance_en
 from .util import clean_summary, has_fa, log, now, parse_date
 
@@ -410,6 +413,43 @@ def _views(s):
     return int(float(m.group(1)) * {"": 1, "K": 1e3, "M": 1e6}[m.group(2)])
 
 
+# Russian and Chinese official accounts: what they say about the Middle East counts even outside the core theatre
+POWER_ACCOUNTS = {"mfa_russia", "mid_rf", "kremlinrussia_e", "kremlinrussia", "medvedevrussiae", "russiaun",
+                  "amb_ulyanov", "dpol_un", "mfa_china", "spokespersonchn", "spoxchn_maoning", "spoxchn_linjian",
+                  "chinamission2un", "mfarussia", "mariavladimirovnazakharova", "medvedev_telegram", "news_kremlin",
+                  "ulyanov_mikhail"}
+_REGION = re.compile(r"\b(middle east|west asia|iran\w*|tehran|israel\w*|gaza|lebanon|lebanese|hezbollah|yemen\w*"
+                     r"|houthis?|syria\w*|persian gulf|gulf states|hormuz|palestin\w*)\b", re.I)
+
+
+def on_topic(en, power=False):
+    """About the conflict itself: relevant by the news rules and touching the core theatre (Iran, the Persian Gulf
+    states, Iraq, Yemen, Lebanon, Hormuz…), so West Bank arrests or a Jordanian church attack stay out. Russia and
+    China on the Middle East (their own accounts, or a post quoting Putin, Lavrov, Wang Yi…) are kept too."""
+    if not en or not relevance_en(en[:220], en[220:900])[1]:
+        return False
+    it = {"lang": "en", "en_ti": en[:220], "en_su": en[220:900]}
+    classify(it)
+    it["ctry"] = sorted(set(it["ctry"]) | set(match_keys(COUNTRIES_RX, en[:900], "")))
+    if is_core(it):
+        return True
+    return (power or "powers" in it["flags"]) and bool(_REGION.search(en[:900]))
+
+
+def _on_topic(p):
+    return on_topic(p["text"] if p.get("lang") == "en" else p.get("en"), (p.get("h") or "").lower() in POWER_ACCOUNTS)
+
+
+def prune_off_topic(state):
+    """Drop stored Telegram and timeline posts that the current rules no longer keep."""
+    posts = state.get("posts", {})
+    gone = [k for k, p in posts.items() if (p.get("platform") == "telegram" or p.get("via") == "timeline")
+            and not _on_topic(p)]
+    for k in gone:
+        posts.pop(k, None)
+    return len(gone)
+
+
 def _relevant(posts, tr):
     """Keep posts about the region and the conflict, judged on their English text (translated when needed)."""
     todo = {}
@@ -421,12 +461,7 @@ def _relevant(posts, tr):
         for p in posts:
             if p["lang"] == lg and res.get(p["text"]):
                 p["en"] = res[p["text"]]
-    out = []
-    for p in posts:
-        en = p["text"] if p["lang"] == "en" else p.get("en")
-        if en and relevance_en(en[:220], en[220:900])[1]:
-            out.append(p)
-    return out
+    return [p for p in posts if _on_topic(p)]
 
 
 def telegram_posts(state, tr):
@@ -537,7 +572,7 @@ def x_timelines(state, tr):
             p = _tweet((e.get("content") or {}).get("tweet") or {}, t0) if e.get("type") == "tweet" else None
             if p and p["h"] and p["h"].lower() in WHITELIST:
                 seg, rfa, ren = WHITELIST[p["h"].lower()]
-                p.update(seg=seg, role_fa=rfa, role_en=ren)
+                p.update(seg=seg, role_fa=rfa, role_en=ren, via="timeline")
                 got.append(p)
     kept = _relevant(got, tr)
     log(f"x timelines: {status}, {len(got)} recent posts, {len(kept)} about the region")
