@@ -36,6 +36,8 @@ PATTERNS = [
     P(r"\b(struck|bombed|bombing|bombard\w*|shell(ed|ing))\b", 78, ["military"], ["kinetic"]),
     P(r"\b(missile|rocket|drone|ballistic)s? (attack|strike|barrage|salvo|assault)s?\b", 82, ["military"], ["kinetic"]),
     P(r"\b(launch(es|ed|ing)?|fir(es|ed|ing)) (\w+ ){0,3}(missiles?|rockets?|drones?)\b", 82, ["military"], ["kinetic"]),
+    P(r"\b(missile|rocket) (launch|launches|firing|fired)\b|\blaunch(es)? of (\w+ ){0,2}(missiles?|rockets?)\b", 76,
+      ["military"], ["kinetic"]),
     P(r"\bintercept\w*\b.{0,40}\b(missiles?|rockets?|ballistic|cruise)\b"
       r"|\b(missiles?|rockets?)\b.{0,60}\bintercept\w*", 76, ["military"], ["kinetic"]),
     P(r"\bintercept\w*\b.{0,40}\b(drones?|projectiles?|uavs?)\b"
@@ -199,6 +201,7 @@ FA_PATTERNS = [
     FP(["حمله موشکی", "حمله پهپادی", "حمله هوایی", "حملات هوایی", "بمباران", "اصابت موشک", "حملات موشکی",
         "مورد حمله قرار"], 80, ["kinetic"]),
     FP(["حمله به", "شلیک موشک"], 62, []),
+    FP(["پرتاب موشک", "شلیک موشک ضد کشتی", "پرتاب پهپاد"], 76, ["kinetic"]),
     FP(["رهگیری", "سرنگون", "آژیر خطر", "پدافند فعال شد", "فعال شدن پدافند", "صدای انفجار", "انفجار",
         "شکار پهپاد", "انهدام پهپاد", "ساقط شد", "ساقط کرد"], 74, ["kinetic"]),
     FP(["توقیف نفتکش", "توقیف کشتی", "حمله به نفتکش", "حمله به کشتی"], 82, ["kinetic", "maritime_incident"]),

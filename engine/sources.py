@@ -1,4 +1,4 @@
-"""The fixed list of 98 sources checked on every run (94 outlets and agencies + 4 Telegram channels).
+"""The fixed list of 99 sources checked on every run (94 outlets and agencies + 5 Telegram channels).
 
 Each source has its own feeds; when they fail or don't exist, the engine falls back to a
 Google News query restricted to the source's domain(s). `rel` is a 0-1 reliability weight
@@ -262,11 +262,13 @@ SOURCES = [
       gn=False, kind="tg", tg=["fundamental_View"], noecon=True),
     S("tsepress", "TSE Press", "تی‌اس‌ای پرس", "tg", 0.45, "t.me/tsepress", lang="fa", gn=False, kind="tg",
       tg=["tsepress"], noecon=True),
+    S("mazene", "ON TIME", "آن‌تایم", "tg", 0.45, "t.me/mazene", lang="fa", gn=False, kind="tg",
+      tg=["mazene"], noecon=True),
 ]
 
 BY_ID = {s["id"]: s for s in SOURCES}
-assert len(SOURCES) == 98, len(SOURCES)
-assert len(BY_ID) == 98
+assert len(SOURCES) == 99, len(SOURCES)
+assert len(BY_ID) == 99
 
 
 def source_for_domain(host: str):
