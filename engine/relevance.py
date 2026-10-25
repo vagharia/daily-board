@@ -70,8 +70,8 @@ FA_CORE = fa_rx([
 FA_MID = fa_rx([
     "عربستان", "ریاض$", "امارات", "ابوظبی", "قطر$", "قطری", "دوحه", "عمان", "مسقط", "بحرین", "کویت", "عراق$",
     "عراقی", "بغداد",
-    "سوریه", "دمشق", "لبنان", "بیروت", "یمن", "صنعا", "دریای سرخ", "باب المندب", "غزه", "حماس", "اروپا",
-    "تروئیکا", "روسیه", "چین$", "چینی$", "غنی سازی", "اورانیوم", "هسته ای", "نفتکش", "تحریم", "مذاکره",
+    "سوریه", "دمشق", "لبنان", "بیروت", "یمن", "صنعا", "دریای سرخ", "باب المندب", "غزه", "حماس",
+    "تروئیکا", "غنی سازی", "اورانیوم", "هسته ای", "نفتکش", "تحریم", "مذاکره",
     "مذاکرات", "عراقچی", "لاریجانی", "وحیدی", "بقائی", "بقایی", "قالیباف", "شورای عالی امنیت ملی", "سپاه$",
     "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "جنگنده", "آتش بس", "رزمایش", "اولتیماتوم", "شورای امنیت",
     "ترور",
@@ -79,14 +79,26 @@ FA_MID = fa_rx([
     "پایگاه دریایی", "پایگاه موشکی", "پایگاه های نظامی", "پایگاه های آمریکا", "پایگاه آمریکا", "العدید",
     "دیه گو گارسیا", "هواپیمای نظارتی", "هواپیمای جاسوسی", "نیروی هوایی", "حریم هوایی", "دبی$", "نطنز", "فردو$",
     "خارگ", "خارک", "خاورمیانه",
-    # Russian and Chinese leaders and diplomats
-    "پوتین", "لاوروف", "پسکوف", "زاخارووا", "کرملین", "مدودف", "شویگو", "ریابکوف", "نبنزیا", "اولیانوف",
-    "شی جین پینگ", "وانگ یی", "مائو نینگ", "لین جیان", "مسکو", "پکن",
+])
+# the generic part of FA_MID (military, nuclear, sanctions, talks): it says nothing about where
+FA_MID_GENERIC = fa_rx([
+    "غنی سازی", "اورانیوم", "هسته ای", "نفتکش", "تحریم", "مذاکره", "مذاکرات", "ارتش", "پدافند", "نیروی دریایی",
+    "موشک", "پهپاد", "جنگنده", "آتش بس", "رزمایش", "اولتیماتوم", "شورای امنیت", "ترور", "سوخت رسان", "ترابری",
+    "هواپیماهای نظامی", "هواپیمای نظامی", "پروازهای نظامی", "پایگاه نظامی", "پایگاه هوایی", "پایگاه دریایی",
+    "پایگاه موشکی", "پایگاه های نظامی", "هواپیمای نظارتی", "هواپیمای جاسوسی", "نیروی هوایی", "حریم هوایی",
+])
+# Russia, China and Europe, their leaders and diplomats: news here only next to something from the Middle East
+# (Lavrov on Iran, Xi on Gaza), not a Putin-Xi summit or Europe's own tensions
+FA_POWERS = fa_rx([
+    "روسیه", "روس$", "چین$", "چینی$", "اروپا", "پوتین", "لاوروف", "پسکوف", "زاخارووا", "کرملین", "مدودف", "شویگو",
+    "ریابکوف", "نبنزیا", "اولیانوف", "شی جین پینگ", "وانگ یی", "مائو نینگ", "لین جیان", "مسکو", "پکن",
 ])
 # Iran's top officials: with a foreign power or a regional term (a trip to Moscow, talks in Beijing) it is news;
 # with an Iranian city alone it is domestic politics
 FA_IR_TOP = fa_rx(["پزشکیان", "خامنه ای", "رهبر انقلاب", "عراقچی", "لاریجانی", "قالیباف", "ظریف", "ولایتی",
-                   "شمخانی", "عارف", "وزیر امور خارجه", "وزیر خارجه ایران", "وزیر دفاع", "هیئت ایرانی", "هیات ایرانی"])
+                   "شمخانی", "عارف", "وزیر امور خارجه", "وزیر خارجه ایران", "وزیر دفاع", "هیئت ایرانی", "هیات ایرانی",
+                   "ستاد کل نیروهای مسلح", "ستاد کل نیرو های مسلح", "فرمانده کل سپاه", "فرمانده کل ارتش",
+                   "دبیر شورای عالی امنیت ملی"])
 # words that are everywhere in the news: they count only next to an actor, a region or a military term
 FA_GEN = fa_rx(["حمله", "حملات", "جنگ$", "تجاوز", "انفجار", "تهدید", "هشدار", "ضرب الاجل", "تنگه"])
 FA_WAR = fa_rx(["حمله", "حملات", "جنگ$", "تجاوز", "انفجار"])
@@ -180,11 +192,18 @@ def relevance_fa(title: str, summary: str):
     ct, cs = _distinct(FA_CORE, t), _distinct(FA_CORE, s)
     mt, ms = _distinct(FA_MID, t), _distinct(FA_MID, s)
     gt, city, kin = _distinct(FA_GEN, t), _distinct(FA_CITY, t), _distinct(FA_KIN, t)
+    pw = _distinct(FA_POWERS, t)
     iran_war = bool(FA_IRAN.search(t) and FA_WAR.search(t))          # "ایران" with attack, war or explosion
-    top = bool(FA_IR_TOP.search(t) and (mt or ct))
-    score = 4 * len(ct) + 2 * len(mt) + len(gt) + len(city) + 2.5 * len(cs - ct) + 1 * len(ms - mt)
+    top = bool(FA_IR_TOP.search(t) and (mt or ct or pw))
+    # something from the Middle East itself: a core actor or place, a regional term, an Iranian city, Iran
+    region = bool(ct or (mt - _distinct(FA_MID_GENERIC, t)) or city or FA_IRAN.search(t) or cs
+                  or FA_IRAN.search(s[:300]))
+    score = 4 * len(ct) + 2 * len(mt) + len(gt) + len(city) + 2.5 * len(cs - ct) + 1 * len(ms - mt) + \
+        (2 * len(pw) if region else 0)
     ok = bool(ct) or len(mt) >= 2 or bool(mt and (gt or city)) or bool(city and kin) or iran_war or top \
-        or (score >= 6 and bool(ct | mt | cs))
+        or (score >= 6 and bool(ct | mt | cs)) or bool(pw and region)
+    if ok and pw and not region and not top:
+        ok = False                       # Russia, China or Europe with nothing from the Middle East
     if ok and not ct and FA_FOREIGN.search(t) and not FA_IRAN.search(t):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France
     if ok and (FA_NOISE.search(t) or FA_SPORT.search(t) or FA_SPORT.search(s[:300])) and not FA_HARD.search(t):

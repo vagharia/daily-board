@@ -36,6 +36,13 @@ FA_RX_POST = [
 ]
 # Google renders a shekel as a mithqal (the old weight) in Persian; put the currency back when the source names it
 _SHEKEL = re.compile(r"shekel|\bNIS\b|שקל|ש\"ח|ש״ח", re.I)
+# and now and then calls a president "US president" when the English never mentions America
+# ("President Pezeshkian to meet Putin" -> "Pezeshkian, the US president")
+_US_PRES_FA = re.compile(r"رئیس[\s\u200c]?جمهور (آمریکا|ایالات متحده)")
+_US_SRC = re.compile(r"(?<![A-Za-z])(U\.S\.?|US|USA)(?![A-Za-z])|(?i:\b(america\w*|united states|trump|biden|vance"
+                     r"|white house|washington)\b)")
+_IR_PRES_SRC = re.compile(r"pezeshkian|\biran(ian|'s)? president|president of iran", re.I)
+_OTHER_SCRIPT = re.compile(r"[\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\u4E00-\u9FFF]")
 _LINEBREAKS = re.compile(r"[\r\n  \u0085\v\f]+")
 
 
@@ -49,8 +56,13 @@ def _pre(text, sl):
 
 def fix_terms(src, out, tl):
     """Corrections that depend on the source text."""
-    if tl == "fa" and out and "مثقال" in out and _SHEKEL.search(src or ""):
+    if tl != "fa" or not out:
+        return out
+    src = src or ""
+    if "مثقال" in out and _SHEKEL.search(src):
         out = out.replace("مثقال", "شِکِل")
+    if _US_PRES_FA.search(out) and not _OTHER_SCRIPT.search(src) and not _US_SRC.search(src):
+        out = _US_PRES_FA.sub("رئیس‌جمهور ایران" if _IR_PRES_SRC.search(src) else "رئیس‌جمهور", out)
     return out
 
 

@@ -373,6 +373,11 @@ def news_round(full=True):
             refresh(c)
     retry.sort(key=lambda c: ("en" in c and "fa" in c, -c["u"]))
     ensure_texts(list(changed.values()) + retry[:150], tr)
+    for c in clusters:                      # source-dependent corrections, for earlier translations too
+        if (c.get("fa") or {}).get("mt") and c.get("en"):
+            for f in ("ti", "su"):
+                if c["fa"].get(f):
+                    c["fa"][f] = fix_terms(c["en"].get(f, ""), c["fa"][f], "fa")
     for c in clusters:                      # never publish a story without a headline
         if "en" not in c or "fa" not in c:
             m = c["m"][0]

@@ -56,6 +56,18 @@ CORE_FLAGS = {"oil_spike", "maritime_incident", "hormuz_closure", "airspace", "n
 CORE_PPL = {"ir_leader", "ir_pres", "ir_fm", "ir_snsc", "irgc_cmd", "ir_army", "ghalibaf", "ir_spox", "houthi_l",
             "hzb_l", "grossi", "mbs", "sa_fm", "qa", "om", "uae"}
 NONCORE_FACTOR, NONCORE_CAP = 0.6, 55.0
+# a story about another war (Ukraine, Venezuela, Taiwan…) that never mentions the Middle East is market context at
+# most (it can get in through oil or gold news), never an orange story
+REGION_CTRY = {"ir", "il", "gulf", "yemen", "iraq", "lebanon", "syria"}
+OTHER_WAR = re.compile(r"\b(ukrain\w*|kyiv|kiev|zelensk\w*|donbas+|donetsk|luhansk|crimea\w*|kursk|zaporizh\w*|kharkiv"
+                       r"|odesa|odessa|venezuel\w*|caracas|maduro|taiwan\w*|sudan\w*|kashmir)\b"
+                       r"|اوکراین|کی‌یف|کییف|زلنسکی|ونزوئلا|تایوان|سودان", re.I)
+REGION_WORDS = re.compile(r"\b(middle east|mideast|west asia|levant|red sea|persian gulf|gulf (states|arab|countries"
+                          r"|nations|region|allies)|hormuz|palestin\w*|hamas|hezbollah|houthis?|egypt\w*|suez|sinai"
+                          r"|turk(ey|iye|ish)|qatar\w*|saudi\w*|emirat\w*|kuwait\w*|bahrain\w*|oman\w*|jordan\w*)\b"
+                          r"|خاورمیانه|غرب آسیا|خلیج فارس|دریای سرخ|فلسطین|حماس|حزب[\s\u200c]?الله|حوثی|مصر|ترکیه"
+                          r"|اردن|عربستان|امارات|قطر|کویت|بحرین|عمان", re.I)
+OTHER_WAR_CAP = 40.0
 CORROBORATE_BELOW = 0.75
 EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
                "alert", "kinetic_threat"}
@@ -64,6 +76,14 @@ EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "ev
 def is_core(c):
     return bool(set(c.get("ctry", [])) & CORE_CTRY or set(c.get("geo", [])) & CORE_GEO
                 or set(c.get("flags", [])) & CORE_FLAGS or set(c.get("ppl", [])) & CORE_PPL)
+
+
+def other_war(m):
+    """A report about another war with no Middle East reference at all."""
+    if set(m.get("ctry", [])) & REGION_CTRY or m.get("geo"):
+        return False
+    text = " ".join(m.get(k) or "" for k in ("ti", "su", "en_ti", "en_su"))
+    return bool(OTHER_WAR.search(text)) and not REGION_WORDS.search(text)
 
 
 def _stem(w):
@@ -487,6 +507,8 @@ def refresh(c):
         c["single"] = True
     else:
         c.pop("single", None)
+    if all(other_war(m) for m in ms):
+        c["sev"] = min(c["sev"], OTHER_WAR_CAP)
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []
