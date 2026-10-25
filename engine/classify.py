@@ -90,7 +90,10 @@ PATTERNS = [
     P(r"\b(mobiliz\w+|state of emergency|martial law|high alert|maximum alert|full alert|war footing)\b", 70,
       ["military"], ["alert"]),
     P(r"\bprepar\w+ (to|for) (strike|attack|war|retaliat\w+|military action)\b", 76, ["military"], ["kinetic_threat"]),
-    P(r"\b(kill(s|ed)?|dead|deaths|casualties|wounded|injured|martyr\w*)\b", 64, ["military"], []),
+    P(r"\b(\d+|dozens|hundreds|scores|several|many|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
+      r"(\w+\s+){0,2}(killed|dead|died|wounded|injured|martyred|casualties)\b"
+      r"|\b(killed|wounded|injured|martyred) (in|by|after|during|when|as)\b", 64, ["military"], []),
+    P(r"\b(kill(s|ed)?|dead|deaths|casualties|wounded|injured|martyr\w*)\b", 44, ["military"], []),
     P(r"\b(retaliat\w+|reprisal|revenge|counter-?attack|response will be)\b", 64, ["military"], ["retaliation"]),
     P(r"\bcyber ?-?attacks?\b", 60, ["military"], []),
     # --- significant
@@ -140,6 +143,24 @@ HYPO = re.compile(r"\b(threat\w*|warn\w*|vow\w*|could|would|may|might|if|unless|
                   r"|push(es)? (for|to)|seeks?|wants? to|calls? for|weigh\w*|mull\w*|options?|draw(n|s)? up|drafts?"
                   r"|cards?|leverage|means|would mean)\b", I)
 QUESTION = re.compile(r"[?؟]\s*(\W*$|[|/:-])")
+# controlled detonations of unexploded ordnance: loud, but not an attack
+CONTROLLED = re.compile(r"\b(non-?functional|unexploded|unfired|un-?detonated|controlled (explosions?|detonations?)"
+                        r"|defus\w+|bomb disposal|ordnance|munitions? (clearance|disposal)|clearing (mines|munitions)"
+                        r"|destruction of (\w+ ){0,3}(ammunition|munitions?|shells|bombs))\b", I)
+# fact-checks and debunks of attack claims
+FACTCHECK = re.compile(r"\b(does not show|doesn't show|did not show|didn't show|outdated (video|footage|image|photo)s?"
+                       r"|old (video|footage)|fact[- ]?check\w*|misleading|miscaptioned|false claims?|no evidence of"
+                       r"|is not from|isn't from)\b", I)
+# words attacking a person: a speech, not a strike
+VERBAL = re.compile(r"\b(strongly|sharply|harshly|verbally|fiercely)\s+(attack\w*|criticiz\w+)"
+                    r"|\b(attack(s|ed|ing)?|slam(s|med)?|blast(s|ed)?|lash(es|ed)? out at|rebuk\w+)\s+(\w+\s+){0,2}"
+                    r"(trump|biden|obama|netanyahu|khamenei|pezeshkian|araghchi|vance|rubio|harris|macron|starmer|erdogan"
+                    r"|putin|the (president|government|prime minister|minister|administration|opposition))\b", I)
+# "Foreign Policy: …", "The Economist: …" — Persian outlets summarising foreign commentary
+MEDIA_CITE = re.compile(r"^(the )?(new york times|wall street journal|washington post|financial times|foreign policy"
+                        r"|foreign affairs|economist|bloomberg|politico|axios|atlantic|haaretz|guardian|telegraph"
+                        r"|times of israel|jerusalem post|cnn|fox news|al[- ]?monitor|middle east eye|newsweek|time"
+                        r"|national interest|responsible statecraft|hill)( magazine| newspaper)?( claim| report| analysis)?\s*:", I)
 EXTRA_ANALYSIS = re.compile(r"\b(interview|in conversation|podcast|poll|polls|survey|op-ed|column|watch:|review:)\b"
                             r"|^(watch|listen|video)\b", I)
 ACTOR = re.compile(r"\b(trump|president|khamenei|supreme leader|netanyahu|prime minister|irgc|revolutionary guards?"
@@ -169,7 +190,7 @@ FA_PATTERNS = [
     FP(["اعزام ناو", "استقرار ناو", "ناو هواپیمابر", "استقرار بمب افکن", "بمب افکن های", "اعزام نیرو"], 70, ["deploy"]),
     FP(["اولتیماتوم", "ضرب الاجل"], 72, ["ultimatum"]),
     FP(["ترور", "به شهادت رسید", "شهادت"], 70, ["kinetic"]),
-    FP(["کشته", "جان باخت", "زخمی"], 64, []),
+    FP(["کشته", "جان باخت", "زخمی"], 50, []),
     FP(["انتقام", "پاسخ کوبنده", "پاسخ قاطع", "پاسخ پشیمان کننده", "تلافی", "پاسخ سخت"], 62, ["retaliation"]),
     FP(["تهدید", "هشدار"], 52, ["threat"]),
     FP(["تحریم"], 52, ["sanctions"]),
@@ -180,15 +201,19 @@ FA_PATTERNS = [
 ]
 FA_ANALYSIS = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
     "گفتگو با", "گفت‌وگو با", "گفت وگو با", "مصاحبه", "نظرسنجی", "تماشا کنید", "یادداشت", "سرمقاله", "تحلیل", "پادکست"]])))
+FA_CONTROLLED = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
+    "عمل نکرده", "خنثی سازی", "خنثی‌سازی", "انفجار کنترل شده", "انفجار کنترل‌شده", "پاکسازی مهمات", "انهدام مهمات",
+    "منفجر نشده", "مهمات باقیمانده"]])))
 FA_DENIAL = re.compile("|".join(map(re.escape, [fa_norm(x) for x in ["تکذیب", "شایعه", "کذب", "صحت ندارد", "جعلی"]])))
 
 
 def score_en(title: str, summary: str):
     t, s = title or "", summary or ""
-    best, topics, flags, kinetic_in_title = 0.0, set(), set(), False
+    best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
     for rx, base, tp, fl in PATTERNS:
         if rx.search(t):
             val = base
+            title_best = max(title_best, base)
             if base >= KINETIC_BASE:
                 kinetic_in_title = True
         elif s and rx.search(s):
@@ -219,6 +244,22 @@ def score_en(title: str, summary: str):
     if m:
         n = int(m.group(1))
         best += 10 if n >= 50 else 6 if n >= 10 else 0
+    if CONTROLLED.search(t) or CONTROLLED.search(s[:200]):
+        best = min(best, 40)
+        flags -= HARD_EVENTS
+        flags.add("controlled")
+    if FACTCHECK.search(t):
+        best = min(best, 38)
+        flags -= HARD_EVENTS
+        flags.add("denial")
+    if VERBAL.search(t):
+        best = min(best, 40)
+        flags -= HARD_EVENTS
+    if title_best < 45:
+        best = min(best, 52)                       # nothing notable in the headline itself
+    if MEDIA_CITE.search(t):
+        best = min(best, 56)
+        flags.add("analysis")
     if flags & HARD_EVENTS and not _strong_kinetic(t) and (HYPO.search(t) or _quote(t)):
         best = min(best, 66 if HYPO.search(t) else 64)   # "threatens to strike", "plans attacks", "X: …attack…"
         flags -= HARD_EVENTS
@@ -276,6 +317,10 @@ def score_fa(title: str, summary: str):
     if FA_ANALYSIS.search(t):
         best = min(best, 44)
         flags.add("analysis")
+    if FA_CONTROLLED.search(t) or FA_CONTROLLED.search(s[:200]):
+        best = min(best, 40)
+        flags -= {"kinetic", "maritime_incident", "hormuz_closure"}
+        flags.add("controlled")
     if QUESTION.search(t):
         best = min(best, 56)
         flags.add("speculative")
@@ -300,10 +345,13 @@ def classify(item):
             sev, flags = fsev or sev, flags | fflags
         else:
             # the translation is scored with the richer English rules; the Persian original can lift it halfway
-            if fsev > sev and not flags & {"speculative", "quote"}:
+            if fsev > sev and not flags & {"speculative", "quote", "controlled", "denial", "analysis"}:
                 sev = (fsev + sev) / 2
                 flags |= {f for f in fflags if f != "kinetic" or sev >= KINETIC_BASE}
-            flags |= {f for f in fflags if f in ("denial", "analysis", "speculative")}
+            flags |= {f for f in fflags if f in ("denial", "analysis", "speculative", "controlled")}
+            if "controlled" in flags:
+                sev = min(sev, 40)
+                flags -= {"kinetic", "maritime_incident", "hormuz_closure"}
             if "analysis" in flags:
                 sev = min(sev, 44)
             if "speculative" in fflags:
