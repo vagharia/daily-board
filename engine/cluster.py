@@ -3,6 +3,7 @@ import re
 
 from . import config
 from .classify import cluster_severity, tier
+from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .util import sha
 
 STOP = set("""
@@ -14,11 +15,8 @@ amid amidst near via per vs live update updates breaking news video watch photos
 day days week weeks month months year years today tonight yesterday tomorrow first second third one two three
 up down out off back amid amidst within without across around official officials source sources state media
 middle east region regional another again further yet still now more have has had same different past
-strait""".split())
-
-# reports of an event (an attack, an explosion, a seizure…) only join stories about an event, and statements only
-# join statements, unless the headlines are very close
-EVENT = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red"}
+strait but all any some such very much many both each other only even own its also amid among whether
+""".split())
 
 # "Iran war live: …", "War in the Middle East: …", "Middle East crisis | …" — the prefix says nothing about the event
 LIVE_PREFIX = re.compile(r"^\s*(?:[^:|–—]{0,40}\b(?:live|updates?|crisis|war|conflict|latest)\b[^:|–—]{0,20})\s*[:|–—]\s+",
@@ -34,6 +32,13 @@ SYN = {
     "threatening": "threat", "sanctions": "sanction", "sanctioned": "sanction", "killed": "kill", "kills": "kill",
     "seized": "seize", "seizes": "seize", "seizure": "seize", "hormuz's": "hormuz", "saudis": "saudi",
     "emirati": "uae", "emirates": "uae", "houthis": "houthi", "hezbollah's": "hezbollah", "gulf's": "gulf",
+    # one name, several spellings in translations
+    "qalibaf": "ghalibaf", "araqchi": "araghchi", "baghaie": "baghaei", "esfahan": "isfahan", "fordo": "fordow",
+    "uav": "drone", "uavs": "drone", "blast": "explosion", "blasts": "explosion", "explosions": "explosion",
+    "interception": "intercept", "interceptions": "intercept", "destruction": "destroy", "destroyed": "destroy",
+    "destroys": "destroy",
+    "two": "2", "three": "3", "four": "4", "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+    "ten": "10", "eleven": "11", "twelve": "12", "dozen": "12",
 }
 
 ENTITY = set("""iran israel us trump hormuz tanker hezbollah houthi saudi qatar oman uae iraq yemen lebanon syria
@@ -71,6 +76,7 @@ def _stem(w):
 
 def tokens(title: str):
     t = LIVE_PREFIX.sub("", title or "").lower()
+    t = re.sub(r"(\d),(\d{3})\b", r"\1\2", t)               # 1,500 -> 1500
     t = re.sub(r"[’'`]s\b", "", t)
     t = t.replace("u.s.", "us ").replace("u.k.", "uk ").replace("united states", "us").replace("united nations", "un")
     t = re.sub(r"[^a-z0-9\s]", " ", t)
@@ -88,23 +94,200 @@ def tokens(title: str):
     return out
 
 
-def similar(a, b, same_kind=True, events=False):
-    if not a or not b:
+# --- strict matching. A report joins a story only if its headline is very close to one of the story's reports
+# AND they agree on: what happened (the kind of event), where (places, else countries), when (a time window from
+# the story's first report; named weekdays), who said it and who reported it (for statements), and the figures.
+CLASS_ORDER = [("M", {"maritime_incident", "hormuz_closure"}), ("K", {"kinetic"}), ("A", {"airspace"}),
+               ("V", {"evac"}), ("D", {"deploy"}), ("U", {"ultimatum"}), ("N", {"nuclear_red"}), ("S", {"sanctions"}),
+               ("T", {"threat", "retaliation", "kinetic_threat", "talks_fail"})]
+PHYSICAL = {"M", "K", "A", "V", "D"}            # something happened somewhere; anything else is said or decided
+# the classifier can tag one outlet's report of an attack at sea as maritime and another's as kinetic, so these
+# kinds count as the same "what"; "O" means the kind wasn't recognised, which needs even closer headlines
+KIND = {"M": "attack", "K": "attack", "A": "attack", "V": "evac", "D": "deploy", "U": "threat", "T": "threat",
+        "N": "nuclear", "S": "sanctions", "O": None}
+WINDOW = {"event": 4 * 3600, "other": 10 * 3600}
+PLACE_TOKENS = {w for v in PLACES.values() for w in tokens(v[1]) if len(w) >= 4} - {"gulf", "island", "persian"}
+NAME_TOKENS = {w for v in PEOPLE.values() for x in v[2] if not x.startswith("re:") for w in tokens(x.rstrip("$"))
+               if len(w) >= 4} - set("""minister foreign prime president leader chief commander defense defence staff
+force armed council security national supreme countrie admiral general joint guard crown prince sheikh emir
+revolutionary abdul abdullah abdulrahman moham mohamm malik""".split())
+KEY = ENTITY | PLACE_TOKENS | NAME_TOKENS | tokens("""explosion intercept ballistic debris shrapnel mine seize
+airport embassy base refinery facility vessel ship tanker cable carrier bomber fighter jet ultimatum sanction
+enrichment uranium assassination evacuation airspace flight port""")
+_PREFIX = re.compile(r"^([^:：]{2,45})[:：]\s")
+_SAYS = re.compile(r"^(.{2,50}?)\s+(?:says|said|tells|told|warns|warned|claims|claimed|vows|vowed|announces"
+                   r"|announced|confirms|confirmed|denies|denied|threatens|threatened|insists|insisted|urges|urged"
+                   r"|calls|called|accuses|accused|rejects|rejected|demands|demanded|condemns|condemned|slams"
+                   r"|slammed|welcomes|welcomed|praises|praised|criticizes|criticises|criticized|blames|blamed"
+                   r"|dismisses|dismissed|stresses|stressed|reiterates|emphasizes|emphasised|emphasized|reacts"
+                   r"|responds|hails|backs|supports|opposes|lauds|decries|denounces|denounced)\b", re.I)
+_NOT_SPK = re.compile(r"\b(live|updates?|war|crisis|breaking|watch|video|report|exclusive|analysis|sources?|scoop"
+                      r"|opinion|explainer|media|press|news|agency|channel|correspondent)\b", re.I)
+_PERSON_CTRY = {"mbs": "gulf", "ghalibaf": "ir"}
+for _pid, _v in PEOPLE.items():
+    _c = match_keys(COUNTRIES_RX, " ".join([_v[1]] + [x for x in _v[2] if not x.startswith("re:")]))
+    _PERSON_CTRY.setdefault(_pid, _c[0] if _c else None)
+
+
+# outlets a headline cites ("…, Al-Arabiya reports", "Axios: …"): a claim from one outlet isn't the same story as a
+# claim from another
+_CITE = {k: re.compile(v, re.I) for k, v in {
+    "reuters": r"\breuters\b", "ap": r"\b(?-i:AP)\b|associated press", "afp": r"\bafp\b|agence france",
+    "bloomberg": r"\bbloomberg\b", "cnn": r"\bcnn\b", "fox": r"\bfox news\b", "nyt": r"new york times|\bnyt\b",
+    "wsj": r"wall street journal|\bwsj\b", "wapo": r"washington post", "axios": r"\baxios\b",
+    "politico": r"\bpolitico\b", "hill": r"(?<!capitol )\b(?:the )?hill\b", "nbc": r"\bnbc\b", "cbs": r"\bcbs\b",
+    "abc": r"\babc news\b", "alarabiya": r"\bal[- ]?arabiya\b",
+    "alaraby": r"\bal[- ]?arab[iy] al[- ]?jadeed\b|\bal[- ]?araby\b",
+    "aljazeera": r"\bal[- ]?jazeera\b", "mayadeen": r"\bmayadeen\b", "masirah": r"\bal[- ]?masirah\b",
+    "sky": r"\bsky news\b", "bbc": r"\bbbc\b", "kan": r"\b(?-i:Kan)\b|\bkan news\b", "ch12": r"\bchannel 12\b|\bn12\b",
+    "ch13": r"\bchannel 13\b", "ch14": r"\bchannel 14\b", "ynet": r"\bynet\b|\byedioth\b", "haaretz": r"\bhaaretz\b",
+    "toi": r"\btimes of israel\b", "jpost": r"\bjerusalem post\b", "hayom": r"\bisrael hayom\b",
+    "maariv": r"\bmaariv\b", "tasnim": r"\btasnim\b", "fars": r"\bfars ?news\b|\bfars agency\b",
+    "mehr": r"\bmehr news\b", "irna": r"\birna\b", "isna": r"\bisna\b", "nour": r"\bnour ?news\b",
+    "iranintl": r"\biran international\b", "presstv": r"\bpress ?tv\b", "kayhan": r"\bkayhan\b",
+    "sabereen": r"\bsaberee?n\b", "tass": r"\btass\b", "ria": r"\bria novosti\b", "xinhua": r"\bxinhua\b",
+    "guardian": r"\bthe guardian\b", "telegraph": r"\bthe telegraph\b", "economist": r"\bthe economist\b",
+    "ft": r"\bfinancial times\b", "isw": r"\bisw\b|study of war",
+}.items()}
+_DAYS = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
+_CLOCK = re.compile(r"\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)", re.I)
+
+
+def _numbers(title):
+    """Counts and other figures in a headline (two -> 2), leaving out years and clock times."""
+    out = set()
+    for w in tokens(_CLOCK.sub(" ", title or "")):
+        if w.isdigit():
+            n = int(w)
+            if not (1350 <= n <= 1450 or 1990 <= n <= 2035):     # years (Iranian and Gregorian)
+                out.add(n)
+    return frozenset(out)
+
+
+def event_class(m):
+    fl = set(m.get("flags") or [])
+    for k, fs in CLASS_ORDER:
+        if fl & fs:
+            return k
+    return "O"
+
+
+def speaker(title):
+    """Who the headline quotes, as (person id, country id, words): a known person or country, or else the
+    words naming the speaker ("GCC chief", "ALECSO") when the headline reads "<speaker> says/condemns …".
+    A bare "<name>:" prefix that is neither a person nor a country is often the outlet being cited, so it is
+    not used. None if no speaker is found."""
+    title = LIVE_PREFIX.sub("", title or "")
+    m, says = _PREFIX.match(title), False
+    if not m:
+        m, says = _SAYS.match(title), True
+    if not m or _NOT_SPK.search(m.group(1)):
+        return None
+    who = m.group(1)
+    ppl = match_keys(PEOPLE_RX, who)
+    if ppl:
+        return ppl[0], _PERSON_CTRY.get(ppl[0]), None
+    ctry = match_keys(COUNTRIES_RX, who)
+    if ctry:
+        return None, ctry[0], None
+    words = frozenset(tokens(who))
+    return (None, None, words) if says and words else None
+
+
+def _other_speaker(sa, sb):
+    """True if the two headlines quote different people, countries or organisations."""
+    if not sa or not sb:
         return False
-    inter = a & b
+    if sa[0] and sb[0]:
+        return sa[0] != sb[0]
+    if sa[1] and sb[1]:
+        return sa[1] != sb[1]
+    if bool(sa[0] or sa[1]) != bool(sb[0] or sb[1]):
+        return True                     # a known person or country vs an organisation we don't track
+    return bool(sa[2] and sb[2] and not sa[2] & sb[2])
+
+
+def features(m):
+    title = m.get("en_ti") or ""
+    return {"vars": variants(title), "cls": event_class(m), "geo": set(m.get("geo") or []),
+            "ctry": set(m.get("ctry") or []), "ppl": set(m.get("ppl") or []), "spk": speaker(title),
+            "nums": _numbers(title), "days": frozenset(d.lower() for d in _DAYS.findall(title)),
+            "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title))}
+
+
+def _text_close(x, y, physical):
+    """Very close headlines: most words shared, including a name, place, number or other key word."""
+    inter = x & y
     n = len(inter)
     if n < 2:
+        return 0.0
+    jac = n / len(x | y)
+    if n >= 4 and jac >= 0.5:
+        return jac
+    if not (inter & KEY or any(w.isdigit() for w in inter)):
+        return 0.0
+    if jac >= 0.5:
+        return jac
+    if n >= 3 and jac >= (0.4 if physical else 0.45):
+        return jac
+    if physical and n >= 3 and (x <= y or y <= x) and jac >= 0.3:
+        return jac                                  # a short headline wholly inside a longer one
+    return 0.0
+
+
+ANCHOR_DT = 2 * 3600       # reports this close in time may also match on rare shared words (see same_story)
+RARE_STORIES = 5           # a word found in at most this many stories counts as rare
+
+
+def same_story(a, b, dt=0, rare=frozenset()):
+    """a, b: features of two reports published dt seconds apart; rare: the uncommon words of report a.
+    True only if they agree on what happened, where and who said it, and their headlines are very close.
+    Reports within two hours of each other that share uncommon words (a place such as Pakdasht or Sirik, a
+    rare name) need a little less overlap. The story's time window is checked by the caller."""
+    ka, kb = KIND[a["cls"]], KIND[b["cls"]]
+    if ka and kb and ka != kb:                      # what happened
         return False
-    jac = n / len(a | b)
-    ovl = n / min(len(a), len(b))
-    if not same_kind:
-        return jac >= 0.5 and n >= 3
-    has_entity = bool(inter & ENTITY) or any(x.isdigit() for x in inter)
-    if not has_entity:
-        return jac >= 0.6 and n >= 4
-    return (ovl >= 0.6 and jac >= 0.3 and n >= 3) or (jac >= 0.5 and n >= 2) or (ovl >= 0.75 and n >= 3 and jac >= 0.25) \
-        or (n >= 4 and ovl >= 0.55 and jac >= 0.3) \
-        or (ovl == 1.0 and jac >= (0.18 if events else 0.25))           # a short headline fully inside a longer one
+    physical = a["cls"] in PHYSICAL or b["cls"] in PHYSICAL
+    jac, anchored = 0.0, False
+    for x in a["vars"]:
+        for y in b["vars"]:
+            j = _text_close(x, y, physical)
+            if not j and dt <= ANCHOR_DT and rare:
+                inter = x & y
+                n, k = len(inter), len(inter & rare)
+                j = n / len(x | y) if n >= 3 else 0.0
+                if (k >= 1 and j >= 0.35) or (k >= 2 and j >= 0.3):
+                    anchored = True
+                else:
+                    j = 0.0
+            jac = max(jac, j)
+    if not jac:
+        return False
+    if (ka is None) != (kb is None) and jac < 0.5:
+        # one report's kind wasn't recognised: rare shared words are enough only if the other isn't an event,
+        # so a reaction ("… condemn the attack on …") doesn't join the attack itself
+        if not anchored or physical:
+            return False
+    if a["geo"] and b["geo"]:                       # where
+        if not a["geo"] & b["geo"]:
+            return False
+    elif a["ctry"] and b["ctry"]:
+        if not a["ctry"] & b["ctry"]:
+            return False
+    elif (a["geo"] or b["geo"]) and jac < 0.5:      # one names the place, the other doesn't
+        return False
+    if a["days"] and b["days"] and not a["days"] & b["days"]:
+        return False                                # when: "on Sunday" vs "on Monday"
+    if a["nums"] and b["nums"] and not a["nums"] & b["nums"] and jac < 0.6:
+        return False                                # "11 killed" vs "16 killed"
+    if not physical:                                # who said it, and who reported it
+        if _other_speaker(a["spk"], b["spk"]):
+            return False
+        if a["ppl"] and b["ppl"] and not a["ppl"] & b["ppl"]:
+            return False
+        if a["cite"] and b["cite"] and not a["cite"] & b["cite"]:
+            return False
+    return True
 
 
 _SUB = re.compile(r"\s+/\s+|؛|\s+\|\s+")
@@ -121,10 +304,6 @@ def variants(title):
     return [full]
 
 
-def is_event(m):
-    return bool(set(m.get("flags") or []) & EVENT)
-
-
 class Clusterer:
     def __init__(self, clusters):
         self.clusters = clusters
@@ -136,31 +315,55 @@ class Clusterer:
             self._index(c)
 
     def _index(self, c):
-        toks = set()
-        for m in c["m"][:6]:
-            toks |= tokens(m.get("en_ti") or "")
-        self.tok[c["id"]] = [(variants(m.get("en_ti") or ""), is_event(m)) for m in c["m"][:6]]
-        for w in toks:
-            self.index.setdefault(w, set()).add(c["id"])
+        feats = self.tok.setdefault(c["id"], {})
+        for m in c["m"]:
+            if m["k"] not in feats:
+                feats[m["k"]] = features(m)
+                for v in feats[m["k"]]["vars"]:
+                    for w in v:
+                        self.index.setdefault(w, set()).add(c["id"])
+
+    def _rare(self, w, t):
+        """True if at most RARE_STORIES stories of the two days around t use the word."""
+        ids = self.index.get(w, ())
+        if len(ids) <= RARE_STORIES:
+            return True
+        n = 0
+        for cid in ids:
+            c = self.byid.get(cid)
+            if c and abs(t - c["t"]) <= 2 * 86400:
+                n += 1
+                if n > RARE_STORIES:
+                    return False
+        return True
 
     def add(self, item):
         """Attach the item to an existing cluster or start a new one. Returns (cluster, is_new_cluster)."""
-        it_vars = variants(item.get("en_ti") or "")
-        it_tok = set().union(*it_vars)
-        it_ev = is_event(item)
+        f = features(item)
+        it_tok = set().union(*f["vars"])
+        rare = frozenset(w for w in it_tok if len(w) >= 4 and not w.isdigit() and self._rare(w, item["t"]))
         cand = {}
         for w in it_tok:
             for cid in self.index.get(w, ()):
                 cand[cid] = cand.get(cid, 0) + 1
-        matches = []
-        for cid, _ in sorted(cand.items(), key=lambda kv: -kv[1])[:40]:
+        ranked = []
+        for cid, n in cand.items():
             c = self.byid.get(cid)
-            if not c or abs(item["t"] - c["u"]) > (6 if it_ev else 20) * 3600 or len(c["m"]) >= 60:
+            if c and abs(item["t"] - c["t"]) <= WINDOW["other"]:
+                ranked.append((n, cid))
+        matches = []
+        for _, cid in sorted(ranked, reverse=True)[:40]:
+            c = self.byid.get(cid)
+            if not c or len(c["m"]) >= 60:
                 continue
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
-            if any(similar(x, y, ev == it_ev, ev and it_ev)
-                   for mv, ev in self.tok.get(cid, []) for x in it_vars for y in mv):
+            feats = self.tok.get(cid, {})
+            physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
+            if abs(item["t"] - c["t"]) > WINDOW["event" if physical else "other"]:
+                continue                                   # when: measured from the story's first report
+            times = {m["k"]: m["t"] for m in c["m"]}
+            if any(same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()):
                 matches.append(c)
         best = matches[0] if matches else None
         for other in matches[1:]:

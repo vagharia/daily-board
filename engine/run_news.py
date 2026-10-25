@@ -162,12 +162,14 @@ def news_round(full=True):
 
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
-    if misc.get("recluster") != 1:
+    if misc.get("recluster") != 2:
         # once after a clustering change: rebuild the last two days' stories from their reports
         n0 = len(clusters)
         clusters = recluster(clusters, T)
-        misc["recluster"] = 1
-        first_run = True                      # re-formed stories must not trigger alerts again
+        misc["recluster"] = 2
+        # re-formed stories must not trigger alerts again; new reports in this round still can
+        sent = alerts_state.setdefault("sent", [])
+        sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
         log(f"re-clustered recent stories: {n0} -> {len(clusters)}")
     if misc.get("reeval") != 2:
         # once after a relevance change: items of the last 36 hours that were left out get another look
