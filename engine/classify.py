@@ -136,7 +136,8 @@ LIVE = re.compile(r"^(live|live updates|live:|breaking)\b", I)
 REACTION = re.compile(r"\b(condemn\w*|denounc\w*|deplor\w*|condolence\w*|sympath\w*|solidarity|unacceptable"
                       r"|calls? for (restraint|calm|de-?escalation)|urg(e|es|ed) restraint|welcom\w*|express\w* concern)\b", I)
 HYPO = re.compile(r"\b(threat\w*|warn\w*|vow\w*|could|would|may|might|if|unless|prepar\w+|plan\w*|plot\w*"
-                  r"|consider\w*|ready to|possible|possibility|scenario)\b", I)
+                  r"|consider\w*|ready to|possible|possibility|scenario|restart\w*|resum\w*|fresh|renew\w*"
+                  r"|push(es)? (for|to)|seeks?|wants? to|calls? for|weigh\w*|mull\w*|options?|draw(n|s)? up|drafts?)\b", I)
 QUESTION = re.compile(r"[?؟]\s*(\W*$|[|/:-])")
 EXTRA_ANALYSIS = re.compile(r"\b(interview|in conversation|podcast|poll|polls|survey|op-ed|column|watch:|review:)\b"
                             r"|^(watch|listen|video)\b", I)
@@ -217,9 +218,10 @@ def score_en(title: str, summary: str):
     if m:
         n = int(m.group(1))
         best += 10 if n >= 50 else 6 if n >= 10 else 0
-    if "kinetic" in flags and HYPO.search(t) and not ({"kinetic"} & _strong_kinetic(t)):
-        best = min(best, 66)                       # "threatens to strike", "could attack", "plans attacks"
-        flags.add("speculative")
+    if "kinetic" in flags and not _strong_kinetic(t) and (HYPO.search(t) or _quote(t)):
+        best = min(best, 66 if HYPO.search(t) else 64)   # "threatens to strike", "plans attacks", "X: …attack…"
+        flags.discard("kinetic")
+        flags |= {"speculative", "threat"} if HYPO.search(t) else {"statement"}
     if REACTION.search(t):
         best = min(best, 54)                       # reactions to an event rank below the event itself
         flags.add("reaction")
@@ -236,8 +238,16 @@ def score_en(title: str, summary: str):
     return max(5.0, min(98.0, best)), topics, flags
 
 
-_STRONG = re.compile(r"\b(struck|bombed|killed|launched|fired|hit|intercepted|shot down|exploded|attacked|seized"
-                     r"|strikes? (on|hit)|airstrikes? (on|hit|kill))\b", I)
+_STRONG = re.compile(r"\b(struck|bombed|killed|launch(ed|es)|fired|intercepted|intercepts|shot down|exploded|attacked"
+                     r"|seized|seizes|pounded|hits|downs|downed|explosions?|sirens?|casualties)\b", I)
+_QUOTE = re.compile(r"^([^:：]{2,45})[:：]\s")
+_NOT_SPEAKER = re.compile(r"\b(live|updates?|war|crisis|breaking|watch|video|report|exclusive|analysis)\b", I)
+
+
+def _quote(t):
+    """'Araghchi: …' — a statement whose words may mention attacks without reporting one."""
+    m = _QUOTE.match(t or "")
+    return bool(m) and not _NOT_SPEAKER.search(m.group(1))
 
 
 def _strong_kinetic(t):
@@ -269,11 +279,17 @@ def score_fa(title: str, summary: str):
     return best, flags
 
 
+def _head(t, s, limit=170):
+    """Only the start of a very long headline counts as headline; the rest is scored like the summary."""
+    if len(t) <= limit:
+        return t, s
+    return t[:limit], (t[limit:] + " " + s).strip()
+
+
 def classify(item):
     """Fill severity, topics, flags, people, places, countries on an item (needs English text)."""
-    en_t, en_s = item.get("en_ti") or "", item.get("en_su") or ""
-    fa_t = item.get("ti", "") if item.get("lang") == "fa" else ""
-    fa_s = item.get("su", "") if item.get("lang") == "fa" else ""
+    en_t, en_s = _head(item.get("en_ti") or "", item.get("en_su") or "")
+    fa_t, fa_s = _head(item.get("ti", ""), item.get("su", "")) if item.get("lang") == "fa" else ("", "")
     sev, topics, flags = score_en(en_t, en_s)
     if fa_t:
         fsev, fflags = score_fa(fa_t, fa_s)

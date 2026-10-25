@@ -77,6 +77,12 @@ def rescore(clusters):
         for m in c["m"]:
             if not is_relevant(m)[1]:
                 continue
+            for tk, sk in (("ti", "su"), ("en_ti", "en_su")):
+                if len(m.get(tk) or "") > 160:          # stored before overlong headlines were split
+                    head, rest = collect.split_long_title(m[tk])
+                    m[tk], m[sk] = head, (rest + " " + (m.get(sk) or "")).strip()
+                    c.pop("en", None)
+                    c.pop("fa", None)
             if m.get("lang") == "fa" or m.get("en_ti"):
                 classify(m)
             keep.append(m)

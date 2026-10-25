@@ -41,6 +41,22 @@ def canonical(url: str) -> str:
         return url
 
 
+_SEP = re.compile(r"\s*(?:/|؛|;|\s\|\s|\s[-–—]\s)\s*")
+
+
+def split_long_title(title, limit=160):
+    """Some outlets put a whole lede in the headline ("A / B / C"). Keep the first part as the headline."""
+    if len(title) <= limit:
+        return title, ""
+    for m in _SEP.finditer(title):
+        if 35 <= m.start() <= limit:
+            return title[:m.start()].strip(), title[m.end():].strip()
+    cut = title[:limit]
+    sp = cut.rfind(" ")
+    head = cut[:sp] if sp > limit * 0.6 else cut
+    return head.rstrip(" ,،:") + "…", title[len(head):].strip()
+
+
 def make_items(src, entries, via, T, gn_source=None):
     out = []
     for e in entries:
@@ -76,6 +92,9 @@ def make_items(src, entries, via, T, gn_source=None):
         su = "" if via == "gn" else clean_summary(e.get("summary") or e.get("content") or "")
         if su and (su == title or su.startswith(title[:50])):
             su = su[len(title):].strip(" .-—") if su.startswith(title) else ""
+        title, rest = split_long_title(title)
+        if rest:
+            su = (rest.rstrip(" .") + ". " + su).strip() if su else rest
         su = first_sentences(su, 400)
         img, vid = media.from_entry(e, link)
         name_en, name_fa = src["en"], src["fa"]

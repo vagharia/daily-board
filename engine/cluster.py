@@ -46,6 +46,8 @@ CORE_FLAGS = {"oil_spike", "maritime_incident", "hormuz_closure", "airspace", "n
 CORE_PPL = {"ir_leader", "ir_pres", "ir_fm", "ir_snsc", "irgc_cmd", "ir_army", "ghalibaf", "ir_spox", "houthi_l",
             "hzb_l", "grossi", "mbs", "sa_fm", "qa", "om", "uae"}
 NONCORE_FACTOR, NONCORE_CAP = 0.6, 55.0
+EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
+               "alert", "kinetic_threat"}
 
 
 def is_core(c):
@@ -147,7 +149,8 @@ class Clusterer:
 def _pick(members, lang):
     def key(m):
         return (m.get("rel", 0.6) + (0.25 if m.get("su") else 0) + (0.1 if m.get("img") else 0)
-                - (0.3 if m.get("via") == "gn" else 0) - m["t"] / 1e12)
+                - (0.3 if m.get("via") == "gn" else 0) + m.get("sev", 20) / 200
+                - (0.2 if len(m.get("ti", "")) > 160 else 0) - m["t"] / 1e12)
     pool = [m for m in members if m.get("lang") == lang]
     return max(pool, key=key) if pool else None
 
@@ -159,6 +162,10 @@ def refresh(c):
     c["ns"] = len(srcs)
     max_rel = max(m.get("rel", 0.6) for m in ms)
     c["sev"] = cluster_severity([m.get("sev", 20) for m in ms], c["ns"], max_rel)
+    top = max(ms, key=lambda m: m.get("sev", 0))
+    if not set(top.get("flags", [])) & EVENT_FLAGS:
+        # many outlets repeating a threat or a plan make it a big story, not a strike
+        c["sev"] = min(c["sev"], 69.0)
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []
