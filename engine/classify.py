@@ -35,7 +35,9 @@ PATTERNS = [
     P(r"\bstrikes? (on|against|at|in|near|hit|target)", 76, ["military"], ["kinetic"]),
     P(r"\b(struck|bombed|bombing|bombard\w*|shell(ed|ing))\b", 78, ["military"], ["kinetic"]),
     P(r"\b(missile|rocket|drone|ballistic)s? (attack|strike|barrage|salvo|assault)s?\b", 82, ["military"], ["kinetic"]),
-    P(r"\b(launch(es|ed|ing)?|fir(es|ed|ing)) (\w+ ){0,3}(missiles?|rockets?|drones?)\b", 82, ["military"], ["kinetic"]),
+    P(r"\b(launch(es|ed|ing)?|fir(es|ed|ing))\b(?! (a |an |its |the )?(new (?!wave|round|barrage|salvo|attack)|campaign"
+      r"|initiative|program|app|service|platform|product|probe|investigation|inquiry|company|startup))"
+      r".{0,30}\b(missiles?|rockets?|drones?)\b", 82, ["military"], ["kinetic"]),
     P(r"\b(missile|rocket) (launch|launches|firing|fired)\b|\blaunch(es)? of (\w+ ){0,2}(missiles?|rockets?)\b", 76,
       ["military"], ["kinetic"]),
     P(r"\bintercept\w*\b.{0,40}\b(missiles?|rockets?|ballistic|cruise)\b"
@@ -369,7 +371,9 @@ def classify(item):
             sev, flags = fsev or sev, flags | fflags
         else:
             # the translation is scored with the richer English rules; the Persian original can lift it halfway
-            if fsev > sev and not flags & {"speculative", "quote", "controlled", "denial", "analysis"}:
+            hypothetical = bool(HYPO.search(en_t)) and not _strong_kinetic(en_t)
+            if fsev > sev and not hypothetical and not flags & {"speculative", "quote", "controlled", "denial",
+                                                                "analysis"}:
                 sev = (fsev + sev) / 2
                 flags |= {f for f in fflags if f != "kinetic" or sev >= KINETIC_BASE}
             flags |= {f for f in fflags if f in ("denial", "analysis", "speculative", "controlled")}
