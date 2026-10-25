@@ -161,8 +161,10 @@ def refresh(c):
     srcs = {m["s"] for m in ms}
     c["ns"] = len(srcs)
     max_rel = max(m.get("rel", 0.6) for m in ms)
-    c["sev"] = cluster_severity([m.get("sev", 20) for m in ms], c["ns"], max_rel)
-    top = max(ms, key=lambda m: m.get("sev", 0))
+    # reports from outside the core theatre count at reduced weight, even inside a mixed story
+    eff = [m.get("sev", 20) if is_core(m) else min(NONCORE_CAP, m.get("sev", 20) * NONCORE_FACTOR) for m in ms]
+    c["sev"] = cluster_severity(eff, c["ns"], max_rel)
+    top = ms[max(range(len(ms)), key=lambda i: eff[i])]
     if not set(top.get("flags", [])) & EVENT_FLAGS:
         # many outlets repeating a threat or a plan make it a big story, not a strike
         c["sev"] = min(c["sev"], 69.0)
@@ -175,9 +177,6 @@ def refresh(c):
                     acc.append(x)
         c[f] = acc[:8]
     c["core"] = is_core(c)
-    if not c["core"]:
-        c["sev"] = round(min(NONCORE_CAP, c["sev"] * NONCORE_FACTOR), 1)
-        c["tier"] = tier(c["sev"])
     en_rep = _pick(ms, "en")
     fa_native = [m for m in ms if m.get("lang") == "fa" and m.get("rel", 0) >= 0.8]
     fa_rep = _pick(fa_native, "fa") if fa_native else None

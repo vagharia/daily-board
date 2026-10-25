@@ -137,7 +137,8 @@ REACTION = re.compile(r"\b(condemn\w*|denounc\w*|deplor\w*|condolence\w*|sympath
                       r"|calls? for (restraint|calm|de-?escalation)|urg(e|es|ed) restraint|welcom\w*|express\w* concern)\b", I)
 HYPO = re.compile(r"\b(threat\w*|warn\w*|vow\w*|could|would|may|might|if|unless|prepar\w+|plan\w*|plot\w*"
                   r"|consider\w*|ready to|possible|possibility|scenario|restart\w*|resum\w*|fresh|renew\w*"
-                  r"|push(es)? (for|to)|seeks?|wants? to|calls? for|weigh\w*|mull\w*|options?|draw(n|s)? up|drafts?)\b", I)
+                  r"|push(es)? (for|to)|seeks?|wants? to|calls? for|weigh\w*|mull\w*|options?|draw(n|s)? up|drafts?"
+                  r"|cards?|leverage|means|would mean)\b", I)
 QUESTION = re.compile(r"[?؟]\s*(\W*$|[|/:-])")
 EXTRA_ANALYSIS = re.compile(r"\b(interview|in conversation|podcast|poll|polls|survey|op-ed|column|watch:|review:)\b"
                             r"|^(watch|listen|video)\b", I)
@@ -218,10 +219,10 @@ def score_en(title: str, summary: str):
     if m:
         n = int(m.group(1))
         best += 10 if n >= 50 else 6 if n >= 10 else 0
-    if "kinetic" in flags and not _strong_kinetic(t) and (HYPO.search(t) or _quote(t)):
+    if flags & HARD_EVENTS and not _strong_kinetic(t) and (HYPO.search(t) or _quote(t)):
         best = min(best, 66 if HYPO.search(t) else 64)   # "threatens to strike", "plans attacks", "X: …attack…"
-        flags.discard("kinetic")
-        flags |= {"speculative", "threat"} if HYPO.search(t) else {"statement"}
+        flags -= HARD_EVENTS
+        flags |= {"speculative", "threat"} if HYPO.search(t) else {"quote"}
     if REACTION.search(t):
         best = min(best, 54)                       # reactions to an event rank below the event itself
         flags.add("reaction")
@@ -238,8 +239,10 @@ def score_en(title: str, summary: str):
     return max(5.0, min(98.0, best)), topics, flags
 
 
+HARD_EVENTS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
 _STRONG = re.compile(r"\b(struck|bombed|killed|launch(ed|es)|fired|intercepted|intercepts|shot down|exploded|attacked"
-                     r"|seized|seizes|pounded|hits|downs|downed|explosions?|sirens?|casualties)\b", I)
+                     r"|seized|seizes|pounded|hits|downs|downed|explosions?|sirens?|casualties|closed|closes|shut"
+                     r"|blocked|announc\w+ withdrawal|withdr[ae]w)\b", I)
 _QUOTE = re.compile(r"^([^:：]{2,45})[:：]\s")
 _NOT_SPEAKER = re.compile(r"\b(live|updates?|war|crisis|breaking|watch|video|report|exclusive|analysis)\b", I)
 
@@ -297,7 +300,7 @@ def classify(item):
             sev, flags = fsev or sev, flags | fflags
         else:
             # the translation is scored with the richer English rules; the Persian original can lift it halfway
-            if fsev > sev:
+            if fsev > sev and not flags & {"speculative", "quote"}:
                 sev = (fsev + sev) / 2
                 flags |= {f for f in fflags if f != "kinetic" or sev >= KINETIC_BASE}
             flags |= {f for f in fflags if f in ("denial", "analysis", "speculative")}
