@@ -56,6 +56,14 @@ PATTERNS = [
     P(r"\b(could|would|will|may|might|ready to|prepared to|threaten\w* to|vow\w* to|plans? to)\s+(\w+\s+){0,2}"
       r"(strike|attack|bomb|hit|target|invade)\b", 60, ["military"], ["threat"]),
     P(r"\b(attack(ed|s)? on|attacked|under attack|came under fire)\b", 74, ["military"], ["kinetic"]),
+    # "Iran attacks US base", "Israel targets Hezbollah positions" (not sanctions or hackers "hitting" a target)
+    P(r"^(?!.*\b(sanction\w*|cyber\w*|hack\w*|tariffs?)\b).*?\b(attack(s|ing)?|raid(s|ed|ing)?|storm(s|ed|ing)?"
+      r"|hit(s|ting)?|target(s|ed|ing)?)\s+(a |an |the |its |their )?(\w+ ){0,3}(bases?|embass(y|ies)|consulates?"
+      r"|convoys?|refiner(y|ies)|airports?|ports?|positions?|headquarters|depots?|facilit(y|ies)|sites?|plants?|camps?"
+      r"|outposts?)\b", 74, ["military"], ["kinetic"]),
+    P(r"^(?!.*\bsanction\w*\b).*?\b(attack(s|ing)?|hit(s|ting)?|strik(e|es|ing)|struck)\s+(a |an |the )?(\w+ ){0,2}"
+      r"(tanker|vessel|ship|freighter|cargo ship|warship|container ship)s?\b", 80, ["maritime"],
+      ["kinetic", "maritime_incident"]),
     P(r"\b(explosions?|blasts?|detonat\w+)\b", 70, ["military"], ["kinetic"]),
     P(r"\b(was |were |been |is |are )?assassinated\b|\bassassination of\b|\bkilled (a |an |the )?(senior|top) "
       r"(commander|official|general)", 84, ["military"], ["kinetic"]),
@@ -178,6 +186,21 @@ VERBAL = re.compile(r"\b(strongly|sharply|harshly|verbally|fiercely)\s+(attack\w
                     r"|\b(attack(s|ed|ing)?|slam(s|med)?|blast(s|ed)?|lash(es|ed)? out at|rebuk\w+)\s+(\w+\s+){0,2}"
                     r"(trump|biden|obama|netanyahu|khamenei|pezeshkian|araghchi|vance|rubio|harris|macron|starmer|erdogan"
                     r"|putin|the (president|government|prime minister|minister|administration|opposition))\b", I)
+_EN_ATTACK = re.compile(r"\battack(s|ed|ing)?\b", I)
+_EN_CRIT = re.compile(r"\b(criticiz\w*|criticis\w*|slamm?(s|ed|ing)?|lambast\w*|rebuk\w*|insult\w*|mock\w*"
+                      r"|derid\w*|verbal\w*|tirade|rant\w*|war of words|swipe at|lash(es|ed)? out)\b", I)
+_EN_CONCRETE = re.compile(r"\b(missiles?|drones?|rockets?|air ?strikes?|strikes?|bomb\w*|explosions?|blasts?|killed"
+                          r"|wounded|injured|casualt\w+|bases?|ships?|tankers?|vessels?|troops|soldiers|artillery"
+                          r"|air defen\w+|intercept\w*|shell\w*|gunmen|armed|embass\w+|facilit\w+|refiner\w+"
+                          r"|airports?|ports?|convoy|hospital|military)\b", I)
+
+
+def _verbal_attack(t, s):
+    """'X attacks Y' with criticism words and nothing concrete (weapons, casualties, targets) around it."""
+    lead = t + " " + (s or "")[:300]
+    return bool(_EN_ATTACK.search(t) and _EN_CRIT.search(lead) and not _EN_CONCRETE.search(lead))
+
+
 # "Foreign Policy: …", "The Economist: …" — Persian outlets summarising foreign commentary
 MEDIA_CITE = re.compile(r"^(the )?(new york times|wall street journal|washington post|financial times|foreign policy"
                         r"|foreign affairs|economist|bloomberg|politico|axios|atlantic|haaretz|guardian|telegraph"
@@ -231,6 +254,16 @@ FA_CONTROLLED = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
     "عمل نکرده", "خنثی سازی", "خنثی‌سازی", "انفجار کنترل شده", "انفجار کنترل‌شده", "پاکسازی مهمات", "انهدام مهمات",
     "منفجر نشده", "مهمات باقیمانده"]])))
 FA_DENIAL = re.compile("|".join(map(re.escape, [fa_norm(x) for x in ["تکذیب", "شایعه", "کذب", "صحت ندارد", "جعلی"]])))
+# "حمله ساکت الهامی به فردوسی‌پور… انتقاد": a person attacked in words. Translated, it reads "attack on …", so the
+# Persian original decides: criticism words and nothing concrete (weapons, casualties, targets) means a speech
+FA_ATTACK_WORD = re.compile("|".join(map(re.escape, [fa_norm(x) for x in ["حمله", "حملات", "تاخت"]])))
+FA_VERBAL = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
+    "انتقاد", "نقد", "لفظی", "توهین", "کنایه", "طعنه", "تاخت", "بدگویی", "هتاکی", "فحاشی", "حمله تند",
+    "حمله رسانه", "حمله سیاسی", "شدید اللحن", "شدیداللحن"]])))
+FA_CONCRETE = re.compile("|".join(map(re.escape, [fa_norm(x) for x in [
+    "موشک", "پهپاد", "هوایی", "بمب", "انفجار", "شلیک", "کشته", "شهید", "شهادت", "زخمی", "مجروح", "پایگاه",
+    "حمله نظامی", "پدافند", "توپخانه", "خمپاره", "راکت", "نفتکش", "کشتی", "ناو", "تاسیسات", "پالایشگاه",
+    "فرودگاه", "رزمنده", "تروریست"]])))
 
 
 def score_en(title: str, summary: str):
@@ -278,7 +311,7 @@ def score_en(title: str, summary: str):
         best = min(best, 38)
         flags -= HARD_EVENTS
         flags.add("denial")
-    if VERBAL.search(t):
+    if VERBAL.search(t) or _verbal_attack(t, s):
         best = min(best, 40)
         flags -= HARD_EVENTS
     if title_best < 45:
@@ -350,6 +383,11 @@ def score_fa(title: str, summary: str):
     if QUESTION.search(t):
         best = min(best, 56)
         flags.add("speculative")
+    lead = t + " " + s[:300]
+    if FA_ATTACK_WORD.search(t) and FA_VERBAL.search(lead) and not FA_CONCRETE.search(lead):
+        best = min(best, 40)
+        flags -= HARD_EVENTS
+        flags.add("verbal")
     return best, flags
 
 
@@ -384,6 +422,9 @@ def classify(item):
                 sev = min(sev, 44)
             if "speculative" in fflags:
                 sev = min(sev, 56)
+            if "verbal" in fflags:                       # the translation's "attack on …" is a figure of speech
+                sev = min(sev, 40)
+                flags -= HARD_EVENTS
     title_topics = match_keys(TOPICS_RX, en_t, fa_t)
     body_topics = [k for k in match_keys(TOPICS_RX, en_s, fa_s) if k != "statement"]
     topics |= set(title_topics) | set(body_topics)
