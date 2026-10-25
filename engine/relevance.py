@@ -39,6 +39,14 @@ EN_POWERS = en_rx(["putin", "lavrov", "peskov", "zakharova", "kremlin", "medvede
                    "ulyanov", "russian foreign ministry", "russia's foreign ministry", "xi jinping", "president xi",
                    "wang yi", "mao ning", "lin jian", "guo jiakun", "fu cong", "chinese foreign ministry",
                    "china's foreign ministry", "beijing", "moscow"])
+# the Russia-Ukraine war is not covered at all, even when it moves oil prices or Trump speaks about it; a report that
+# mentions it counts only when it also names something from the Middle East
+EN_UKRAINE = en_rx(["ukrain", "kyiv", "kiev", "zelensk", "donbas", "donetsk", "luhansk", "crimea", "kursk$",
+                    "zaporizh", "kharkiv", "odesa", "odessa", "kherson", "mariupol", "bakhmut", "pokrovsk"])
+EN_ME = en_rx(["middle east", "mideast", "west asia"])
+# the parts of EN_MID that say nothing about where (the nuclear file, oil, shipping, far-away bases)
+EN_MID_GENERIC = en_rx(["enrichment", "uranium", "iaea", "nuclear deal", "jcpoa", "snapback", "e3$", "tanker", "crude",
+                        "brent", "opec", "strait$", "ukmto", "diego garcia", "incirlik", "akrotiri"])
 # weak signals: enough together with a core term, not enough to make a Middle East item relevant on their own
 EN_WEAK = en_rx(["talks$", "negotiat", "envoy", "diplomat", "oil price", "shipping", "warn", "summit", "minister"])
 ECON_A = re.compile(r"\b(oil|crude|brent|wti|opec\+?|lng|tankers?|gasoline|diesel|jet fuel)\b", re.I)
@@ -118,6 +126,16 @@ FA_FOREIGN = fa_rx([
     "اسپانیا", "لهستان", "رومانی", "صربستان", "ژاپن", "استرالیا", "کانادا", "کشمیر", "بنگلادش", "سومالی", "اتیوپی",
 ])
 FA_IRAN = fa_rx(["ایران", "ایرانی", "تهران", "جمهوری اسلامی"])
+FA_UKRAINE = fa_rx(["اوکراین", "کی یف", "کییف", "زلنسکی", "دونباس", "دونتسک", "لوهانسک", "کریمه", "کورسک",
+                    "زاپوریژیا", "خارکیف", "اودسا", "خرسون"])
+FA_ME = fa_rx(["خاورمیانه", "غرب آسیا"])
+# Iran itself and its own theatre: what a headline about Ukraine must also name to stay (besides the Middle East)
+FA_IRAN_CORE = fa_rx(["هرمز", "خلیج فارس", "دریای عمان", "حزب الله", "انصارالله", "حوثی", "سنتکام", "اسنپ بک",
+                      "مکانیسم ماشه", "سپاه$", "نطنز", "فردو$", "خارگ", "خارک", "شورای عالی امنیت ملی"])
+# the American and international part of FA_CORE: Trump, the Pentagon or the IAEA on Ukraine is still the Ukraine war
+FA_CORE_US = fa_rx(["آمریکا", "امریکا", "ایالات متحده", "ترامپ", "روبیو", "ونس$", "بسنت", "هگست", "هگزث", "ویتکاف",
+                    "ویتکوف", "پنتاگون", "کاخ سفید", "سیا$", "بمب افکن", "ناو هواپیمابر", "هواپیمابر",
+                    "ناوگان دریایی آمریکا", "شورای امنیت سازمان ملل", "آژانس بین المللی انرژی اتمی", "گروسی"])
 # economy and markets: dropped for Telegram channels whose economic posts the owner doesn't want
 FA_ECON = fa_rx([
     "بورس", "فرابورس", "شاخص کل", "سهام", "سهامداران", "نماد", "صندوق", "معاملات", "عرضه اولیه", "تالار",
@@ -156,6 +174,47 @@ def _distinct(rx, text):
     return {m.lower() for m in rx.findall(text)} if text else set()
 
 
+def _me_anchor_en(text):
+    return bool(_distinct(EN_CORE, text) or (_distinct(EN_MID, text) - _distinct(EN_MID_GENERIC, text)))
+
+
+def _me_anchor_fa(text):
+    return bool(FA_IRAN.search(text) or (_distinct(FA_CORE, text) - _distinct(FA_CORE_US, text))
+                or (_distinct(FA_MID, text) - _distinct(FA_MID_GENERIC, text)) or FA_CITY.search(text))
+
+
+def _iran_anchor_fa(text):
+    return bool(FA_IRAN.search(text) or FA_IR_TOP.search(text) or FA_IRAN_CORE.search(text) or FA_CITY.search(text)
+                or FA_ME.search(text))
+
+
+def _iran_anchor_en(text):
+    return bool(EN_CORE.search(text) or EN_ME.search(text))
+
+
+# Iranian-made weapons over Ukraine ("Russia fires Iranian-designed Shaheds at Kyiv") are still the Ukraine war
+_WEAPON_EN = re.compile(r"\biran(ian)?[\s-]*(made|designed|built|supplied)?[\s-]*(shahed|geran|drone|uav|missile)s?\b"
+                        r"|\b(shahed|geran)s?\b", re.I)
+_WEAPON_FA = re.compile(r"(پهپاد|موشک|پرنده)(های|ها)?\s*(ساخت\s*)?ایران(ی)?|ساخت\s*ایران|شاهد\s*\d*")
+
+
+def ukraine_war(title, summary, lang="en"):
+    """About the Russia-Ukraine war. A headline that names it is about it unless it also names Iran or the Middle
+    East (Putin offering to mediate with Iran); Ukraine with Israel or Saudi Arabia alone (Zelensky thanking Israel,
+    talks in Riyadh) is still the Ukraine war. When only the opening of the text names it, any Middle East
+    reference keeps the report."""
+    if lang == "fa":
+        t = fa_norm(title or "")
+        s = fa_norm(summary or "")[:300].replace("خبرگزاری جمهوری اسلامی", "")
+        war, strong, anchor = FA_UKRAINE, _iran_anchor_fa, _me_anchor_fa
+    else:
+        t, s = title or "", (summary or "")[:300]
+        war, strong, anchor = EN_UKRAINE, _iran_anchor_en, _me_anchor_en
+    if war.search(t):
+        return not strong((_WEAPON_FA if lang == "fa" else _WEAPON_EN).sub(" ", t))
+    return bool(war.search(s)) and not anchor(t + " " + s)
+
+
 def relevance_en(title: str, summary: str):
     t, s = title or "", summary or ""
     ct, cs = _distinct(EN_CORE, t), _distinct(EN_CORE, s)
@@ -181,6 +240,8 @@ def relevance_en(title: str, summary: str):
         ok = False   # e.g. "Iran beat Japan in the World Cup qualifier"
     if ok and not EN_NOISE.search(t) and EN_SPORT.search(s[:300]) and not EN_HARD.search(t):
         ok = False   # a sports story whose headline doesn't say so ("Iran coach attacks critics")
+    if ok and ukraine_war(t, s):
+        ok = False
     return round(score, 1), ok
 
 
@@ -208,6 +269,8 @@ def relevance_fa(title: str, summary: str):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France
     if ok and (FA_NOISE.search(t) or FA_SPORT.search(t) or FA_SPORT.search(s[:300])) and not FA_HARD.search(t):
         ok = False                       # football, weather, a heart attack… ("حمله" alone is no reason to keep it)
+    if ok and ukraine_war(title, summary, "fa"):
+        ok = False                       # the Russia-Ukraine war
     return round(score, 1), ok
 
 

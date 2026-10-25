@@ -10,7 +10,7 @@ from .util import fa_norm, to_latin_digits
 
 KINETIC_BASE = 70
 HARD_EVENTS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
-_L = "؀-ۿ"
+_L = "\u0621-\u063A\u0641-\u065F\u066E-\u06D3\u06D5\u06EE\u06EF\u06FA-\u06FF"   # letters, not ، ؛ ؟ or digits
 _B = f"(?<![{_L}])"              # no Persian letter just before
 _E = f"(?![{_L}])"               # no Persian letter just after
 

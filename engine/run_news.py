@@ -400,6 +400,10 @@ def news_round(full=True):
         except Exception as e:  # noqa: BLE001
             log("telegram accounts failed:", str(e)[:120])
         try:
+            extra += xposts.eitaa_posts(x_state, tr)
+        except Exception as e:  # noqa: BLE001
+            log("eitaa accounts failed:", str(e)[:120])
+        try:
             extra += xposts.x_timelines(x_state, tr)[0]
         except Exception as e:  # noqa: BLE001
             log("x timelines failed:", str(e)[:120])

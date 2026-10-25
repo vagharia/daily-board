@@ -1,6 +1,7 @@
 """Posts from credible accounts: on X (found through reputable media that cite or embed them, plus the public
 embedded timelines of some official accounts, read sparingly because X limits them), Trump's Truth Social
-posts, and the public Telegram channels that officials and leading journalists run. X's own API is paid-only,
+posts, the public Telegram channels that officials and leading journalists run, and the Eitaa channel where an
+Iranian commentator repeats his tweets. X's own API is paid-only,
 so this is deliberately selective. Only posts about the region and the conflict are kept."""
 import json
 import math
@@ -14,8 +15,8 @@ from .classify import classify
 from .cluster import is_core
 from .feeds import parse_feed
 from .lexicon import COUNTRIES_RX, match_keys
-from .relevance import relevance_en
-from .util import clean_summary, has_fa, log, now, parse_date
+from .relevance import relevance_en, relevance_fa, ukraine_war
+from .util import clean_summary, fa_norm, has_fa, log, now, parse_date
 
 # handle (lowercase) -> (segment, role fa, role en)
 WHITELIST = {
@@ -103,7 +104,6 @@ WHITELIST = {
     # --- journalists & outlets
     "barakravid": ("geo", "خبرنگار اکسیوس", "Axios reporter"),
     "laurnorman": ("geo", "خبرنگار وال‌استریت ژورنال", "WSJ reporter"),
-    "farnazfassihi": ("geo", "خبرنگار نیویورک تایمز", "NYT reporter"),
     "lrozen": ("geo", "روزنامه‌نگار", "Journalist"),
     "jengriffinfnc": ("geo", "خبرنگار فاکس نیوز", "Fox News reporter"),
     "natashabertrand": ("geo", "خبرنگار سی‌ان‌ان", "CNN reporter"),
@@ -147,6 +147,7 @@ WHITELIST = {
     "alihashem_tv": ("geo", "خبرنگار الجزیره", "Al Jazeera correspondent"),
     "abasaslani": ("geo", "تحلیلگر ایرانی", "Iranian analyst"),
     "s_m_marandi": ("geo", "استاد دانشگاه تهران", "University of Tehran professor"),
+    "aghplt": ("geo", "روزنامه‌نگار", "Iranian journalist"),
     "hoseindalirian": ("geo", "خبرنگار نظامی", "Military journalist"),
     "hdagres": ("geo", "تحلیلگر آتلانتیک کانسیل", "Atlantic Council analyst"),
     "bnonews": ("geo", "خبر فوری", "Breaking news"),
@@ -309,7 +310,7 @@ def truth_social(source):
             ts = parse_date(e.get("date")) or now()
             sc, rel = relevance_en(text[:200], text[200:900])
             econ = bool(ECON_TRUTH.search(text))
-            if not rel and not econ:
+            if (not rel and not econ) or ukraine_war(text[:200], text[200:900]):
                 continue
             pid = "t" + re.sub(r"\D", "", e.get("link") or "")[-18:] if re.search(r"\d", e.get("link") or "") \
                 else "t" + str(abs(hash(text)) % 10**12)
@@ -349,6 +350,9 @@ def update(state, candidates, truth_posts, extra_posts=()):
         if not p:
             cand[tid]["failed"] = "unavailable"
             continue
+        if cand[tid].get("own") and not _on_topic(p):
+            cand[tid]["failed"] = "off topic"       # linked from the author's own channel, not cited by a story
+            continue
         seg, rfa, ren = WHITELIST.get(p["h"].lower(), WHITELIST.get(cand[tid]["h"].lower()))
         p.update(seg=seg, role_fa=rfa, role_en=ren)
         posts[tid] = p
@@ -374,13 +378,15 @@ TG_ACCOUNTS = {
     "manniefabian": ("خبرنگار نظامی تایمز اسرائیل", "Times of Israel military correspondent", "Emanuel Fabian"),
     "Doron_Kadosh": ("خبرنگار نظامی رادیو ارتش اسرائیل", "Army Radio military correspondent", "Doron Kadosh"),
     "idfofficial": ("ارتش اسرائیل", "IDF", "Israel Defense Forces"),
-    "MFARussia": ("وزارت خارجه روسیه", "Russian MFA", "Russian MFA"),
-    "MariaVladimirovnaZakharova": ("سخنگوی وزارت خارجه روسیه", "Russian MFA spokesperson", "Maria Zakharova"),
-    "medvedev_telegram": ("مدودف، نایب‌رئیس شورای امنیت روسیه", "Medvedev, Russian Security Council",
-                          "Dmitry Medvedev"),
-    "news_kremlin": ("کرملین", "Kremlin", "Kremlin"),
-    "Ulyanov_Mikhail": ("نماینده روسیه در وین (آژانس)", "Russia's envoy in Vienna (IAEA)", "Mikhail Ulyanov"),
+    # mostly links to his interviews and tweets; the tweets are looked up on X
+    "s_m_marandi": ("استاد دانشگاه تهران", "University of Tehran professor", "Seyed Mohammad Marandi"),
 }
+# public Eitaa channels (an Iranian messenger whose public web preview works like Telegram's), for commentators who
+# post there what they tweet: channel -> (role fa, role en, name, X handle)
+EITAA_ACCOUNTS = {
+    "aligholhaky": ("روزنامه‌نگار", "Iranian journalist", "علی قلهکی", "aghplt"),
+}
+_TWEET_LINK = re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/(\w{1,15})/status/(\d{8,25})")
 # official X accounts whose public embedded timeline is current (government-labelled accounts; for others, Iranian
 # officials included, X serves an old snapshot); X refuses this page after a few requests from a shared server
 # address, so a few are read per full round, in turn, with a pause after a refusal
@@ -417,8 +423,7 @@ def _views(s):
 # Russian and Chinese official accounts: what they say about the Middle East counts even outside the core theatre
 POWER_ACCOUNTS = {"mfa_russia", "mid_rf", "kremlinrussia_e", "kremlinrussia", "medvedevrussiae", "russiaun",
                   "amb_ulyanov", "dpol_un", "mfa_china", "spokespersonchn", "spoxchn_maoning", "spoxchn_linjian",
-                  "chinamission2un", "mfarussia", "mariavladimirovnazakharova", "medvedev_telegram", "news_kremlin",
-                  "ulyanov_mikhail"}
+                  "chinamission2un"}
 _REGION = re.compile(r"\b(middle east|west asia|iran\w*|tehran|israel\w*|gaza|lebanon|lebanese|hezbollah|yemen\w*"
                      r"|houthis?|syria\w*|persian gulf|gulf states|hormuz|palestin\w*)\b", re.I)
 
@@ -437,25 +442,71 @@ def on_topic(en, power=False):
     return (power or "powers" in it["flags"]) and bool(_REGION.search(en[:900]))
 
 
+_REGION_FA = re.compile(r"خاورمیانه|غرب آسیا|ایران|تهران|اسرائیل|اسراییل|غزه|لبنان|حزب\s*الله|یمن|حوثی|سوریه"
+                        r"|خلیج فارس|هرمز|فلسطین")
+
+
+def on_topic_fa(text, power=False):
+    """The same test for a Persian post, by the Persian rules (as Persian news reports are judged)."""
+    if not text:
+        return False
+    t, s = text[:220], text[220:900]
+    if not relevance_fa(t, s)[1]:
+        return False
+    it = {"lang": "fa", "ti": t, "su": s}
+    classify(it)
+    it["ctry"] = sorted(set(it["ctry"]) | set(match_keys(COUNTRIES_RX, "", text[:900])))
+    if is_core(it):
+        return True
+    return (power or "powers" in it["flags"]) and bool(_REGION_FA.search(fa_norm(text[:900])))
+
+
 def _on_topic(p):
-    return on_topic(p["text"] if p.get("lang") == "en" else p.get("en"), (p.get("h") or "").lower() in POWER_ACCOUNTS)
+    power = (p.get("h") or "").lower() in POWER_ACCOUNTS
+    if p.get("lang") == "fa":
+        return on_topic_fa(p["text"], power)
+    return on_topic(p["text"] if p.get("lang") == "en" else p.get("en"), power)
+
+
+def _ukraine(p):
+    if p.get("lang") == "fa":
+        return ukraine_war(p["text"][:220], p["text"][220:900], "fa")
+    en = p["text"] if p.get("lang") == "en" else p.get("en") or ""
+    return ukraine_war(en[:220], en[220:900])
 
 
 def prune_off_topic(state):
-    """Drop stored Telegram and timeline posts that the current rules no longer keep."""
-    posts = state.get("posts", {})
-    gone = [k for k, p in posts.items() if (p.get("platform") == "telegram" or p.get("via") == "timeline")
-            and not _on_topic(p)]
+    """Drop stored posts that the current rules no longer keep: channels no longer followed, posts read from
+    channels and timelines that are off topic, and anything about the Russia-Ukraine war."""
+    posts, cand = state.get("posts", {}), state.get("cand", {})
+    gone = []
+    for k, p in posts.items():
+        if p.get("platform") == "telegram" and p.get("h") not in TG_ACCOUNTS:
+            gone.append(k)
+        elif (p.get("platform") == "telegram" or p.get("via") in ("timeline", "eitaa")) and not _on_topic(p):
+            gone.append(k)
+        elif _ukraine(p):
+            gone.append(k)
     for k in gone:
         posts.pop(k, None)
+        if k in cand:
+            cand[k]["failed"] = "off topic"         # not looked up again
     return len(gone)
 
 
+def _own_tweet(state, handle, tid):
+    """A tweet the author links from their own channel: looked up on X like a cited one, kept if on topic."""
+    cand = state.setdefault("cand", {})
+    if tid not in cand and tid not in state.get("posts", {}):
+        cand[tid] = {"h": handle, "cites": [], "t": now(), "own": True}
+
+
 def _relevant(posts, tr):
-    """Keep posts about the region and the conflict, judged on their English text (translated when needed)."""
+    """Keep posts about the region and the conflict: Persian ones by the Persian rules, the rest on their English
+    text (translated when needed)."""
     todo = {}
     for p in posts:
-        if p["lang"] != "en" and not p.get("en"):
+        if p["lang"] not in ("en", "fa") and not p.get("en"):
             todo.setdefault(p["lang"], []).append(p["text"])
     for lg, texts in todo.items():
         res = tr.translate_many(texts, lg, "en") if tr else {}
@@ -493,6 +544,10 @@ def telegram_posts(state, tr):
             for br in node.find_all("br"):
                 br.replace_with("\n")
             text = re.sub(r"[ \t]+", " ", node.get_text("")).strip()
+            link = _TWEET_LINK.search(text)
+            if link and link.group(1).lower() in WHITELIST and len(_TWEET_LINK.sub("", text).strip()) < 25:
+                _own_tweet(state, link.group(1), link.group(2))     # just a link to a tweet: read the tweet itself
+                continue
             if len(text) < 25:
                 continue
             media = []
@@ -511,6 +566,58 @@ def telegram_posts(state, tr):
         seen.pop(k, None)
     kept = _relevant(fresh, tr)
     log(f"telegram accounts: {len(fresh)} new posts, {len(kept)} about the region")
+    return kept
+
+
+def _eitaa_text(node):
+    for br in node.find_all("br"):
+        br.replace_with("\n")
+    text = node.get_text("")
+    text = re.split(r"\n[^\n]*(?:لینک\s*توییت|کانال\S*\s*«)", text)[0]      # the channel's own footer
+    text = re.sub(r"(?m)^\s*(#\S+\s*)+$", "", text)                          # lines of hashtags only
+    text = re.sub(r"#(\S+)", lambda m: m.group(1).replace("_", " "), text)
+    return re.sub(r"\n{3,}", "\n\n", re.sub(r"[ \t]+", " ", text)).strip()
+
+
+def eitaa_posts(state, tr):
+    """Recent posts of EITAA_ACCOUNTS that repeat the author's tweets and are about the conflict. Each one becomes
+    that tweet: looked up on X for the author's picture and likes, with the channel's copy standing in until then."""
+    seen = state.setdefault("tg_seen", {})
+    t0, fresh = now(), []
+
+    def fetch(ch):
+        r = http.get(f"https://eitaa.com/{ch}", timeout=20, retries=1)
+        return BeautifulSoup(r.content, "lxml")
+
+    for ch, soup, err in http.parallel(fetch, list(EITAA_ACCOUNTS), workers=2):
+        if err is not None or soup is None:
+            continue
+        rfa, ren, name, xh = EITAA_ACCOUNTS[ch]
+        for div in soup.select("div.etme_widget_message[data-post]"):
+            pid = "eitaa:" + div["data-post"]
+            tm = div.select_one("time[datetime]")
+            node = div.select_one(".etme_widget_message_text")
+            if pid in seen or not tm or not node:
+                continue
+            seen[pid] = t0
+            ts = parse_date(tm["datetime"]) or t0
+            if t0 - ts > POST_MAX_AGE:
+                continue
+            link = next((m for m in _TWEET_LINK.finditer(node.get_text(" ")) if m.group(1).lower() == xh.lower()), None)
+            text = _eitaa_text(node)
+            if not link or len(text) < 25:
+                continue                    # only what the author also tweeted
+            tid = link.group(2)
+            fresh.append({
+                "id": tid, "platform": "x", "h": xh, "n": name, "img": None, "v": False, "t": ts,
+                "text": text[:1500], "lang": _lang(text), "media": [], "likes": 0, "replies": 0,
+                "url": f"https://x.com/{xh}/status/{tid}", "seg": "geo", "role_fa": rfa, "role_en": ren,
+                "via": "eitaa",
+            })
+    kept = _relevant(fresh, tr)
+    for p in kept:
+        _own_tweet(state, p["h"], p["id"])
+    log(f"eitaa accounts: {len(fresh)} new posts, {len(kept)} about the region")
     return kept
 
 
