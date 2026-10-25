@@ -1,15 +1,25 @@
-"""Ticker run (every 5 minutes): Tehran dollar trades from Telegram + Brent + gold."""
+"""Ticker run: Tehran dollar trades from Telegram + Brent + gold.
+
+GitHub's scheduler starts this workflow far less often than its 5-minute cron asks for (roughly every
+15-40 minutes), so one run refreshes the ticker several times, five minutes apart (DB_TICKER_ROUNDS)."""
+import os
 import time
 
 from . import dollar, markets, store
 from .util import data_path, load_json, log, now, save_json
 
+ROUNDS = max(1, int(os.environ.get("DB_TICKER_ROUNDS", "1") or 1))
+INTERVAL = 300
 
-def main():
+
+def once():
     started = time.time()
     store.prepare()
-    state = load_json(data_path("state", "ticker_state.json"), {}) or {}
     prev = load_json(data_path("ticker.json"), {}) or {}
+    if ROUNDS > 1 and prev.get("updated") and now() - prev["updated"] < 150:
+        log("ticker refreshed moments ago by another run; skipping this round")
+        return
+    state = load_json(data_path("state", "ticker_state.json"), {}) or {}
     try:
         usd = dollar.run(state.setdefault("dollar", {}))
     except Exception as e:  # noqa: BLE001
@@ -24,6 +34,19 @@ def main():
     store.publish("ticker")
     log(f"ticker done in {time.time() - started:.1f}s: usd={usd.get('price')} brent={mk['brent'].get('price')} "
         f"gold={mk['gold'].get('price')}")
+
+
+def main():
+    t0 = time.time()
+    for i in range(ROUNDS):
+        try:
+            once()
+        except Exception as e:  # noqa: BLE001 - one bad round shouldn't end the run
+            log("ticker round failed:", str(e)[:200])
+        if i < ROUNDS - 1:
+            wait = t0 + (i + 1) * INTERVAL - time.time()
+            if wait > 0:
+                time.sleep(wait)
 
 
 if __name__ == "__main__":

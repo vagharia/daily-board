@@ -10,11 +10,11 @@ permissions:
   contents: write
 concurrency:
   group: ticker
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,4 +27,5 @@ jobs:
       - name: Run ticker
         env:
           DB_PUBLISH: '1'
+          DB_TICKER_ROUNDS: '4'
         run: python -m engine.run_ticker
