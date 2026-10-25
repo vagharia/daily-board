@@ -1,0 +1,37 @@
+name: probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tools/probe.py', '.github/workflows/probe.yml']
+permissions:
+  contents: write
+concurrency:
+  group: probe
+  cancel-in-progress: true
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Probe endpoints
+        run: python tools/probe.py
+      - name: Push results to the probe branch
+        env:
+          GIT_AUTHOR_NAME: board-bot
+          GIT_AUTHOR_EMAIL: board-bot@users.noreply.github.com
+          GIT_COMMITTER_NAME: board-bot
+          GIT_COMMITTER_EMAIL: board-bot@users.noreply.github.com
+        run: |
+          blob=$(git hash-object -w _probe/probe.json)
+          tree=$(printf "100644 blob %s\tprobe.json\n" "$blob" | git mktree)
+          commit=$(git commit-tree "$tree" -m "probe")
+          git push -f origin "$commit:refs/heads/probe"
