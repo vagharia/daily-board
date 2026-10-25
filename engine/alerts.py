@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import html
 import os
+import time
 
 from . import config, http
 from .util import log, now, truncate
@@ -140,3 +141,80 @@ def run(state, clusters, lights, index, first_run=False):
         except Exception as e:  # noqa: BLE001
             log("telegram send failed:", str(e)[:80])
     return {"enabled": True, "chat": True, "sent": ok}
+
+
+# ------------------------------------------------------------------ engine self-check
+def _names(hs):
+    names = "، ".join(html.escape(h.get("fa") or h["id"]) for h in hs[:8])
+    return names + (f" و {len(hs) - 8} منبع دیگر" if len(hs) > 8 else "")
+
+
+def system(state, sources, ticker, tr_stats, full):
+    """Tell the owner, with a silent message, when sources stay down for hours, the dollar channel stops
+    yielding trades during trading hours, or translation breaks. One message per problem and one when it
+    recovers. Returns the number of messages."""
+    t = now()
+    first = "sys" not in state
+    sysst = state.setdefault("sys", {"down": {}, "told": {}})
+    down, told = sysst.setdefault("down", {}), sysst.setdefault("told", {})
+    msgs = []
+    if full and sources:
+        newly, back = [], []
+        for h in sources:
+            sid = h["id"]
+            if not h.get("ok"):
+                if sid not in down:
+                    down[sid] = t
+                    if first:
+                        told[sid] = t          # already failing when the check started: not news
+                elif t - down[sid] >= 3 * 3600 and sid not in told:
+                    told[sid] = t
+                    newly.append(h)
+            elif sid in down:
+                if sid in told and t - down[sid] >= 3 * 3600:
+                    back.append(h)
+                down.pop(sid, None)
+                told.pop(sid, None)
+        ok_n = sum(1 for h in sources if h.get("ok"))
+        if ok_n < 0.6 * len(sources):
+            if t - sysst.get("mass", 0) > 6 * 3600:
+                sysst["mass"] = t
+                msgs.append(f"⚙️ <b>گزارش فنی بولتن:</b> فقط {ok_n} از {len(sources)} منبع جواب دادند. احتمالاً مشکل از "
+                            "شبکه سرور است و خودش برطرف می‌شود؛ اگر چند ساعت ادامه داشت، به Claude بگو بررسی کند.")
+        elif newly:
+            msgs.append(f"⚙️ <b>گزارش فنی بولتن:</b> این منابع بیش از ۳ ساعت است جواب نمی‌دهند: {_names(newly)}. "
+                        "بقیه منابع کار می‌کنند؛ اگر برایت مهم است، به Claude بگو بررسی کند.")
+        if back:
+            msgs.append(f"✅ <b>گزارش فنی بولتن:</b> این منابع دوباره جواب می‌دهند: {_names(back)}")
+    # dollar: trades are posted through the Tehran trading day
+    d = (ticker or {}).get("dollar") or {}
+    last = d.get("t") or 0
+    hour = time.gmtime(t + 12600).tm_hour            # Tehran time (UTC+3:30)
+    if last and 11 <= hour < 21 and t - last > 4 * 3600:
+        if not sysst.get("usd"):
+            sysst["usd"] = t
+            msgs.append("⚙️ <b>گزارش فنی بولتن:</b> بیش از ۴ ساعت است معامله تازه‌ای از کانال دلار خوانده نشده. "
+                        "شاید کانال پستی نگذاشته یا قالب پیام‌هایش عوض شده؛ اگر ادامه داشت، به Claude بگو.")
+    elif last and t - last < 3600 and sysst.get("usd"):
+        sysst.pop("usd", None)
+        msgs.append("✅ <b>گزارش فنی بولتن:</b> قیمت دلار دوباره به‌روز می‌شود.")
+    # translation
+    done = sum(v for k, v in (tr_stats or {}).items() if k in ("single", "multi", "clients5"))
+    failed = (tr_stats or {}).get("failed", 0)
+    if failed >= 20 and failed > 0.3 * (failed + done) and t - sysst.get("tr", 0) > 12 * 3600:
+        sysst["tr"] = t
+        msgs.append(f"⚙️ <b>گزارش فنی بولتن:</b> ترجمه خودکار در آخرین دور برای {failed} متن خطا داد؛ این خبرها "
+                    "فعلاً به زبان اصلی نمایش داده می‌شوند و دور بعد دوباره ترجمه می‌شوند.")
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not msgs or not token:
+        return len(msgs)
+    cid = _chat_id(state, token)
+    if not cid:
+        return len(msgs)
+    for m in msgs[:3]:
+        try:
+            _call(token, "sendMessage", chat_id=cid, text=m, parse_mode="HTML", disable_notification=True,
+                  link_preview_options={"is_disabled": True})
+        except Exception as e:  # noqa: BLE001
+            log("telegram system message failed:", str(e)[:80])
+    return len(msgs)

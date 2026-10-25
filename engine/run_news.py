@@ -342,6 +342,7 @@ def news_round(full=True):
         h = health[s["id"]]
         src_health.append({**h, "group_fa": GROUPS[s["group"]][0], "group_en": GROUPS[s["group"]][1],
                            "lang": s["lang"]})
+    sys_msgs = alerts.system(alerts_state, src_health, ticker, tr.stats, full)
     save_json(data_path("health.json"), {
         "v": 1, "updated": T, "duration": round(time.time() - started, 1), "full": full,
         "last_full": misc.get("last_full"),
@@ -352,7 +353,7 @@ def news_round(full=True):
         "air": {"status": (air_sum or {}).get("status", "fail"), "providers": (air_sum or {}).get("providers"),
                 "errors": (air_sum or {}).get("errors")},
         "sea": {"status": sea_out.get("status"), "errors": sea_out.get("errors")},
-        "alerts": alert_res, "sources": src_health, "log": util.LOGS[-250:],
+        "alerts": alert_res, "system_msgs": sys_msgs, "sources": src_health, "log": util.LOGS[-250:],
     }, pretty=True)
 
     tr.prune()
