@@ -298,7 +298,29 @@ def relevance_fa(title: str, summary: str):
     return round(score, 1), ok
 
 
+# press reviews and other roundups: the text runs through several unrelated stories ("Next: … Also: … Finally …"),
+# so one line about Iran in it doesn't make the episode Iran news; such an item is judged by its headline alone
+_ROUNDUP_URL = re.compile(r"/press-reviews?/|press-review-|/newsletters?/", re.I)
+_ROUNDUP_MARK = re.compile(r"\b(?:next|also|finally|plus|elsewhere|meanwhile)\b\s*:", re.I)
+_ROUNDUP_PAPERS = re.compile(r"\b(?:papers|newspapers|front pages|editorials|columnists)\b.{0,40}?\b(?:react\w*|weigh in"
+                             r"|lead with|focus on|dominat\w*)", re.I)
+FA_ROUNDUP = fa_rx(["مرور مطبوعات", "صفحه نخست روزنامه", "صفحه اول روزنامه", "روزنامه های امروز", "تیتر روزنامه",
+                    "گزیده روزنامه", "نگاهی به روزنامه"])
+
+
+def roundup(item):
+    """A press review or digest whose text covers several unrelated stories."""
+    if _ROUNDUP_URL.search(item.get("u") or ""):
+        return True
+    if item.get("lang") == "fa":
+        return bool(FA_ROUNDUP.search(fa_norm(item.get("ti", ""))))
+    s = (item.get("su") or "")[:600]
+    return len(_ROUNDUP_MARK.findall(s)) >= 2 or bool(_ROUNDUP_PAPERS.search(s[:300]))
+
+
 def is_relevant(item):
+    if roundup(item):
+        item = dict(item, su="")                       # a roundup counts by its headline only
     if item.get("lang") == "fa":
         sc, ok = relevance_fa(item.get("ti", ""), item.get("su", ""))
         if ok and _noecon(item.get("s")) and not internet("fa", item.get("ti", ""), item.get("su", "")):
