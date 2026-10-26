@@ -9,7 +9,7 @@ from .util import fa_norm
 
 # Persian/Arabic letters and their marks, without the punctuation (، ؛ ؟) and digits of that Unicode block, so a
 # whole word followed by a Persian comma still counts as a whole word
-FA_LETTER = "\u0621-\u063A\u0641-\u065F\u066E-\u06D3\u06D5\u06EE\u06EF\u06FA-\u06FF"
+FA_LETTER = r"\u0621-\u063A\u0641-\u065F\u066E-\u06D3\u06D5\u06EE\u06EF\u06FA-\u06FF"
 
 
 def en_rx(terms):
