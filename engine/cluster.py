@@ -589,8 +589,9 @@ def refresh(c):
         c["sev"] = min(c["sev"], SPORT_CAP)          # several outlets on a called-off match keep it yellow
         claim = min(claim, SPORT_CAP)
     ch_strike = any(channel(m) and strike(m) for m in ms)
-    if not news and len(chans) < CONFIRM_CHANNELS:
-        # one Telegram channel alone: an unconfirmed report, red when it tells of a strike, yellow otherwise
+    if not news and len(chans) < CONFIRM_CHANNELS and not c.get("verified"):
+        # one Telegram channel alone: an unconfirmed report, red when it tells of a strike, yellow otherwise (a post
+        # relaying a named outlet that really reported it is verified, see citation.py)
         c["sev"] = max(c["sev"], RED_FLOOR) if ch_strike else min(c["sev"], UNCONFIRMED_CAP)
         c["unconf"] = True
         c["claim"] = round(claim, 1)                 # how serious the channel's claim would be if confirmed

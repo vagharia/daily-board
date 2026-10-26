@@ -102,7 +102,7 @@ FA_MID_GENERIC = fa_rx([
 # (Lavrov on Iran, Xi on Gaza), not a Putin-Xi summit or Europe's own tensions
 FA_POWERS = fa_rx([
     "روسیه", "روس$", "چین$", "چینی$", "اروپا", "پوتین", "لاوروف", "پسکوف", "زاخارووا", "کرملین", "مدودف", "شویگو",
-    "ریابکوف", "نبنزیا", "اولیانوف", "شی جین پینگ", "وانگ یی", "مائو نینگ", "لین جیان", "مسکو", "پکن",
+    "ریابکوف", "نبنزیا", "اولیانوف", "شی جین پینگ", "وانگ یی", "مائو نینگ", "لین جیان", "مسکو$", "پکن",
 ])
 # Iran's top officials: with a foreign power or a regional term (a trip to Moscow, talks in Beijing) it is news;
 # with an Iranian city alone it is domestic politics

@@ -173,7 +173,7 @@ COUNTRIES = {
     "europe": ("اروپا", "Europe", ["europe", "e3$", "france", "french", "germany", "german", "britain", "british",
                                    "uk$", "macron", "starmer", "merz$"],
                ["اروپا", "تروئیکا", "فرانسه", "آلمان", "انگلیس", "بریتانیا"]),
-    "russia": ("روسیه", "Russia", ["russia", "kremlin", "putin", "moscow"], ["روسیه", "کرملین", "پوتین", "مسکو"]),
+    "russia": ("روسیه", "Russia", ["russia", "kremlin", "putin", "moscow"], ["روسیه", "کرملین", "پوتین", "مسکو$"]),
     "china": ("چین", "China", ["china", "chinese", "beijing", "xi jinping"], ["چین$", "چینی", "پکن"]),
     "un": ("سازمان ملل و آژانس", "UN & IAEA", ["united nations", "security council", "guterres", "iaea", "grossi"],
            ["سازمان ملل", "شورای امنیت", "آژانس", "گروسی"]),

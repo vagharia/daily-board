@@ -6,6 +6,7 @@ import time
 
 from . import alerts, aviation, collect, config, magazine, media, sea, store, stories, util, xposts
 from .classify import classify
+from . import citation
 from .cluster import Clusterer, prune, recluster, refresh
 from .http import parallel
 from .index import compute_index, compute_lights, hotspots
@@ -365,6 +366,9 @@ def news_round(full=True):
     for c in changed.values():
         refresh(c)
     log(f"stories: {len(clusters)} total, {len(changed)} new/updated")
+    n = citation.verify(clusters, T)
+    if n:
+        log(f"channel posts relaying an outlet, checked against it: {n} changed")
 
     # ---------------------------------------------------------------- 5. pages: images & embedded posts
     candidates = []
