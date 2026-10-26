@@ -40,5 +40,6 @@ live run, which publishes `economist.json` within a few minutes; preview picture
 - Summaries are written in our own words; no passages are copied from the magazine.
 - No pictures are taken from the printed magazine, and the magazine file itself never goes into this repository.
   Each card shows the article's own web preview picture, found by the engine (a reader service's copy of the page,
-  with a Bing News thumbnail as a backup) and only linked.
+  with a Bing News thumbnail as a backup) and only linked. Each article is looked up once; if no picture turns up,
+  the card shows its category icon instead and the engine does not try again.
 - Articles about the war between Russia and Ukraine are left out.

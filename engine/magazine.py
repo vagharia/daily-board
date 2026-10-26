@@ -22,9 +22,8 @@ from .util import data_path, load_json, log, save_json
 ISSUE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "economist", "issue.json")
 CATS = ("pol", "gold", "oil", "money", "ai")
 TIERS = ("red", "orange", "yellow")
-RETRY = 3 * 3600            # look for missing pictures again after three hours
-TRIES = 4                   # and give up on an article after four rounds
 PER_ROUND = 8               # articles looked up per round, so a round never holds up the news
+# each article is looked up once per issue; a picture not found then is left out (the card shows its icon instead)
 WIDTH = 960                 # picture width asked from The Economist's image service
 
 # the lead picture is the first full-width image of the page, before the "more from this section" links
@@ -150,8 +149,7 @@ def update(misc, t):
     arts = [a for a in issue["articles"] if a.get("id") and str(a.get("url", "")).startswith("http")]
     for a in arts:
         pics.setdefault(a["url"], {})
-    todo = [a for a in arts if not (pics[a["url"]].get("img") and pics[a["url"]].get("alt"))
-            and pics[a["url"]].get("n", 0) < TRIES and t - pics[a["url"]].get("t", 0) >= RETRY]
+    todo = [a for a in arts if not pics[a["url"]].get("n")]
     if todo:
         _look_up(todo[:PER_ROUND], pics, t)
         log(f"economist: pictures for {sum(1 for a in arts if pics[a['url']].get('img'))} of {len(arts)} articles, "
