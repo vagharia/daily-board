@@ -1,4 +1,5 @@
-"""The fixed list of 99 sources checked on every run (94 outlets and agencies + 5 Telegram channels).
+"""The fixed list of 101 sources checked on every run (94 outlets and agencies, 5 Telegram channels and 2
+internet-measurement groups whose posts report outages).
 
 Each source has its own feeds; when they fail or don't exist, the engine falls back to a
 Google News query restricted to the source's domain(s). `rel` is a 0-1 reliability weight
@@ -19,6 +20,7 @@ GROUPS = {
     "fa_intl": ("فارسی‌زبان خارج از ایران", "Persian-language international"),
     "iran": ("ایرانی", "Iranian"),
     "tg": ("کانال‌های تلگرام", "Telegram channels"),
+    "net": ("پایش اینترنت", "Internet monitoring"),
 }
 
 
@@ -219,6 +221,13 @@ SOURCES = [
     S("truth", "Truth Social (Trump)", "تروث‌سوشال ترامپ", "official", 0.8, "trumpstruth.org", [
         "https://trumpstruth.org/feed"], gn=False, kind="social"),
 
+    # ------------------------------------------------------------ internet monitoring (2): their public posts on
+    # outages worldwide; only Iran's become stories
+    S("netblocks", "NetBlocks", "نت‌بلاکس", "net", 0.85, "netblocks.org", [
+        "https://mastodon.social/@netblocks.rss"], gn=False, kind="posts"),
+    S("cfradar", "Cloudflare Radar", "کلادفلر رادار", "net", 0.85, "radar.cloudflare.com", [
+        "https://bsky.app/profile/radar.cloudflare.com/rss"], gn=False, kind="posts"),
+
     # ------------------------------------------------------------ Persian-language international (4)
     S("bbcpersian", "BBC Persian", "بی‌بی‌سی فارسی", "fa_intl", 0.85, "bbc.com/persian", [
         "https://feeds.bbci.co.uk/persian/rss.xml"], lang="fa", tg=["bbcpersian"]),
@@ -267,8 +276,8 @@ SOURCES = [
 ]
 
 BY_ID = {s["id"]: s for s in SOURCES}
-assert len(SOURCES) == 99, len(SOURCES)
-assert len(BY_ID) == 99
+assert len(SOURCES) == 101, len(SOURCES)
+assert len(BY_ID) == 101
 
 
 def source_for_domain(host: str):

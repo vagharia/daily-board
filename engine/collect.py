@@ -57,10 +57,29 @@ def split_long_title(title, limit=160):
     return head.rstrip(" ,،:") + "…", title[len(head):].strip()
 
 
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2190-\u21FF\u2300-\u23FF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]+")
+_POST_TAG = re.compile(r"^(?:confirmed|update|updated|note|breaking|alert|important)\s*:\s*", re.I)
+_POST_TAIL = re.compile(r"\s*(?:follow the latest|more (?:details|info\w*)|read more|see more|details)\b[^.]*$", re.I)
+
+
+def post_text(html):
+    """A social post as headline text: no emoji, links, hashtag signs or closing calls to follow."""
+    s = clean_summary(html)
+    s = re.sub(r"https?://\S+", " ", s)
+    s = _EMOJI.sub(" ", s)
+    s = re.sub(r"#\s?(?=\w)", "", s)                 # "#Iran", "# Iran"
+    s = re.sub(r"\s+", " ", s).strip(" -—–|:")
+    s = _POST_TAIL.sub("", s)
+    return _POST_TAG.sub("", s).strip(" -—–|:")
+
+
 def make_items(src, entries, via, T, gn_source=None):
     out = []
     for e in entries:
         title = clean_title(e.get("title", ""))
+        post = src.get("kind") == "posts" and not title
+        if post:
+            title = post_text(e.get("summary") or e.get("content") or "")
         if via in ("gn", "bing") and e.get("source_name"):
             suf = " - " + e["source_name"]
             if title.endswith(suf):
@@ -89,7 +108,7 @@ def make_items(src, entries, via, T, gn_source=None):
             ts = T
         if T - ts > config.WEEK:
             continue
-        su = "" if via == "gn" else clean_summary(e.get("summary") or e.get("content") or "")
+        su = "" if via == "gn" or post else clean_summary(e.get("summary") or e.get("content") or "")
         if su and (su == title or su.startswith(title[:50])):
             su = su[len(title):].strip(" .-—") if su.startswith(title) else ""
         title, rest = split_long_title(title)
@@ -170,7 +189,7 @@ def collect_all(T, full=True):
         h["err"] = ((h["err"] + " | ") if h["err"] else "") + msg[:90]
 
     # ---- 1. direct feeds
-    tasks = [(s, u) for s in SOURCES if s["kind"] == "news" for u in s["feeds"]]
+    tasks = [(s, u) for s in SOURCES if s["kind"] in ("news", "posts") for u in s["feeds"]]
     t0 = time.time()
 
     def fetch_feed(task):

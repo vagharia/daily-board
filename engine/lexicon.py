@@ -110,7 +110,7 @@ PEOPLE = {
 
 # ------------------------------------------------------------------ places (lat, lon)
 PLACES = {
-    "hormuz": ("تنگه هرمز", "Strait of Hormuz", 26.57, 56.25, ["hormuz"], ["هرمز"]),
+    "hormuz": ("تنگه هرمز", "Strait of Hormuz", 26.57, 56.25, ["hormuz"], ["هرمز$"]),
     "persian_gulf": ("خلیج فارس", "Persian Gulf", 27.2, 51.2, ["persian gulf", "arabian gulf"], ["خلیج فارس"]),
     "gulf_oman": ("دریای عمان", "Gulf of Oman", 24.6, 58.6, ["gulf of oman"], ["دریای عمان"]),
     "tehran": ("تهران", "Tehran", 35.69, 51.39, ["tehran"], ["تهران"]),
@@ -195,7 +195,7 @@ TOPICS = {
     "maritime": ("هرمز و دریا", "Hormuz & sea",
                  ["hormuz", "tanker", "shipping", "vessel", "ship$", "ships$", "navy$", "naval", "maritime", "strait",
                   "red sea", "bab el", "port$", "ukmto", "freighter", "seafarer", "warship", "aircraft carrier"],
-                 ["هرمز", "نفتکش", "نفت کش", "کشتی", "دریایی", "ناو$", "ناوشکن", "ناوچه", "ناوگان پنجم", "ناوگان دریایی",
+                 ["هرمز$", "نفتکش", "نفت کش", "کشتی", "دریایی", "ناو$", "ناوشکن", "ناوچه", "ناوگان پنجم", "ناوگان دریایی",
                   "تنگه", "دریای سرخ", "بندر", "کشتیرانی"]),
     "air": ("هوایی", "Air & airspace",
             ["airspace", "flight", "airline", "airport", "aviation", "air traffic", "notam"],

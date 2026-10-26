@@ -1,6 +1,7 @@
 """Decide whether an item is about the Iran / US / Israel / Persian Gulf conflict space."""
 import re
 
+from .internet import internet
 from .lexicon import en_rx, fa_rx
 from .util import fa_norm
 
@@ -62,6 +63,11 @@ EN_NOISE = en_rx([
     "grand prix", "formula 1", "cricket", "tennis", "chess", "oscars", "eurovision", "horoscope",
 ])
 
+# weather reports (a storm warning for Hormozgan, wind and waves in the Gulf): read in the headline and the start of
+# the text, and dropped unless the headline names a weapon or a strike
+EN_WEATHER = re.compile(r"\b(weather (forecast|warning|alert|service|office)|meteorolog\w*|thunderstorms?|rainfall"
+                        r"|heavy rains?|flash floods?|sandstorms?|dust storms?|heat ?waves?|wind speeds?|wave heights?"
+                        r"|high waves|gale)\b", re.I)
 EN_SPORT = en_rx(["football", "soccer", "world cup", "fifa", "olympic", "futsal", "volleyball", "basketball",
                   "head coach", "national team", "goalkeeper", "striker$", "midfielder", "premier league", "playoff"])
 EN_HARD = en_rx(["missile", "drone", "airstrike", "air strike", "strike$", "strikes$", "bomb", "explosion",
@@ -70,7 +76,7 @@ EN_HARD = en_rx(["missile", "drone", "airstrike", "air strike", "strike$", "stri
 # ------------------------------------------------------------------ Persian
 FA_CORE = fa_rx([
     "آمریکا", "امریکا", "ایالات متحده", "اسرائیل", "اسراییل", "رژیم صهیونیستی", "صهیونیست", "تل آویو",
-    "هرمز", "خلیج فارس", "دریای عمان", "سنتکام", "ترامپ", "روبیو", "ونس$", "بسنت", "هگست", "هگزث", "ویتکاف",
+    "هرمز$", "خلیج فارس", "دریای عمان", "سنتکام", "ترامپ", "روبیو", "ونس$", "بسنت", "هگست", "هگزث", "ویتکاف",
     "ویتکوف", "نتانیاهو", "حزب الله", "انصارالله", "حوثی", "پنتاگون", "کاخ سفید", "ناو هواپیمابر", "هواپیمابر",
     "بمب افکن", "گروسی", "اسنپ بک", "مکانیسم ماشه", "شورای امنیت سازمان ملل", "آژانس بین المللی انرژی اتمی",
     "موساد", "سیا$", "ناوگان پنجم", "ناوگان دریایی آمریکا",
@@ -130,7 +136,7 @@ FA_UKRAINE = fa_rx(["اوکراین", "کی یف", "کییف", "زلنسکی", "
                     "زاپوریژیا", "خارکیف", "اودسا", "خرسون"])
 FA_ME = fa_rx(["خاورمیانه", "غرب آسیا"])
 # Iran itself and its own theatre: what a headline about Ukraine must also name to stay (besides the Middle East)
-FA_IRAN_CORE = fa_rx(["هرمز", "خلیج فارس", "دریای عمان", "حزب الله", "انصارالله", "حوثی", "سنتکام", "اسنپ بک",
+FA_IRAN_CORE = fa_rx(["هرمز$", "خلیج فارس", "دریای عمان", "حزب الله", "انصارالله", "حوثی", "سنتکام", "اسنپ بک",
                       "مکانیسم ماشه", "سپاه$", "نطنز", "فردو$", "خارگ", "خارک", "شورای عالی امنیت ملی"])
 # the American and international part of FA_CORE: Trump, the Pentagon or the IAEA on Ukraine is still the Ukraine war
 FA_CORE_US = fa_rx(["آمریکا", "امریکا", "ایالات متحده", "ترامپ", "روبیو", "ونس$", "بسنت", "هگست", "هگزث", "ویتکاف",
@@ -145,7 +151,7 @@ FA_ECON = fa_rx([
 ])
 FA_MILPOL = fa_rx([
     "حمله", "حملات", "موشک", "پهپاد", "جنگ$", "انفجار", "سپاه$", "ارتش", "پدافند", "ترامپ", "نتانیاهو", "اسرائیل",
-    "آمریکا", "مذاکره", "مذاکرات", "توافق", "تحریم", "هرمز", "حوثی", "حزب الله", "عراقچی", "خامنه ای", "رهبر",
+    "آمریکا", "مذاکره", "مذاکرات", "توافق", "تحریم", "هرمز$", "حوثی", "حزب الله", "عراقچی", "خامنه ای", "رهبر",
     "آتش بس", "نظامی", "امنیتی", "تهدید", "هشدار", "شورای امنیت", "ناو", "جنگنده", "بمباران", "رهگیری",
     "نیروی هوایی", "هواپیمای نظارتی", "شناسایی", "جاسوسی", "رادار", "میانجی", "العربیه", "سوخت رسان", "ترابری",
 ])
@@ -157,6 +163,16 @@ FA_NOISE = fa_rx([
     "حمله قلبی", "حمله عصبی", "حمله آسم", "حمله سگ", "سگ ولگرد", "سگهای ولگرد", "سگ های ولگرد", "زورگیری",
     "پدافند غیرعامل", "پدافند غیر عامل", "آلودگی هوا", "کیفیت هوا", "هوای آلوده", "زلزله", "زمین لرزه", "ترافیک",
 ])
+# weather, checked in the headline and the start of the text ("هشدار دریایی… افزایش سرعت باد و ارتفاع موج",
+# "تشدید ناپایداری‌های جوی… در هرمزگان")
+_WEATHER_FA = ["هواشناسی", "پیش بینی هوا", "ناپایداری جوی", "ناپایداری های جوی", "ناپایداری هوا", "توفان تندری",
+               "توفان های تندری", "طوفان تندری", "طوفان های تندری", "توده تندری", "توده های تندری", "رعد و برق",
+               "سامانه بارشی", "سرعت باد", "وزش باد", "تندباد", "ارتفاع موج", "ارتفاع امواج", "دمای هوا", "مه گرفتگی",
+               "هشدار سطح زرد", "هشدار سطح نارنجی", "هشدار سطح قرمز"]
+FA_WEATHER_LEAD = fa_rx(_WEATHER_FA)
+# in the headline also words that can be figures of speech in the text ("بارش موشک" keeps its missile)
+FA_WEATHER = fa_rx(_WEATHER_FA + ["بارش", "بارندگی", "تگرگ", "سیلاب", "کاهش دما", "افزایش دما", "مه آلود",
+                                  "گرد و خاک", "طوفان شن"])
 # sport, checked in the headline and the start of the text: "attack" and "war" are figures of speech there
 FA_SPORT = fa_rx([
     "فوتبال", "فوتسال", "والیبال", "بسکتبال", "هندبال", "سرمربی", "تیم ملی", "لیگ برتر", "جام جهانی", "المپیک",
@@ -240,8 +256,12 @@ def relevance_en(title: str, summary: str):
         ok = False   # e.g. "Iran beat Japan in the World Cup qualifier"
     if ok and not EN_NOISE.search(t) and EN_SPORT.search(s[:300]) and not EN_HARD.search(t):
         ok = False   # a sports story whose headline doesn't say so ("Iran coach attacks critics")
+    if ok and (EN_WEATHER.search(t) or EN_WEATHER.search(s[:200])) and not EN_HARD.search(t):
+        ok = False   # a storm warning or the weather in the Gulf
     if ok and ukraine_war(t, s):
         ok = False
+    if not ok and internet("en", t, s):
+        ok = True    # Iran's internet cut, throttled or restored
     return round(score, 1), ok
 
 
@@ -269,15 +289,19 @@ def relevance_fa(title: str, summary: str):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France
     if ok and (FA_NOISE.search(t) or FA_SPORT.search(t) or FA_SPORT.search(s[:300])) and not FA_HARD.search(t):
         ok = False                       # football, weather, a heart attack… ("حمله" alone is no reason to keep it)
+    if ok and (FA_WEATHER.search(t) or FA_WEATHER_LEAD.search(s[:250])) and not FA_HARD.search(t):
+        ok = False                       # weather: storms, wind and waves, rain
     if ok and ukraine_war(title, summary, "fa"):
         ok = False                       # the Russia-Ukraine war
+    if not ok and internet("fa", title, summary):
+        ok = True                        # Iran's internet cut, throttled or restored
     return round(score, 1), ok
 
 
 def is_relevant(item):
     if item.get("lang") == "fa":
         sc, ok = relevance_fa(item.get("ti", ""), item.get("su", ""))
-        if ok and _noecon(item.get("s")):
+        if ok and _noecon(item.get("s")) and not internet("fa", item.get("ti", ""), item.get("su", "")):
             t = fa_norm(item.get("ti", ""))
             if FA_ECON.search(t) and not FA_MILPOL.search(t):
                 ok = False                                  # market news from a mixed Telegram channel

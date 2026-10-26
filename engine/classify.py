@@ -10,6 +10,7 @@ import re
 from . import config
 from .classify_fa import score_fa
 from .fronts import saudi_houthi
+from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
 from .util import to_latin_digits
 
@@ -350,6 +351,11 @@ def classify(item):
     if saudi_houthi(fa_t if item.get("lang") == "fa" else en_t, item.get("lang") or "en", flags) == "secondary":
         flags = set(flags) | {"secondary"}       # on the Saudi-Houthi front only direct attacks are red
         sev = min(sev, 69.0)
+    net = internet("fa", fa_t, fa_s) if item.get("lang") == "fa" else internet("en", en_t, en_s)
+    if net and "opinion" not in flags:
+        flags = set(flags) | {"internet"}        # Iran's internet cut, throttled or restored: an orange story
+        topics = set(topics) | {"net"}
+        sev = max(sev, 46.0 if "analysis" in flags else net_severity(net))
     item["sev"] = round(sev, 1)
     item["topics"] = sorted(topics)
     item["flags"] = sorted(flags)
