@@ -1,6 +1,7 @@
 name: live
-# Dollar, markets and news every 5 minutes. GitHub starts scheduled runs late and irregularly,
-# so each run does several 5-minute rounds and the schedule keeps a next run queued.
+# Dollar, markets and news every 5 minutes. GitHub starts scheduled runs late and irregularly (at times not for an
+# hour), so each run does several 5-minute rounds and, when it finishes, queues the next run itself; the schedule is
+# only a fallback for when that chain breaks (a failed run doesn't queue another).
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -10,6 +11,7 @@ on:
     paths: ['engine/**', 'requirements.txt', '.github/workflows/live.yml']
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: live
   cancel-in-progress: ${{ github.event_name == 'push' }}
@@ -33,3 +35,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m engine.run_live
+      - name: Queue the next run
+        # it starts as soon as this one ends; at most one run waits in the queue, so this never piles up
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run live.yml --ref "$GITHUB_REF_NAME" || echo "could not queue the next run"
+
