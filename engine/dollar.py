@@ -1,5 +1,6 @@
 """Tehran free-market dollar from the public Telegram channel: only executed trades
-("معامله شد ✅") are read; buy (🔵) and sell (🔴) quotes are ignored."""
+("معامله شد ✅") are read; buy (🔵) and sell (🔴) quotes are ignored. Trades are kept for one week, which is also
+what the chart shows; older ones are deleted every round."""
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -83,8 +84,8 @@ def run(state):
     for tr in found:
         trades.append([tr["ts"], tr["price"], tr["id"], tr["label"]])
     trades.sort(key=lambda x: x[2])
-    cut = now() - 4 * 86400
-    trades[:] = [t for t in trades if t[0] >= cut][-600:]
+    cut = now() - config.WEEK
+    trades[:] = [t for t in trades if t[0] >= cut]
     if newest:
         state["last_id"] = max(last_id, newest)
     log(f"dollar: pages={pages} new_trades={len(found)} total={len(trades)} err={err}")
@@ -109,7 +110,7 @@ def summarize(trades, err=None):
         "dayHigh": max(t[1] for t in today) if today else price,
         "dayLow": min(t[1] for t in today) if today else price,
         "trades": len(today),
-        "series": [[t[0], t[1]] for t in trades if t[0] >= ts - 48 * 3600],
+        "series": [[t[0], t[1]] for t in trades if t[0] >= now() - config.WEEK],
         "error": err,
     }
     return out

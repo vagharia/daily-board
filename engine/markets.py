@@ -4,11 +4,11 @@ Quotes come from TradingView's public quote scanner: Brent from FXCM's UKOIL (fr
 real-time; ICE front month as a fallback) and gold from OANDA's XAU/USD spot (TVC:GOLD as a fallback),
 so the numbers match what traders see. Yahoo's continuous Brent symbol had already rolled to a later
 contract and its gold quote is the December future, which is why they are no longer used for quotes.
-Charts are built from our own samples every round; Brent's is seeded once with Yahoo's 30-minute bars for
-the same front-month contract."""
+Charts are built from our own samples every round and cover one week; older samples are deleted every round.
+Brent's is seeded once with Yahoo's 30-minute bars for the same front-month contract."""
 import time
 
-from . import http
+from . import config, http
 from .util import log, now
 
 TV = "https://scanner.tradingview.com/global/scan"
@@ -19,7 +19,7 @@ SYMBOLS = {
 SRC_NAME = {"FX:UKOIL": "FXCM UKOIL", "ICEEUR:BRN1!": "ICE Brent", "OANDA:XAUUSD": "OANDA XAU/USD",
             "TVC:GOLD": "TVC Gold"}
 MONTHS = "FGHJKMNQUVXZ"
-KEEP = 5 * 86400
+KEEP = config.WEEK
 
 
 def _tv(tickers):
@@ -58,12 +58,13 @@ def _yahoo_quote(key, t):
 
 
 def _thin(series, t):
-    """Every sample for the last 48 hours, one every 30 minutes before that, five days in all."""
+    """Every sample for the last 24 hours, one every 30 minutes before that, a week in all (the chart spans the
+    week, so older samples don't need more detail, and the file the app reloads every minute stays small)."""
     out, last = [], 0
     for p in series:
         if p[0] < t - KEEP:
             continue
-        if p[0] < t - 2 * 86400 and p[0] - last < 1800:
+        if p[0] < t - 86400 and p[0] - last < 1800:
             continue
         out.append(p)
         last = p[0]
@@ -109,7 +110,7 @@ def run(prev_state, state):
         chg = round(price - prev, 2) if prev else None
         item = {"fa": cfg["fa"], "en": cfg["en"], "unit": cfg["unit"], "price": price, "prev": prev, "chg": chg,
                 "chgPct": round(100 * chg / prev, 2) if chg is not None and prev else None, "t": t,
-                "series": ser[-500:], "src": src, "status": "ok"}
+                "series": list(ser), "src": src, "status": "ok"}
         older = [p for p in ser if p[0] <= t - 86400]
         if older:
             item["chg24Pct"] = round(100 * (price - older[-1][1]) / older[-1][1], 2)
