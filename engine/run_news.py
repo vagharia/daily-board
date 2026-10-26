@@ -258,11 +258,11 @@ def news_round(full=True):
         sent = alerts_state.setdefault("sent", [])
         sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
         log(f"re-clustered recent stories: {n0} -> {len(clusters)}")
-    if misc.get("reeval") != 2:
+    if misc.get("reeval") != 3:
         # once after a relevance change: items of the last 36 hours that were left out get another look
         kept = {m["k"] for c in clusters for m in c["m"]}
         seen = {k: v for k, v in seen.items() if k in kept or v < T - 36 * 3600}
-        misc["reeval"] = 2
+        misc["reeval"] = 3
         log("re-checking items of the last 36 hours with the current relevance rules")
 
     # ---------------------------------------------------------------- 1. collect
