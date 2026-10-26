@@ -1,38 +1,34 @@
 """Connectivity probe run inside GitHub Actions (the dev sandbox has no internet).
 Writes _probe/probe.json, which the workflow pushes to the `probe` branch.
 
-This round: feeds of an internet-measurement group's public posts, as a news source on internet disruptions."""
+This round: the latest posts of the Telegram channels among the sources, and how the rules read each one."""
 import json
 import os
-import re
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from engine import http  # noqa: E402
-from engine.feeds import parse_feed  # noqa: E402
+from engine import collect  # noqa: E402
+from engine.classify import classify  # noqa: E402
+from engine.relevance import is_relevant  # noqa: E402
+from engine.sources import SOURCES  # noqa: E402
 
-FEEDS = ["https://mastodon.social/@netblocks.rss",
-         "https://bsky.app/profile/netblocks.org/rss",
-         "https://netblocks.org/feed",
-         "https://netblocks.org/reports/feed",
-         "https://mastodon.social/@ioda_live.rss",
-         "https://bsky.app/profile/ioda-live.bsky.social/rss",
-         "https://mastodon.social/@CloudflareRadar.rss",
-         "https://bsky.app/profile/radar.cloudflare.com/rss"]
-
-res = {"t": int(time.time()), "feeds": {}}
-for u in FEEDS:
+T = int(time.time())
+res = {"t": T, "channels": {}}
+for src in [s for s in SOURCES if s.get("kind") == "tg"]:
+    out = []
     try:
-        r = http.get(u, timeout=25, retries=0)
-        entries = parse_feed(r.content)
-        res["feeds"][u] = {"code": r.status_code, "n": len(entries), "items": [
-            {"title": (e.get("title") or "")[:160], "date": e.get("date"), "link": e.get("link"),
-             "text": re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", e.get("summary") or e.get("content") or ""))[:400]}
-            for e in entries[:12]]}
+        entries = collect.tg_entries(src["tg"][0])
+        for it in collect.make_items(src, entries, "tg", T):
+            ok = is_relevant(it)[1]
+            if ok:
+                classify(it)
+            out.append({"t": it["t"], "u": it["u"], "ti": it["ti"], "su": (it.get("su") or "")[:300], "rel": ok,
+                        "sev": it.get("sev"), "flags": it.get("flags")})
+        res["channels"][src["id"]] = out[-25:]
     except Exception as e:  # noqa: BLE001
-        res["feeds"][u] = {"err": str(e)[:200]}
+        res["channels"][src["id"]] = {"err": str(e)[:300]}
     time.sleep(1)
 
 os.makedirs("_probe", exist_ok=True)
