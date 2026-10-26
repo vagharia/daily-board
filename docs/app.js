@@ -608,7 +608,7 @@
       // other way for the previous one
       if (Math.abs(dx) > 40) { stepStory((dx < 0) !== rtl ? 1 : -1); return; }
       // a tap on the edge the stories came from (right in Persian, left in English) goes back; anywhere else moves on
-      var w = window.innerWidth, edge = Math.max(56, Math.min(96, w * 0.2));
+      var w = window.innerWidth, edge = Math.max(24, Math.min(36, w * 0.08));     // a narrow strip, ~30px on a phone
       stepStory((rtl ? e.clientX > w - edge : e.clientX < edge) ? -1 : 1);
     });
     el.addEventListener('pointercancel', function () { clearTimeout(holdT); active = false; if (held) resumeStory(); });
