@@ -331,19 +331,12 @@
     var box = $('#lamps');
     if (!ls.length) {
       box.innerHTML = Object.keys(LAMP_ICON).map(function (k) { return '<button class="lamp" data-a="lights" data-state="off">' + ic(LAMP_ICON[k]) + '</button>'; }).join('');
-      $('#lampsNote').textContent = '';
       return;
     }
+    // the lamps alone; tapping any of them opens the list with names and evidence
     box.innerHTML = ls.map(function (l) {
       return '<button class="lamp" data-a="lights" data-state="' + l.state + '" aria-label="' + esc(L() === 'fa' ? l.fa : l.en) + '">' + ic(LAMP_ICON[l.id] || 'alert') + '</button>';
     }).join('');
-    var on = ls.filter(function (l) { return l.state === 'on'; });
-    var watch = ls.filter(function (l) { return l.state === 'watch'; });
-    var note;
-    if (on.length) note = esc(t('lightsOn', { n: nfmt(on.length) })) + ' <b>' + on.map(function (l) { return esc(L() === 'fa' ? l.fa : l.en); }).join(L() === 'fa' ? '، ' : ', ') + '</b>';
-    else if (watch.length) note = esc(t('lightsWatch', { n: nfmt(watch.length) }));
-    else note = esc(t('lightsOff'));
-    $('#lampsNote').innerHTML = '<span>' + note + '</span>' + ic('chev', 'flip');
   }
 
   // ------------------------------------------------------------------ flash
@@ -611,8 +604,10 @@
       if (held) { resumeStory(); return; }
       var dx = e.clientX - x0, dy = e.clientY - y0, rtl = L() === 'fa';
       if (dy > 80 && dy > Math.abs(dx)) { closeStories(); return; }            // swipe down closes
-      if (Math.abs(dx) > 50) { stepStory((dx < 0) !== rtl ? 1 : -1); return; }  // swipe towards the reading direction
-      stepStory((e.clientX > window.innerWidth / 2) !== rtl ? 1 : -1);         // tap the far side for the next one
+      // swipe against the reading direction for the next story (leftward in English, rightward in Persian), the
+      // other way for the previous one; a tap anywhere moves on
+      if (Math.abs(dx) > 40) { stepStory((dx < 0) !== rtl ? 1 : -1); return; }
+      stepStory(1);
     });
     el.addEventListener('pointercancel', function () { clearTimeout(holdT); active = false; if (held) resumeStory(); });
     el.addEventListener('click', function (e) {
