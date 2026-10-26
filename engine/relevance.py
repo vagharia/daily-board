@@ -1,6 +1,7 @@
 """Decide whether an item is about the Iran / US / Israel / Persian Gulf conflict space."""
 import re
 
+from . import sport
 from .internet import internet
 from .lexicon import en_rx, fa_rx
 from .util import fa_norm
@@ -57,19 +58,15 @@ GOLD = re.compile(r"\bgold\b.{0,60}\b(war|tension\w*|geopolitic\w*|safe[- ]haven
                   r"|\b(war|tension\w*|geopolitic\w*|safe[- ]haven|middle east|iran\w*|conflict)\b.{0,60}\bgold\b", re.I)
 EN_US = en_rx(["trump", "rubio", "vance$", "bessent", "hegseth", "witkoff", "pentagon", "white house",
                "state department", "treasury"])
-EN_NOISE = en_rx([
-    "football", "soccer", "world cup", "fifa", "olympic", "wrestling", "volleyball", "futsal", "basketball",
-    "tournament", "goalkeeper", "medal", "box office", "film festival", "movie", "concert", "fashion", "recipe",
-    "grand prix", "formula 1", "cricket", "tennis", "chess", "oscars", "eurovision", "horoscope",
-])
+# films, concerts, fashion… (sport has its own rules, in sport.py)
+EN_NOISE = en_rx(["medal", "box office", "film festival", "movie", "concert", "fashion", "recipe", "chess", "oscars",
+                  "eurovision", "horoscope"])
 
 # weather reports (a storm warning for Hormozgan, wind and waves in the Gulf): read in the headline and the start of
 # the text, and dropped unless the headline names a weapon or a strike
 EN_WEATHER = re.compile(r"\b(weather (forecast|warning|alert|service|office)|meteorolog\w*|thunderstorms?|rainfall"
                         r"|heavy rains?|flash floods?|sandstorms?|dust storms?|heat ?waves?|wind speeds?|wave heights?"
                         r"|high waves|gale)\b", re.I)
-EN_SPORT = en_rx(["football", "soccer", "world cup", "fifa", "olympic", "futsal", "volleyball", "basketball",
-                  "head coach", "national team", "goalkeeper", "striker$", "midfielder", "premier league", "playoff"])
 EN_HARD = en_rx(["missile", "drone", "airstrike", "air strike", "strike$", "strikes$", "bomb", "explosion",
                  "killed", "shot down", "intercept", "rocket", "air defen"])
 
@@ -155,9 +152,9 @@ FA_MILPOL = fa_rx([
     "آتش بس", "نظامی", "امنیتی", "تهدید", "هشدار", "شورای امنیت", "ناو", "جنگنده", "بمباران", "رهگیری",
     "نیروی هوایی", "هواپیمای نظارتی", "شناسایی", "جاسوسی", "رادار", "میانجی", "العربیه", "سوخت رسان", "ترابری",
 ])
+# cinema, weather, a heart attack… (sport has its own rules, in sport.py)
 FA_NOISE = fa_rx([
-    "فوتبال", "والیبال", "فوتسال", "بسکتبال", "جام جهانی", "لیگ برتر", "المپیک", "سینما", "کنسرت",
-    "تیم ملی", "پرسپولیس", "استقلال تهران", "سریال", "جشنواره فیلم",
+    "سینما", "کنسرت", "سریال", "جشنواره فیلم",
     "هواشناسی", "توده تندری", "توده های تندری", "بارش", "بارندگی", "سیلاب", "گرد و خاک", "طوفان شن", "آبگرفتگی",
     "قیمت بلیط", "قیمت بلیت", "نرخ بلیط", "قیمت پرواز", "بوت کمپ", "بوتکمپ",
     "حمله قلبی", "حمله عصبی", "حمله آسم", "حمله سگ", "سگ ولگرد", "سگهای ولگرد", "سگ های ولگرد", "زورگیری",
@@ -173,13 +170,7 @@ FA_WEATHER_LEAD = fa_rx(_WEATHER_FA)
 # in the headline also words that can be figures of speech in the text ("بارش موشک" keeps its missile)
 FA_WEATHER = fa_rx(_WEATHER_FA + ["بارش", "بارندگی", "تگرگ", "سیلاب", "کاهش دما", "افزایش دما", "مه آلود",
                                   "گرد و خاک", "طوفان شن"])
-# sport, checked in the headline and the start of the text: "attack" and "war" are figures of speech there
-FA_SPORT = fa_rx([
-    "فوتبال", "فوتسال", "والیبال", "بسکتبال", "هندبال", "سرمربی", "تیم ملی", "لیگ برتر", "جام جهانی", "المپیک",
-    "پرسپولیس", "استقلال تهران", "سپاهان", "تراکتور", "پیکان تهران", "فدراسیون فوتبال", "بازیکن", "دروازه بان",
-    "لیگ قهرمانان", "لیگ نخبگان", "جام حذفی",
-])
-# what still makes a sport or weather item war news: concrete weapons and casualties
+# what still makes a weather or noise item war news: concrete weapons and casualties
 FA_HARD = fa_rx([
     "موشک", "پهپاد", "بمباران", "حمله هوایی", "حمله موشکی", "حمله پهپادی", "انفجار", "شهید", "شهادت", "کشته",
     "ترور", "پدافند", "اسرائیل", "صهیونیست",
@@ -253,9 +244,9 @@ def relevance_en(title: str, summary: str):
     if ok and EN_NOISE.search(t) and not ct:
         ok = False
     if ok and EN_NOISE.search(t) and ct and not (st | ss):
-        ok = False   # e.g. "Iran beat Japan in the World Cup qualifier"
-    if ok and not EN_NOISE.search(t) and EN_SPORT.search(s[:300]) and not EN_HARD.search(t):
-        ok = False   # a sports story whose headline doesn't say so ("Iran coach attacks critics")
+        ok = False   # e.g. "Iranian film wins at Cannes"
+    if ok and sport.story("en", t, s) == "sport" and not sport.tension("en", t, s):
+        ok = False   # a match or a club with nothing of the war in it ("Iran beat Japan in the World Cup qualifier")
     if ok and (EN_WEATHER.search(t) or EN_WEATHER.search(s[:200])) and not EN_HARD.search(t):
         ok = False   # a storm warning or the weather in the Gulf
     if ok and ukraine_war(t, s):
@@ -287,8 +278,10 @@ def relevance_fa(title: str, summary: str):
         ok = False                       # Russia, China or Europe with nothing from the Middle East
     if ok and not ct and FA_FOREIGN.search(t) and not FA_IRAN.search(t):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France
-    if ok and (FA_NOISE.search(t) or FA_SPORT.search(t) or FA_SPORT.search(s[:300])) and not FA_HARD.search(t):
-        ok = False                       # football, weather, a heart attack… ("حمله" alone is no reason to keep it)
+    if ok and FA_NOISE.search(t) and not FA_HARD.search(t):
+        ok = False                       # cinema, a heart attack… ("حمله" alone is no reason to keep it)
+    if ok and sport.story("fa", title, summary) == "sport" and not sport.tension("fa", title, summary):
+        ok = False                       # a match or a club with nothing of the war in it: its attacks are football's
     if ok and (FA_WEATHER.search(t) or FA_WEATHER_LEAD.search(s[:250])) and not FA_HARD.search(t):
         ok = False                       # weather: storms, wind and waves, rain
     if ok and ukraine_war(title, summary, "fa"):

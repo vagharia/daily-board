@@ -4,6 +4,7 @@ import re
 from . import config
 from .classify import cluster_severity, tier
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
+from .sport import CAP as SPORT_CAP
 from .util import sha
 
 STOP = set("""
@@ -513,6 +514,8 @@ def refresh(c):
         c.pop("single", None)
     if all(other_war(m) for m in ms):
         c["sev"] = min(c["sev"], OTHER_WAR_CAP)
+    if all("sport" in m.get("flags", []) for m in ms):
+        c["sev"] = min(c["sev"], SPORT_CAP)          # several outlets on a called-off match keep it yellow
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []

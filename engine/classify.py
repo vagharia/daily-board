@@ -2,12 +2,13 @@
 
 Red (>=70): direct military action, attacks on shipping / Hormuz, ultimatums, airspace closures,
 evacuations, carrier / bomber deployments. Orange (45-69): threats, sanctions, exercises, proxy
-attacks, IAEA findings. Yellow (<45): statements, diplomacy, analysis.
+attacks, IAEA findings. Yellow (<45): statements, diplomacy, analysis, and sports news touched by the war (a match
+called off, a team that won't travel).
 """
 import math
 import re
 
-from . import config
+from . import config, sport
 from .classify_fa import score_fa
 from .fronts import saudi_houthi
 from .internet import internet, severity as net_severity
@@ -356,6 +357,11 @@ def classify(item):
         flags = set(flags) | {"internet"}        # Iran's internet cut, throttled or restored: an orange story
         topics = set(topics) | {"net"}
         sev = max(sev, 46.0 if "analysis" in flags else net_severity(net))
+    lang = "fa" if item.get("lang") == "fa" else "en"
+    if sport.story(lang, fa_t or en_t, fa_s or en_s) == "sport":
+        # a match called off or a team that won't travel for fear of the war is a yellow story, not a strike
+        flags = (set(flags) - HARD_EVENTS) | {"sport"}
+        sev = min(sev, sport.CAP)
     item["sev"] = round(sev, 1)
     item["topics"] = sorted(topics)
     item["flags"] = sorted(flags)
