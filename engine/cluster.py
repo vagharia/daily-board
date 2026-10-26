@@ -106,6 +106,53 @@ EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "ev
                "alert", "kinetic_threat"}
 
 
+# the same incident told in other words ("explosion of a home in Jafarabad, Kermanshah" / "building destroyed by an
+# explosion in Kermanshah"): two reports of something that happened, in the same city, within the story's time window,
+# about the same spot: a neighbourhood or street both name, or both an explosion of a home or building (in Tehran only
+# a shared neighbourhood or street counts). A channel's claim never joins a news report this way: a different claim
+# about the same spot ("targeted assassination" / "gas explosion") stays a story of its own.
+_CITIES_FA = ["تهران", "تبریز", "اصفهان", "شیراز", "مشهد", "کرج", "قم", "اهواز", "بندرعباس", "بندر عباس", "بوشهر",
+              "کرمانشاه", "ارومیه", "خرمشهر", "آبادان", "چابهار", "کیش", "قشم", "کرمان", "یزد", "رشت", "زاهدان",
+              "همدان", "اراک", "سنندج", "ایلام", "خرم آباد", "بیروت", "دمشق", "بغداد", "اربیل", "صنعا", "حیفا",
+              "تل آویو", "ریاض", "جده", "دبی", "ابوظبی", "دوحه", "منامه", "کویت"]
+_CITY_FA = re.compile("|".join(_B + re.escape(fa_norm(x)).replace(r"\ ", r"\s*") + r"(?![\u0621-\u06FF])"
+                               for x in _CITIES_FA))
+_CITY_EN = re.compile(r"\b(tehran|tabriz|isfahan|esfahan|shiraz|mashhad|karaj|qom|ahvaz|ahwaz|bandar abbas|bushehr"
+                      r"|kermanshah|urmia|khorramshahr|abadan|chabahar|kish|qeshm|kerman|yazd|rasht|zahedan|hamedan|arak"
+                      r"|sanandaj|ilam|khorramabad|beirut|damascus|baghdad|erbil|sanaa|haifa|tel aviv|riyadh|jeddah"
+                      r"|dubai|abu dhabi|doha|manama|kuwait city)\b", re.I)
+_SPOT_FA = re.compile(R(_B, "(?:محله|خیابان|کوچه|بلوار|میدان|شهرک|بزرگراه)\\s+(?:شهید\\s+)?([\u0621-\u06FF]{3,})"))
+_SPOT_EN = re.compile(r"\b([A-Z][a-z]{3,})\s+(?:neighbo(?:u)?rhood|district|street|avenue|square|boulevard)\b"
+                      r"|\b(?:neighbo(?:u)?rhood|district|street|avenue|square) of ([A-Z][a-z]{3,})\b")
+
+
+def place(m):
+    """(cities, spots, building blast) of a report: read in its headline and the start of its text."""
+    if m.get("lang") == "fa":
+        t, s = fa_norm(m.get("ti") or ""), fa_norm(m.get("su") or "")[:250]
+        cities = {fa_norm(x).replace(" ", "") for x in _CITY_FA.findall(t + " " + s)}
+        spots = set(_SPOT_FA.findall(t + " " + s))
+        return cities, spots, bool(_BLAST_FA.search(t))
+    t = m.get("en_ti") or m.get("ti") or ""
+    s = (m.get("en_su") or m.get("su") or "")[:250]
+    cities = {x.lower() for x in _CITY_EN.findall(t + " " + s)}
+    spots = {x.lower() for pair in _SPOT_EN.findall(t + " " + s) for x in pair if x}
+    return cities, spots, bool(_BLAST_EN.search(t))
+
+
+def same_spot(a, b):
+    """Features of two reports of something that happened: the same incident at the same spot (see above)."""
+    if a["cls"] not in PHYSICAL or b["cls"] not in PHYSICAL or a["chan"] != b["chan"]:
+        return False
+    common = a["cities"] & b["cities"]
+    if not common:
+        return False
+    if a["spots"] & b["spots"]:
+        return True
+    tehran = {fa_norm("تهران"), "tehran"}
+    return a["blast"] and b["blast"] and not common <= tehran
+
+
 def channel(m):
     """The report comes from a Telegram channel, not from a news organisation."""
     return BY_ID.get(m.get("s"), {}).get("kind") == "tg"
@@ -297,7 +344,8 @@ def features(m):
     return {"vars": variants(title), "cls": event_class(m), "geo": set(m.get("geo") or []),
             "ctry": set(m.get("ctry") or []), "ppl": set(m.get("ppl") or []), "spk": speaker(title),
             "nums": _numbers(title), "days": frozenset(d.lower() for d in _DAYS.findall(title)),
-            "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title))}
+            "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title)),
+            "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m)))}
 
 
 def _text_close(x, y, physical):
@@ -333,6 +381,8 @@ def same_story(a, b, dt=0, rare=frozenset()):
     ka, kb = KIND[a["cls"]], KIND[b["cls"]]
     if ka and kb and ka != kb:                      # what happened
         return False
+    if same_spot(a, b):
+        return 0.5                                  # the same incident at the same spot, in other words
     physical = a["cls"] in PHYSICAL or b["cls"] in PHYSICAL
     jac, anchored = 0.0, False
     for x in a["vars"]:
