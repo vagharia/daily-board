@@ -1,4 +1,4 @@
-"""The fixed list of 101 sources checked on every run (94 outlets and agencies, 5 Telegram channels and 2
+"""The fixed list of 99 sources checked on every run (92 outlets and agencies, 5 Telegram channels and 2
 internet-measurement groups whose posts report outages).
 
 Each source has its own feeds; when they fail or don't exist, the engine falls back to a
@@ -148,14 +148,13 @@ SOURCES = [
     S("lorient", "L'Orient Today", "لوریان تودی", "arab", 0.75, "lorientlejour.com"),
     S("rudaw", "Rudaw", "رووداو", "arab", 0.7, "rudaw.net"),
 
-    # ------------------------------------------------------------ official Persian Gulf agencies (6)
+    # ------------------------------------------------------------ official Persian Gulf agencies (5)
     S("spa", "Saudi Press Agency", "خبرگزاری عربستان", "gulf", 0.75, "spa.gov.sa"),
     S("wam", "WAM (UAE)", "خبرگزاری امارات", "gulf", 0.75, "wam.ae"),
     S("qna", "Qatar News Agency", "خبرگزاری قطر", "gulf", 0.75, "qna.org.qa", [
         "https://qna.org.qa/en/Pages/RSS-Feeds/General"], tz=-3 * 3600),
     S("ona", "Oman News Agency", "خبرگزاری عمان", "gulf", 0.75, "omannews.gov.om"),
     S("kuna", "KUNA (Kuwait)", "خبرگزاری کویت", "gulf", 0.75, "kuna.net.kw"),
-    S("bna", "Bahrain News Agency", "خبرگزاری بحرین", "gulf", 0.75, "bna.bh"),
 
     # ------------------------------------------------------------ other powers (6)
     S("trt", "TRT World", "تی‌آر‌تی ورلد", "powers", 0.7, "trtworld.com"),
@@ -239,10 +238,7 @@ SOURCES = [
     S("indypersian", "Independent Persian", "ایندیپندنت فارسی", "fa_intl", 0.7,
       "independentpersian.com", ["https://www.independentpersian.com/rss.xml"], lang="fa", tg=["indypersian"]),
 
-    # ------------------------------------------------------------ Iranian (10)
-    S("tasnim", "Tasnim", "تسنیم", "iran", 0.6, "tasnimnews.com", [
-        "https://www.tasnimnews.com/fa/rss/feed/0/7/0/"], lang="fa",
-      tg=["tasnimnews", "tasnimnews_ir", "tasnim_news", "tasnimnewsen"]),
+    # ------------------------------------------------------------ Iranian (9)
     S("fars", "Fars", "فارس", "iran", 0.55, "farsnews.ir", [
         "https://www.farsnews.ir/rss"], lang="fa", tg=["farsna"]),
     S("irna", "IRNA", "ایرنا", "iran", 0.65, "irna.ir", [
@@ -276,8 +272,8 @@ SOURCES = [
 ]
 
 BY_ID = {s["id"]: s for s in SOURCES}
-assert len(SOURCES) == 101, len(SOURCES)
-assert len(BY_ID) == 101
+assert len(SOURCES) == 99, len(SOURCES)
+assert len(BY_ID) == 99
 
 
 def source_for_domain(host: str):

@@ -96,12 +96,12 @@ gn_wire = [
     dict(title="Airlines reroute flights away from Iraqi airspace - AP", link="https://news.google.com/rss/articles/SAMPLE3",
          date=ago(5.5), source=("AP News", "https://apnews.com")),
 ]
-tasnim = [
-    dict(title="سپاه: نفتکش متخلف در تنگه هرمز توقیف شد", link="https://www.tasnimnews.com/fa/news/sample1",
+fars = [
+    dict(title="سپاه: نفتکش متخلف در تنگه هرمز توقیف شد", link="https://www.farsnews.ir/news/sample1",
          date=ago(1.4), desc="نیروی دریایی سپاه یک نفتکش خارجی را به اتهام قاچاق سوخت توقیف کرد."),
-    dict(title="عراقچی: مذاکرات غیرمستقیم با آمریکا در مسقط ادامه دارد", link="https://www.tasnimnews.com/fa/news/sample2",
+    dict(title="عراقچی: مذاکرات غیرمستقیم با آمریکا در مسقط ادامه دارد", link="https://www.farsnews.ir/news/sample2",
          date=ago(8.5), desc="وزیر امور خارجه گفت دور جدید گفتگوها با میانجی‌گری عمان برگزار شد."),
-    dict(title="قیمت دلار امروز در بازار آزاد", link="https://www.tasnimnews.com/fa/news/sample3", date=ago(2),
+    dict(title="قیمت دلار امروز در بازار آزاد", link="https://www.farsnews.ir/news/sample3", date=ago(2),
          desc="نرخ ارز در بازار آزاد امروز اعلام شد."),
 ]
 bbcfa = [
@@ -120,7 +120,7 @@ w("aljazeera.xml", rss(aj, "Al Jazeera"))
 w("toi.xml", rss(toi, "Times of Israel"))
 w("gn_wire.xml", rss(gn_wire, "Google News"))
 w("gn_empty.xml", rss([], "Google News"))
-w("tasnim.xml", rss(tasnim, "Tasnim"))
+w("fars.xml", rss(fars, "Fars"))
 w("bbcpersian.xml", rss(bbcfa, "BBC Persian"))
 w("truth.xml", rss(truth, "Trump's Truth"))
 
@@ -324,7 +324,7 @@ index = {
     r"timesofisrael\.com/feed": "toi.xml",
     r"news\.google\.com/rss/search\?q=.*reuters": "gn_wire.xml",
     r"news\.google\.com/rss/search": "gn_empty.xml",
-    r"tasnimnews\.com/fa/rss": "tasnim.xml",
+    r"farsnews\.ir/rss": "fars.xml",
     r"feeds\.bbci\.co\.uk/persian": "bbcpersian.xml",
     r"trumpstruth\.org/feed": "truth.xml",
     r"bbc\.com/news/articles/sample-hormuz-tanker": "article.html",
