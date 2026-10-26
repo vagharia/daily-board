@@ -17,7 +17,7 @@ from .cluster import is_core
 from .feeds import parse_feed
 from .lexicon import COUNTRIES_RX, match_keys
 from .relevance import relevance_en, relevance_fa, ukraine_war
-from .util import clean_summary, fa_norm, has_fa, load_json, log, now, parse_date
+from .util import clean_summary, fa_norm, has_fa, load_json, log, now, parse_date, tg_text
 
 # handle (lowercase) -> (segment, role fa, role en)
 WHITELIST = {
@@ -541,7 +541,7 @@ def telegram_posts(state, tr):
         for div in soup.select("div.tgme_widget_message[data-post]"):
             pid = "tg:" + div["data-post"]
             tm = div.select_one("time[datetime]")
-            node = div.select_one(".tgme_widget_message_text")
+            node, _ = tg_text(div)                 # not the quoted post a reply shows above its own text
             if pid in seen or not tm or not node:
                 continue
             seen[pid] = t0
@@ -668,8 +668,6 @@ def manual_posts():
     return out
 
 
-def ranked(posts):
-    def score(p):
-        age_h = max(0.0, (now() - p["t"]) / 3600)
-        return math.log10(p.get("likes", 0) + 1) + 0.9 * p.get("cites", 0) - age_h / 24 + (1.5 if p["platform"] == "truth" else 0)
-    return sorted(posts.values(), key=score, reverse=True)
+def newest(posts):
+    """The posts, newest first (the order of the X tab)."""
+    return sorted(posts.values(), key=lambda p: p["t"], reverse=True)

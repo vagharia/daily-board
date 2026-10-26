@@ -3,10 +3,12 @@ import re
 
 from . import config
 from .classify import cluster_severity, tier
+from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
+from .relevance import FA_CITY, FA_IRAN
 from .sources import BY_ID
 from .sport import CAP as SPORT_CAP
-from .util import sha
+from .util import fa_norm, sha
 
 STOP = set("""
 a an the and or of to in on at for from by with as is are was were be been being it its this that these those
@@ -71,12 +73,35 @@ REGION_WORDS = re.compile(r"\b(middle east|mideast|west asia|levant|red sea|pers
                           r"|اردن|عربستان|امارات|قطر|کویت|بحرین|عمان", re.I)
 OTHER_WAR_CAP = 40.0
 CORROBORATE_BELOW = 0.75
-# what only Telegram channels (not news organisations) report is an unconfirmed report: yellow at most and labelled
-# so, until a news source reports the same story or CONFIRM_CHANNELS channels do; inside a story a news source has
-# confirmed, the channels' own claims still count as unconfirmed (a news report of a gas explosion doesn't confirm a
-# channel's claim of an assassination)
-CONFIRM_CHANNELS = 3
+# what only one Telegram channel (not a news organisation) reports is an unconfirmed report, labelled so: red when it
+# tells of a strike as it happens (an explosion, a missile launch, fighter jets or air defence heard; channels often
+# have these before the news) and sent as an alert, yellow otherwise. It counts as confirmed once a news source or a
+# second channel reports the same story. Once a news source has it, the news decides the colour (a controlled
+# detonation makes it yellow), and the channels' own claims no longer count beyond it; a strike the news confirms stays
+# red. Explosions in Iran that officials put down to gas stay red: during the war they are likely to be assassinations.
+CONFIRM_CHANNELS = 2
 UNCONFIRMED_CAP = 44.0
+RED_FLOOR = 70.0
+STRIKE_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
+NOT_A_STRIKE = {"denial", "controlled", "past"}
+_BLAST_FA = re.compile(R("انفجار", _ANY % 35, "(?:گاز|منزل|مسکونی|ساختمان|واحد|آپارتمان|خانه|خودرو|ماشین|کپسول|لوله"
+                         "|خیابان|کوچه|محله|مجتمع|برج)", "|", "(?:نشت\\s*گاز|منزل|مسکونی|ساختمان|آپارتمان|خانه|خودرو"
+                         "|ماشین|کپسول)", _ANY % 25, "(?:انفجار|منفجر)"))
+_BLAST_EN = re.compile(r"\b(explosions?|blasts?)\b.{0,40}\b(gas|homes?|houses?|residential|buildings?|apartments?|cars?"
+                       r"|vehicles?|streets?)\b|\b(gas|residential|building|apartment|car)\b.{0,25}\b(explosions?|blasts?)\b"
+                       r"|\bgas (leak|explosion|cylinder)s?\b", re.I)
+# the news agency of the Islamic Republic names the country without the story being about it
+_AGENCY_FA = re.compile(fa_norm("خبرگزاری جمهوری اسلامی") + "|" + fa_norm("ایرنا"))
+_ABROAD_FA = re.compile(R(_B, "(?:سوریه|دمشق|حمص|حلب|لبنان|بیروت|عراق|بغداد|اربیل|یمن|صنعا|غزه|کرانه|فلسطین|اسرائیل|اسراییل"
+                          "|تل\\s*آویو|حیفا|اردن|عربستان|ریاض|امارات|دبی|ابوظبی|قطر|دوحه|کویت|بحرین|منامه|مسقط|ترکیه"
+                          "|استانبول|آنکارا|افغانستان|کابل|پاکستان|اوکراین|روسیه|آمریکا|امریکا|اروپا)"))
+_ABROAD_EN = re.compile(r"\b(syria\w*|damascus|homs|aleppo|leban\w*|beirut|iraq\w*|baghdad|erbil|yemen\w*|sanaa|gaza"
+                        r"|west bank|israel\w*|tel aviv|haifa|jordan\w*|saudi\w*|riyadh|emirat\w*|uae|dubai|abu dhabi"
+                        r"|qatar\w*|doha|kuwait\w*|bahrain\w*|muscat|turk\w*|istanbul|ankara|afghan\w*|kabul"
+                        r"|pakistan\w*|ukrain\w*|russia\w*)\b", re.I)
+_IRAN_EN = re.compile(r"\b(iran\w*|tehran|isfahan|esfahan|tabriz|shiraz|mashhad|karaj|qom|ahvaz|ahwaz|kermanshah"
+                      r"|bandar abbas|bushehr|urmia|kerman|yazd|rasht|zahedan|hamedan|arak|sanandaj|ilam|khorramabad"
+                      r"|abadan|khorramshahr|chabahar|kish|qeshm)\b", re.I)
 EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
                "alert", "kinetic_threat"}
 
@@ -84,6 +109,33 @@ EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "ev
 def channel(m):
     """The report comes from a Telegram channel, not from a news organisation."""
     return BY_ID.get(m.get("s"), {}).get("kind") == "tg"
+
+
+def strike(m):
+    """The report tells of a strike or an explosion as it happens (in its headline), not of a threat, a plan, a
+    denial or a controlled detonation."""
+    fl = set(m.get("flags", []))
+    return bool(fl & STRIKE_FLAGS) and not fl & NOT_A_STRIKE and m.get("sev", 0) >= RED_FLOOR
+
+
+def blast(m):
+    """An explosion in a home, a building, a car or a street in Iran: the kind officials put down to gas. The place
+    is read in the headline, or in the start of the text when the headline names no country or city."""
+    if "kinetic" not in m.get("flags", []) or set(m.get("flags", [])) & NOT_A_STRIKE:
+        return False
+    if m.get("lang") == "fa":
+        t = fa_norm(m.get("ti", ""))
+        s = _AGENCY_FA.sub(" ", fa_norm(m.get("su") or "")[:300])
+        if not _BLAST_FA.search(t):
+            return False
+        if FA_CITY.search(t) or FA_IRAN.search(t):
+            return True
+        return not _ABROAD_FA.search(t) and bool(FA_CITY.search(s) or FA_IRAN.search(s))
+    t = m.get("en_ti") or m.get("ti", "")
+    s = (m.get("en_su") or m.get("su") or "")[:300]
+    if not _BLAST_EN.search(t):
+        return False
+    return bool(_IRAN_EN.search(t) or (not _ABROAD_EN.search(t) and _IRAN_EN.search(s)))
 
 
 def is_core(c):
@@ -509,8 +561,10 @@ def refresh(c):
     # reports from outside the core theatre count at reduced weight, even inside a mixed story
     eff = [m.get("sev", 20) if is_core(m) else min(NONCORE_CAP, m.get("sev", 20) * NONCORE_FACTOR) for m in ms]
     chans = {m["s"] for m in ms if channel(m)}
+    news = [m for m in ms if not channel(m)]
     claim = cluster_severity(eff, c["ns"], max_rel)     # what the reports claim, the channels' claims in full
-    if len(chans) < CONFIRM_CHANNELS:
+    if news:
+        # a news source has the story: it decides how serious it is, not the channels' own claims
         eff = [min(e, UNCONFIRMED_CAP) if channel(m) else e for e, m in zip(eff, ms)]
     c["sev"] = cluster_severity(eff, c["ns"], max_rel)
     top = ms[max(range(len(ms)), key=lambda i: eff[i])]
@@ -534,13 +588,19 @@ def refresh(c):
     if all("sport" in m.get("flags", []) for m in ms):
         c["sev"] = min(c["sev"], SPORT_CAP)          # several outlets on a called-off match keep it yellow
         claim = min(claim, SPORT_CAP)
-    if len(chans) == len(srcs) and len(chans) < CONFIRM_CHANNELS:
-        c["sev"] = min(c["sev"], UNCONFIRMED_CAP)    # only Telegram channels have it: an unconfirmed report
+    ch_strike = any(channel(m) and strike(m) for m in ms)
+    if not news and len(chans) < CONFIRM_CHANNELS:
+        # one Telegram channel alone: an unconfirmed report, red when it tells of a strike, yellow otherwise
+        c["sev"] = max(c["sev"], RED_FLOOR) if ch_strike else min(c["sev"], UNCONFIRMED_CAP)
         c["unconf"] = True
-        c["claim"] = round(claim, 1)                 # how serious the channels' claim would be if confirmed
+        c["claim"] = round(claim, 1)                 # how serious the channel's claim would be if confirmed
     else:
         c.pop("unconf", None)
         c.pop("claim", None)
+        if ch_strike and (not news or any(strike(m) for m in news)):
+            c["sev"] = max(c["sev"], RED_FLOOR)      # a second channel or the news confirms the strike: still red
+    if any(blast(m) for m in ms) and not any(set(m.get("flags", [])) & {"controlled", "denial"} for m in ms):
+        c["sev"] = max(c["sev"], RED_FLOOR)          # an explosion in Iran put down to gas stays red
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []

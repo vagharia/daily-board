@@ -12,7 +12,7 @@ from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
 from .sources import BY_ID, GROUPS, SOURCES
 from .translate import Translator, fix_terms
-from .util import data_path, first_sentences, load_json, log, now, save_json, truncate
+from .util import data_path, fa_norm, first_sentences, load_json, log, now, save_json, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
                "sev", "topics", "flags", "ppl", "geo", "ctry")
@@ -160,6 +160,27 @@ def big_claim(c):
     return bool(c.get("unconf")) and c.get("claim", 0) >= config.TIER_ORANGE
 
 
+def drop_reply_copies(clusters, seen, T):
+    """Telegram posts of the last 36 hours that repeat an earlier post of the same channel word for word at the start
+    (a reply read as the post it answers) leave their stories and are forgotten, so the next collection reads their
+    own text. Returns how many were dropped."""
+    first, n = {}, 0
+    members = sorted(((m, c) for c in clusters for m in c["m"]), key=lambda x: x[0]["t"])
+    for m, c in members:
+        if m.get("via") != "tg" or T - m["t"] > 36 * 3600:
+            continue
+        key = (m["s"], fa_norm(m.get("ti") or "")[:40])
+        if key in first and m["t"] - first[key] <= 24 * 3600:
+            c["m"].remove(m)
+            c.pop("en", None)                 # its headline may have come from the dropped copy
+            c.pop("fa", None)
+            seen.pop(m["k"], None)
+            n += 1
+        else:
+            first.setdefault(key, m["t"])
+    return n
+
+
 def rescore(clusters):
     out = []
     for c in clusters:
@@ -243,6 +264,10 @@ def news_round(full=True):
         misc["state_version"] = config.STATE_VERSION
         first_run = True
 
+    if misc.get("tg_replies") != 1:
+        # replies on Telegram pages were once read as the post they answer: such copies are dropped and read again
+        log(f"telegram replies to read again: {drop_reply_copies(clusters, seen, T)}")
+        misc["tg_replies"] = 1
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
     if misc.get("live_fix") != 1:
@@ -429,7 +454,7 @@ def news_round(full=True):
     except Exception as e:  # noqa: BLE001
         log("posts from screenshots failed:", str(e)[:120])
     xstats = xposts.update(x_state, candidates, truth, extra)
-    posts = xposts.ranked(x_state.get("posts", {}))
+    posts = xposts.newest(x_state.get("posts", {}))
     by_lang = {}
     for p in posts:
         lg = p.get("lang") or "en"

@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from . import config, http, media
 from .feeds import parse_feed
 from .sources import SOURCES, source_for_domain
-from .util import clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha, norm_url
+from .util import clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha, norm_url, tg_text
 
 KW_EN = '(Iran OR Iranian OR Israel OR Israeli OR Hormuz OR Tehran OR IRGC OR Hezbollah OR Houthi OR "Persian Gulf" OR Gulf OR CENTCOM)'
 KW_FA = "(آمریکا OR اسرائیل OR هرمز OR ترامپ OR سپاه OR حمله OR تحریم OR مذاکره OR موشک)"
@@ -150,7 +150,7 @@ def tg_entries(handle):
     soup = BeautifulSoup(r.content, "lxml")
     out = []
     for div in soup.select("div.tgme_widget_message[data-post]"):
-        tnode = div.select_one(".tgme_widget_message_text")
+        tnode, quoted = tg_text(div)
         tm = div.select_one("time[datetime]")
         if not tnode or not tm:
             continue
@@ -164,6 +164,12 @@ def tg_entries(handle):
         if not lines:
             continue
         title, rest = lines[0], " ".join(lines[1:])
+        quoted = _clean_tg_line(quoted)
+        if quoted and len(title) <= 70 and len(rest) < 40:
+            # a short follow-up to an earlier post ("گزارش مشابه از کرمانشاه و اهواز") is read together with it
+            cut = quoted[:90]
+            cut = cut[: cut.rfind(" ")] + "…" if len(quoted) > 90 and " " in cut else cut
+            title = f"{title} (در ادامهٔ: {cut})" if has_fa(title + quoted) else f"{title} (following: {cut})"
         if len(title) > 170:
             cut = title[:170]
             title, rest = cut[: cut.rfind(" ")] + "…", title + " " + rest

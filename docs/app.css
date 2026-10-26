@@ -380,6 +380,7 @@ html[lang=en] .post-text{line-height:1.55}
 .st-tier .pill{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:rgba(142,172,222,.1);color:var(--ink);font-weight:700}
 .st-tier .pill--unc{background:none;border:1px dashed rgba(255,210,63,.5);color:#EBDCA3;font-weight:600}
 .st-unc{margin-top:-2px;margin-bottom:10px}
+.fl-unc{color:#EBDCA3;font-weight:600}
 .st-title{font-size:20px;line-height:1.6;font-weight:850;margin:0 0 10px}
 html[lang=en] .st-title{line-height:1.35}
 .st-sum{font-size:15px;line-height:1.95;color:#CFD9EA}

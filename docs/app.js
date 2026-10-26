@@ -31,7 +31,7 @@
       all: 'همه', red: 'خیلی مهم', orange: 'مهم', yellow: 'کم‌اهمیت‌تر',
       now: 'همین الان', minAgo: '{n} دقیقه پیش', hAgo: '{n} ساعت پیش', updated: '{t}',
       sources: '{n} منبع', moreSrc: '+{n}', fresh: 'جدید', sev: 'شدت {n}',
-      unconf: 'گزارش تأییدنشده', unconfNote: 'این خبر را تا الان فقط کانال‌های تلگرامی گزارش کرده‌اند. اگر یک رسانهٔ خبری یا سه کانال همین خبر را گزارش کنند، با اهمیت واقعی‌اش نمایش داده می‌شود.',
+      unconf: 'گزارش تأییدنشده', unconfShort: 'تأییدنشده:', unconfNote: 'این خبر را تا الان فقط یک کانال تلگرامی گزارش کرده است. وقتی یک رسانهٔ خبری یا کانال دیگری همین خبر را گزارش کند، تأییدشده حساب می‌شود و رنگش بر اساس گزارش تازه تعیین می‌شود.',
       firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
@@ -45,7 +45,7 @@
       noEvidence: 'شاهدی در سه روز اخیر نیست.',
       d24: 'نسبت به ۲۴ ساعت قبل', idxH: 'شاخص تنش', idxNews: 'اخبار', idxSig: 'سیگنال‌های هوایی و دریایی',
       idxWeek: 'هفت روز اخیر', idxMethod: 'چطور محاسبه می‌شود',
-      method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ جابه‌جایی هواپیماهای نظامی و سوخت‌رسان، تهدید، تحریم، رزمایش، گزارش آژانس و قطع یا اختلال اینترنت ایران نارنجی؛ بیانیه، مذاکره، تحلیل و خبرهای ورزشی‌ای که به جنگ گره خورده‌اند (مثل لغو یک مسابقه) زرد. خبری که فقط کانال‌های تلگرامی گزارش کرده‌اند با برچسب «گزارش تأییدنشده» و زرد می‌آید، تا وقتی یک رسانهٔ خبری یا سه کانال همان خبر را گزارش کنند. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است. هر خبر به زبان خودش خوانده می‌شود: خبرهای فارسی با قواعد فارسی روی متن اصلی، و خبرهای خارجی با قواعد انگلیسی؛ ترجمه فقط برای نمایش و برای تطبیق خبرهای فارسی و خارجی با هم است.',
+      method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ جابه‌جایی هواپیماهای نظامی و سوخت‌رسان، تهدید، تحریم، رزمایش، گزارش آژانس و قطع یا اختلال اینترنت ایران نارنجی؛ بیانیه، مذاکره، تحلیل و خبرهای ورزشی‌ای که به جنگ گره خورده‌اند (مثل لغو یک مسابقه) زرد. خبری که فقط یک کانال تلگرامی گزارش کرده با برچسب «گزارش تأییدنشده» می‌آید: اگر از انفجار، پرتاب موشک، صدای جنگنده یا پدافند و مانند آن خبر بدهد قرمز است و هشدارش به تلگرام هم فرستاده می‌شود، وگرنه زرد. وقتی یک رسانهٔ خبری یا کانال دومی همان خبر را بدهد، رنگش بر اساس گزارش تازه تعیین می‌شود. انفجارهای ایران که علتشان نشت گاز اعلام می‌شود قرمز می‌مانند. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است. هر خبر به زبان خودش خوانده می‌شود: خبرهای فارسی با قواعد فارسی روی متن اصلی، و خبرهای خارجی با قواعد انگلیسی؛ ترجمه فقط برای نمایش و برای تطبیق خبرهای فارسی و خارجی با هم است.',
       method2: 'میانگین ساده نیست: رویدادهای جدی‌تر وزن نمایی بیشتری دارند تا یک حمله زیر سی خبر روتین گم نشود، خبرهای تازه سنگین‌ترند (نیمه‌عمر ۶ ساعت)، و هر رویداد فقط یک بار شمرده می‌شود هر چند رسانه گزارشش کنند. اعتبار منبع هم اثر دارد.',
       method3: 'شاخص نهایی ۷۰٪ اخبار و ۳۰٪ سیگنال‌های عینی است: تردد و حوادث تنگه هرمز، و سطح ریسک و هشدارهای رسمی تازه برای حریم هوایی کشورهای منطقه. این یک نشانگر است، نه پیش‌بینی.',
       method4: 'گزارش‌های چند رسانه فقط وقتی زیر یک تیتر می‌آیند که تیترهایشان خیلی شبیه باشد و در نوع رویداد، مکان، زمان (حداکثر ۴ ساعت بعد از اولین گزارش برای رویدادها و ۱۰ ساعت برای اظهارات)، گوینده، رسانه‌ی نقل‌شده و عددها هم یکی باشند. زمان هر خبر، زمان اولین گزارش آن است.',
@@ -84,7 +84,7 @@
       all: 'All', red: 'Critical', orange: 'Important', yellow: 'Lower',
       now: 'just now', minAgo: '{n} min ago', hAgo: '{n} h ago', updated: '{t}',
       sources: '{n} sources', moreSrc: '+{n}', fresh: 'New', sev: 'Severity {n}',
-      unconf: 'Unconfirmed report', unconfNote: 'So far only Telegram channels have reported this. Once a news outlet or three channels report the same story, it is shown with its real importance.',
+      unconf: 'Unconfirmed report', unconfShort: 'Unconfirmed:', unconfNote: 'So far only one Telegram channel has reported this. Once a news outlet or another channel reports it, it counts as confirmed and its colour follows the new report.',
       firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
@@ -98,7 +98,7 @@
       noEvidence: 'Nothing in the last three days.',
       d24: 'vs 24h ago', idxH: 'Escalation index', idxNews: 'News', idxSig: 'Air & sea signals',
       idxWeek: 'Last seven days', idxMethod: 'How it is calculated',
-      method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; military aircraft and tanker movements, threats, sanctions, exercises, IAEA findings and cuts or disruptions to Iran\'s internet orange; statements, talks, analysis and sports news touched by the war (a match called off, say) yellow. A story only Telegram channels have reported carries an unconfirmed-report label and stays yellow until a news outlet or three channels report it. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight. Each report is read in its own language: Persian reports by Persian rules on the original text, foreign ones by English rules; translations are only for display and for matching Persian and foreign reports.',
+      method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; military aircraft and tanker movements, threats, sanctions, exercises, IAEA findings and cuts or disruptions to Iran\'s internet orange; statements, talks, analysis and sports news touched by the war (a match called off, say) yellow. A story only one Telegram channel has reported carries an unconfirmed-report label: red, with a Telegram alert, when it tells of an explosion, a missile launch, fighter jets or air defence heard and the like, yellow otherwise. Once a news outlet or a second channel reports it, its colour follows the new report. Explosions in Iran put down to gas leaks stay red. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight. Each report is read in its own language: Persian reports by Persian rules on the original text, foreign ones by English rules; translations are only for display and for matching Persian and foreign reports.',
       method2: 'It is not a plain average: serious events weigh exponentially more so one strike is not drowned out by thirty routine stories, recent events weigh more (6-hour half-life), and each event counts once however many outlets report it. Source reliability also counts.',
       method3: 'The index is 70% news and 30% objective signals: Hormuz traffic and incidents, and the risk level and fresh official warnings for the region\'s airspace. It is an indicator, not a forecast.',
       method4: 'Reports from several outlets share a headline only when the headlines are very close and they also agree on the kind of event, the place, the time (within 4 hours of the first report for events, 10 hours for statements), the speaker, the outlet being cited and the figures. Each story is timed by its first report.',
@@ -369,7 +369,7 @@
     reds = reds.slice(0, 6);
     if (!reds.length) { box.hidden = true; return; }
     box.hidden = false;
-    var one = reds.map(function (c) { return '<button data-story="' + c.id + '">' + esc(txt(c).ti) + '</button>'; }).join('');
+    var one = reds.map(function (c) { return '<button data-story="' + c.id + '">' + (c.unconf ? '<span class="fl-unc">' + esc(t('unconfShort')) + '</span> ' : '') + esc(txt(c).ti) + '</button>'; }).join('');
     var tr = $('#flashTrack');
     tr.innerHTML = one + one;
     var len = reds.reduce(function (a, c) { return a + txt(c).ti.length; }, 0);
@@ -1178,7 +1178,8 @@
     $$('#xSeg button').forEach(function (b) { b.classList.toggle('on', b.dataset.seg === S.xseg); });
     var d = S.d.x;
     if (!d) { box.innerHTML = skeleton(); return; }
-    var posts = d.posts.filter(function (p) { return p.seg === S.xseg; });
+    // newest first
+    var posts = d.posts.filter(function (p) { return p.seg === S.xseg; }).sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
     if (!posts.length) { box.innerHTML = '<div class="empty">' + ic('quote') + '<p>' + esc(t('xEmpty')) + '</p></div>'; return; }
     box.innerHTML = posts.map(postHtml).join('');
   }

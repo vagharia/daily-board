@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from bs4 import BeautifulSoup
 
 from . import config, http
-from .util import fa_norm, log, now, parse_date, to_latin_digits
+from .util import fa_norm, log, now, parse_date, tg_text, to_latin_digits
 
 TEHRAN = timezone(timedelta(hours=3, minutes=30))
 PRICE = re.compile(r"(\d{1,3}(?:[,٬،]\d{3})+|\d{5,7})")
@@ -25,7 +25,7 @@ def _page(before=None):
             mid = int(div["data-post"].rsplit("/", 1)[1])
         except (ValueError, IndexError):
             continue
-        tnode = div.select_one(".tgme_widget_message_text")
+        tnode, _ = tg_text(div)                     # not the quoted post a reply shows above its own text
         text = tnode.get_text(" ", strip=True) if tnode else ""
         tm = div.select_one("time[datetime]")
         ts = parse_date(tm["datetime"]) if tm else None

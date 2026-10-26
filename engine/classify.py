@@ -59,6 +59,12 @@ PATTERNS = [
     P(r"\bshrapnel\b|\bdebris (from|of) (an? )?(intercept\w*|missiles?|drones?)", 72, ["military"], ["kinetic"]),
     P(r"\bintercept(s|ed|ion|ions)?\b", 50, ["military"], []),
     P(r"\b(air[- ]raid )?sirens?\b", 74, ["military"], ["kinetic"]),
+    P(r"\bair[- ]defen[cs]es?\b.{0,25}\b(activat\w*|active|fir(es|ed|ing)|engag\w*|open(ed)? fire|in action|heard)\b"
+      r"|\banti[- ]aircraft (fire|guns?)\b", 74, ["military"], ["kinetic"]),
+    # fighter jets heard or seen over a city (not a drill, a parade or an air show)
+    P(r"^(?!.*\b(drills?|exercises?|parades?|air ?shows?|fly-?past|fly-?over)\b).*?(\b(fighter )?jets?\b.{0,30}"
+      r"\b(heard|seen|spotted|roar\w*|scream\w*|flying (low )?over|flew (low )?over)\b|\bsonic booms?\b"
+      r"|\bsound of (fighter )?jets\b)", 72, ["military", "air"], ["kinetic"]),
     P(r"\b(shoot|shoots|shooting|shot) down\b|\bdowned (a |an |the )?(\w+ ){0,2}(drone|jet|aircraft|uav)|\bdowning of\b"
       r"|\b(destroy\w*|hunt\w*) (of )?(an? |the )?(\w+ ){0,3}(drone|uav)s?\b", 78, ["military"], ["kinetic"]),
     P(r"\b(air ?strikes?|strikes?|shelling|bombardment|raids?|attacks?|barrage)\b.{0,25}\b(kill(s|ed|ing)?|wound\w*"

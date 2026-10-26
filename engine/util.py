@@ -113,6 +113,18 @@ def to_latin_digits(s: str) -> str:
     return (s or "").translate(DIGITS)
 
 
+def tg_text(div):
+    """(text node, quoted text) of one post on a Telegram channel's public page. A reply shows the post it answers
+    in a block of its own, before its own text and with the same class, so that block is taken out first."""
+    quoted = ""
+    rp = div.select_one(".tgme_widget_message_reply")
+    if rp is not None:
+        q = rp.select_one(".tgme_widget_message_text, .js-message_reply_text, .tgme_widget_message_metatext")
+        quoted = q.get_text(" ", strip=True) if q is not None else ""
+        rp.extract()
+    return div.select_one(".tgme_widget_message_text"), quoted
+
+
 def has_fa(s: str) -> bool:
     return bool(re.search("[؀-ۿ]", s or ""))
 

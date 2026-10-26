@@ -140,6 +140,8 @@ def compute_lights(clusters, av, sea, markets, t=None):
                 continue
             if "denial" in c.get("flags", []) or "past" in c.get("flags", []):
                 continue
+            if c.get("unconf"):
+                continue                       # one Telegram channel's report doesn't light a lamp
             if need_state_actor and not (set(c.get("ctry", [])) & STATE_ACTORS):
                 continue
             (on if t - c["u"] <= 24 * 3600 else watch).append(c)
