@@ -387,7 +387,9 @@
   function filtered(ignoreTier) {
     var d = currentNews();
     var list = d ? d.clusters.slice() : [];
-    if (!ignoreTier) list = list.filter(function (c) { return S.tiers[c.tier]; });
+    // an unconfirmed report of a serious event (only Telegram channels have it so far) is yellow, but shows with the
+    // orange stories too, since it may turn orange or red once a news source confirms it
+    if (!ignoreTier) list = list.filter(function (c) { return S.tiers[c.tier] || (c.unconf && S.tiers.orange); });
     if (S.topic) list = list.filter(function (c) { return c.topics.indexOf(S.topic) >= 0; });
     if (S.ctry) list = list.filter(function (c) { return c.ctry.indexOf(S.ctry) >= 0; });
     if (S.ppl) list = list.filter(function (c) { return c.ppl.indexOf(S.ppl) >= 0; });

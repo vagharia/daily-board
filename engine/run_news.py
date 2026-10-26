@@ -153,6 +153,13 @@ def persian_only(c):
     return all(BY_ID.get(m["s"], {}).get("group") in PERSIAN_GROUPS for m in c["m"])
 
 
+def big_claim(c):
+    """An unconfirmed report from Telegram channels of something that would be orange or red if confirmed (a
+    strike, an explosion, the internet cut): shown, yellow and labelled, though minor Persian-only yellow stories
+    aren't."""
+    return bool(c.get("unconf")) and c.get("claim", 0) >= config.TIER_ORANGE
+
+
 def rescore(clusters):
     out = []
     for c in clusters:
@@ -478,7 +485,7 @@ def news_round(full=True):
 
     # ---------------------------------------------------------------- 11. outputs
     clusters.sort(key=lambda c: -c["u"])
-    shown = [c for c in clusters if not (c["tier"] == "yellow" and persian_only(c))]
+    shown = [c for c in clusters if not (c["tier"] == "yellow" and persian_only(c) and not big_claim(c))]
     day = [public_cluster(c) for c in shown if T - c["u"] <= config.H24]
     week = [public_cluster(c, short=True) for c in shown]
     counts = lambda lst: {k: sum(1 for c in lst if c["tier"] == k) for k in ("red", "orange", "yellow")}  # noqa: E731

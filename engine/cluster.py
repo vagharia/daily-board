@@ -509,6 +509,7 @@ def refresh(c):
     # reports from outside the core theatre count at reduced weight, even inside a mixed story
     eff = [m.get("sev", 20) if is_core(m) else min(NONCORE_CAP, m.get("sev", 20) * NONCORE_FACTOR) for m in ms]
     chans = {m["s"] for m in ms if channel(m)}
+    claim = cluster_severity(eff, c["ns"], max_rel)     # what the reports claim, the channels' claims in full
     if len(chans) < CONFIRM_CHANNELS:
         eff = [min(e, UNCONFIRMED_CAP) if channel(m) else e for e, m in zip(eff, ms)]
     c["sev"] = cluster_severity(eff, c["ns"], max_rel)
@@ -529,13 +530,17 @@ def refresh(c):
         c.pop("single", None)
     if all(other_war(m) for m in ms):
         c["sev"] = min(c["sev"], OTHER_WAR_CAP)
+        claim = min(claim, OTHER_WAR_CAP)
     if all("sport" in m.get("flags", []) for m in ms):
         c["sev"] = min(c["sev"], SPORT_CAP)          # several outlets on a called-off match keep it yellow
+        claim = min(claim, SPORT_CAP)
     if len(chans) == len(srcs) and len(chans) < CONFIRM_CHANNELS:
         c["sev"] = min(c["sev"], UNCONFIRMED_CAP)    # only Telegram channels have it: an unconfirmed report
         c["unconf"] = True
+        c["claim"] = round(claim, 1)                 # how serious the channels' claim would be if confirmed
     else:
         c.pop("unconf", None)
+        c.pop("claim", None)
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []
