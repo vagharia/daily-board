@@ -449,3 +449,74 @@ button.ev::before{content:"";display:inline-block;width:6px;height:6px;border-ra
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* ------------------------------------------------------------------ story tray & viewer */
+.stories{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:14px -16px 2px;padding:2px 16px 4px;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.stories::-webkit-scrollbar{display:none}
+/* the ring: blue until opened in this browser, then grey; the dark gap keeps it apart from the picture */
+.sty{flex:none;width:104px;height:170px;padding:2.5px;border-radius:19px;background:var(--sonar);scroll-snap-align:start;
+  box-shadow:0 6px 18px -8px rgba(94,200,255,.55);transition:background .3s,box-shadow .3s}
+.sty.seen{background:rgba(142,172,222,.32);box-shadow:none}
+.sty:active{transform:scale(.97)}
+.sty-f{position:relative;display:block;width:100%;height:100%;border-radius:16.5px;overflow:hidden;border:2px solid var(--abyss);
+  background:var(--panel);--glow:rgba(255,138,42,.34)}
+.sty-f.t-yellow{--glow:rgba(255,210,63,.26)}
+.sty-f img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sty-f::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,20,43,.25) 0%,rgba(7,20,43,0) 28%,
+  rgba(7,20,43,.15) 45%,rgba(7,20,43,.94) 100%)}
+.sty-f.noimg{background:radial-gradient(140% 75% at 50% -5%,var(--glow),transparent 62%),linear-gradient(180deg,var(--panel-2),var(--deep))}
+.sty-ic{position:absolute;top:30px;left:50%;width:30px;height:30px;margin-left:-15px;color:rgba(232,238,248,.32)}
+.sty-d{position:absolute;z-index:1;top:9px;inset-inline-start:9px;width:8px;height:8px;box-shadow:0 0 0 2.5px rgba(7,20,43,.7)}
+.sty-t{position:absolute;z-index:1;inset:auto 8px 8px;font-size:11.5px;line-height:1.55;font-weight:800;color:#fff;
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+html[lang=en] .sty-t{font-size:11.5px;line-height:1.4;letter-spacing:-.005em}
+
+body.sv-on{overflow:hidden}
+.sv{position:fixed;inset:0;z-index:55;display:flex;flex-direction:column;background:#030a17;color:#fff;touch-action:none;
+  -webkit-user-select:none;user-select:none;animation:svIn .22s ease}
+@keyframes svIn{from{opacity:0;transform:scale(.985)}}
+.sv-bg{position:absolute;inset:0;overflow:hidden;background:#06112a;--glow:rgba(255,138,42,.42)}
+.sv-bg.t-yellow{--glow:rgba(255,210,63,.32)}
+.sv-bg img{position:absolute;inset:-12%;width:124%;height:124%;object-fit:cover;filter:blur(34px) saturate(1.25) brightness(.42)}
+.sv-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,10,23,.35),rgba(3,10,23,0) 30%,
+  rgba(3,10,23,.55) 62%,rgba(3,10,23,.94) 100%)}
+.sv-bg.noimg{background:radial-gradient(130% 55% at 50% 8%,var(--glow),transparent 62%),
+  radial-gradient(rgba(142,172,222,.07) 1px,transparent 1.2px) 0 0/22px 22px,linear-gradient(180deg,var(--panel-2),#030a17 75%)}
+.sv-stage{position:relative;z-index:2;flex:1;min-height:0;display:grid;place-items:center;padding:20px 16px 6px;pointer-events:none}
+.sv-pic{margin:0;width:100%;max-height:100%;aspect-ratio:16/10;border-radius:18px;overflow:hidden;background:#0b1c38;
+  box-shadow:0 28px 60px -22px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.08)}
+.sv-pic img{width:100%;height:100%;object-fit:cover}
+.sv-glyph{color:rgba(232,238,248,.16)}
+.sv-glyph .ic{width:96px;height:96px;stroke-width:1.2}
+.sv-top{position:relative;z-index:2;padding:calc(var(--safe-t) + 10px) 12px 0}
+.sv-bars{display:flex;gap:4px}
+.sv-bars i{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden;position:relative}
+.sv-bars i b{position:absolute;inset:0;background:#fff;transform:scaleX(0);transform-origin:left center}
+[dir=rtl] .sv-bars i b{transform-origin:right center}
+.sv-bars i.done b{transform:scaleX(1)}
+.sv-bars i.run b{animation:svBar 7s linear forwards}
+.sv.paused .sv-bars i.run b{animation-play-state:paused}
+@keyframes svBar{to{transform:scaleX(1)}}
+.sv-head{display:flex;align-items:center;gap:10px;margin-top:12px}
+.sv-av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:15px;
+  color:#07142B;background:var(--orange);box-shadow:0 0 0 2px rgba(3,10,23,.6)}
+.sv-av.t-yellow{background:var(--yellow)}
+.sv-who{flex:1;min-width:0;line-height:1.35}
+.sv-who b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-who span{font-size:12px;color:rgba(255,255,255,.72)}
+.sv-x{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;color:#fff;flex:none}
+.sv-x .ic{width:24px;height:24px}
+.sv-body{position:relative;z-index:2;padding:6px 20px calc(var(--safe-b) + 28px);pointer-events:none}
+.sv-tier{display:inline-flex;align-items:center;gap:7px;padding:4px 11px 4px 12px;border-radius:999px;font-size:12px;font-weight:700;
+  background:rgba(7,20,43,.55);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.sv-tier .t-dot{width:8px;height:8px}
+.sv-title{margin:12px 0 12px;font-size:23px;line-height:1.6;font-weight:800;letter-spacing:-.01em;text-wrap:pretty;
+  text-shadow:0 1px 12px rgba(3,10,23,.5)}
+html[lang=en] .sv-title{font-size:24px;line-height:1.35}
+.sv-src{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;font-size:13px;color:rgba(255,255,255,.74)}
+.sv-src b{color:#fff;font-weight:700}
+.sv-open{pointer-events:auto;margin-top:18px;display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 16px 0 18px;
+  border-radius:999px;font-size:14px;font-weight:700;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.24);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+@media (prefers-reduced-motion:reduce){.sv{animation:none}.sty:active{transform:none}}

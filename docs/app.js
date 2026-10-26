@@ -25,7 +25,7 @@
   // ------------------------------------------------------------------ strings
   var T = {
     fa: {
-      app: 'بولتن روزانه', usd: 'دلار فردایی', brent: 'نفت برنت', gold: 'اونس طلا', index: 'شاخص تنش',
+      app: 'بولتن روزانه', usd: 'دلار آزاد', brent: 'نفت برنت', gold: 'اونس طلا', index: 'شاخص تنش',
       z0: 'آرام نسبی', z1: 'تنش متوسط', z2: 'تنش بالا', z3: 'بحرانی', breaking: 'فوری',
       tNews: 'خبرها', tMap: 'نقشه و سیگنال‌ها', tX: 'ایکس', r24: '۲۴ ساعت', rWeek: 'هفته',
       all: 'همه', red: 'خیلی مهم', orange: 'مهم', yellow: 'کم‌اهمیت‌تر',
@@ -35,6 +35,7 @@
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
+      storiesH: 'استوری خبرها', fullStory: 'خبر کامل', close: 'بستن', srcLabel: 'منبع:', prev: 'قبلی', next: 'بعدی',
       noData: 'هنوز داده‌ای ساخته نشده. موتور هر چند دقیقه اجرا می‌شود؛ کمی بعد دوباره سر بزن.',
       offline: 'اتصال برقرار نیست؛ آخرین داده ذخیره‌شده نمایش داده می‌شود.',
       lightsH: 'چراغ‌های هشدار', lightsOn: '{n} چراغ روشن:', lightsWatch: 'چراغی روشن نیست؛ {n} مورد زیر نظر',
@@ -82,6 +83,7 @@
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
+      storiesH: 'News stories', fullStory: 'Full story', close: 'Close', srcLabel: 'Source:', prev: 'Previous', next: 'Next',
       noData: 'No data yet. The engine runs every few minutes; check back shortly.',
       offline: 'You are offline; showing the last saved data.',
       lightsH: 'Warning lights', lightsOn: '{n} lights on:', lightsWatch: 'No lights on; {n} on watch',
@@ -224,7 +226,8 @@
       return r.json();
     }, function (e) { clearTimeout(tm); throw e; });
   }
-  var KEYS = { ticker: 'ticker.json', signals: 'signals.json', news24: 'news_24h.json', newsWeek: 'news_week.json', x: 'x.json', health: 'health.json' };
+  var KEYS = { ticker: 'ticker.json', signals: 'signals.json', news24: 'news_24h.json', newsWeek: 'news_week.json', x: 'x.json', health: 'health.json',
+    stories: 'stories.json' };
   function load(keys, fresh) {
     return Promise.all(keys.map(function (k) {
       return getJSON(KEYS[k], fresh).then(function (j) { return [k, j, null]; }, function (e) { return [k, null, e]; });
@@ -243,7 +246,7 @@
     });
   }
   function bootCache() {
-    ['ticker', 'signals', 'news24', 'x'].forEach(function (k) {
+    ['ticker', 'signals', 'news24', 'x', 'stories'].forEach(function (k) {
       var c = store.get('cache.' + k, null);
       if (c) S.d[k] = c;
     });
@@ -481,6 +484,158 @@
   }
   function skeleton() { return '<div class="skel skel-card"></div><div class="skel skel-row"></div><div class="skel skel-row"></div><div class="skel skel-row"></div>'; }
 
+  // ------------------------------------------------------------------ story tray & viewer
+  // Up to ten orange and yellow stories about Iran and Israel or the US, chosen by the engine every two hours.
+  // Which ones this browser has opened is remembered here only: blue ring = not seen yet, grey = seen.
+  var STORY_MS = 7000;
+  var SV = null;
+  S.storySeen = new Set(store.get('storySeen', []));
+  function storyList() { return (S.d.stories && S.d.stories.stories) || []; }
+  function markSeen(id) {
+    if (S.storySeen.has(id)) return;
+    S.storySeen.add(id);
+    store.set('storySeen', Array.from(S.storySeen).slice(-300));
+  }
+  window.styFail = function (img) {
+    var f = img.parentNode;
+    img.remove();
+    if (f && !f.classList.contains('noimg')) { f.classList.add('noimg'); f.insertAdjacentHTML('afterbegin', ic('news', 'sty-ic')); }
+  };
+  function renderStories() {
+    var box = $('#stories'), list = storyList();
+    if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.setAttribute('aria-label', t('storiesH'));
+    box.innerHTML = list.map(function (c, i) {
+      var x = txt(c), seen = S.storySeen.has(c.id);
+      var pic = c.img ? '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="styFail(this)">'
+        : ic('news', 'sty-ic');
+      return '<button class="sty' + (seen ? ' seen' : '') + '" role="listitem" data-sty="' + i + '" aria-label="' + esc(x.ti) + '">' +
+        '<span class="sty-f t-' + c.tier + (c.img ? '' : ' noimg') + '">' + pic + '<i class="sty-d t-dot ' + c.tier + '"></i>' +
+        '<span class="sty-t" dir="auto">' + esc(x.ti) + '</span></span></button>';
+    }).join('');
+  }
+  function openStories(i) {
+    var list = storyList();
+    if (!list.length || SV) return;
+    var el = document.createElement('div');
+    el.className = 'sv';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', t('storiesH'));
+    el.innerHTML = '<div class="sv-bg" id="svBg"></div>' +
+      '<div class="sv-top"><div class="sv-bars">' + list.map(function () { return '<i><b></b></i>'; }).join('') + '</div><div class="sv-head" id="svHead"></div></div>' +
+      '<div class="sv-stage" id="svStage"></div><div class="sv-body" id="svBody"></div>';
+    document.body.appendChild(el);
+    document.body.classList.add('sv-on');
+    SV = { el: el, list: list, i: -1, timer: null, left: STORY_MS, t0: 0, paused: false };
+    try { history.pushState({ sv: 1 }, ''); } catch (e) { /* ignore */ }
+    bindViewer(el);
+    showStoryAt(i);
+  }
+  function showStoryAt(i) {
+    if (!SV) return;
+    if (i >= SV.list.length) { closeStories(); return; }
+    i = Math.max(0, i);
+    SV.i = i;
+    var c = SV.list[i], x = txt(c), src = c.src[0] || {}, name = srcName(src) || '';
+    markSeen(c.id);
+    $$('.sv-bars i', SV.el).forEach(function (b, k) {
+      var f = b.firstChild;
+      f.style.animation = 'none'; void f.offsetWidth; f.style.animation = '';
+      b.className = k < i ? 'done' : k === i ? 'run' : '';
+    });
+    // the picture at its own shape in the middle, a blurred copy of it filling the screen behind
+    var bg = $('#svBg'), stage = $('#svStage');
+    bg.className = 'sv-bg t-' + c.tier + (c.img ? '' : ' noimg');
+    bg.innerHTML = c.img ? '<img referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="this.remove()">' : '';
+    stage.innerHTML = c.img ? '<figure class="sv-pic"><img referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="svNoPic(this)"></figure>'
+      : '<span class="sv-glyph">' + ic('news') + '</span>';
+    $('#svHead').innerHTML = '<span class="sv-av t-' + c.tier + '">' + esc(name.trim().charAt(0) || '•') + '</span>' +
+      '<div class="sv-who"><b dir="auto">' + esc(name) + '</b><span>' + esc(ago(c.t)) + '</span></div>' +
+      '<button class="sv-x" data-sv="close" aria-label="' + esc(t('close')) + '">' + ic('x') + '</button>';
+    var others = c.ns > 1 ? '<span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span>' : '';
+    $('#svBody').innerHTML = '<span class="sv-tier"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' +
+      '<h2 class="sv-title" dir="auto">' + esc(x.ti) + '</h2>' +
+      '<div class="sv-src"><span>' + esc(t('srcLabel')) + ' <b dir="auto">' + esc(name) + '</b></span>' + others + '</div>' +
+      '<button class="sv-open" data-sv="open">' + esc(t('fullStory')) + ic('chev', 'ic-sm flip') + '</button>';
+    SV.left = STORY_MS;
+    SV.paused = false;
+    SV.el.classList.remove('paused');
+    runStoryTimer();
+  }
+  window.svNoPic = function (img) {
+    var st = img.closest('.sv-stage'), bg = $('#svBg');
+    if (st) st.innerHTML = '<span class="sv-glyph">' + ic('news') + '</span>';
+    if (bg) { bg.classList.add('noimg'); bg.innerHTML = ''; }
+  };
+  function runStoryTimer() {
+    clearTimeout(SV.timer);
+    SV.t0 = Date.now();
+    SV.timer = setTimeout(function () { showStoryAt(SV.i + 1); }, SV.left);
+  }
+  function pauseStory() {
+    if (!SV || SV.paused) return;
+    SV.paused = true;
+    clearTimeout(SV.timer);
+    SV.left = Math.max(300, SV.left - (Date.now() - SV.t0));
+    SV.el.classList.add('paused');
+  }
+  function resumeStory() {
+    if (!SV || !SV.paused) return;
+    SV.paused = false;
+    SV.el.classList.remove('paused');
+    runStoryTimer();
+  }
+  function stepStory(dir) { if (SV) showStoryAt(dir < 0 && SV.i === 0 ? 0 : SV.i + dir); }
+  function closeStories(keepHistory) {
+    if (!SV) return;
+    clearTimeout(SV.timer);
+    SV.el.remove();
+    SV = null;
+    document.body.classList.remove('sv-on');
+    if (!keepHistory && history.state && history.state.sv) { try { history.back(); } catch (e) { /* ignore */ } }
+    renderStories();
+  }
+  function bindViewer(el) {
+    var x0 = 0, y0 = 0, held = false, holdT = null, active = false;
+    el.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('[data-sv]')) return;
+      active = true; held = false; x0 = e.clientX; y0 = e.clientY;
+      holdT = setTimeout(function () { held = true; pauseStory(); }, 220);      // press and hold to read longer
+    });
+    el.addEventListener('pointerup', function (e) {
+      clearTimeout(holdT);
+      if (!active) return;
+      active = false;
+      if (held) { resumeStory(); return; }
+      var dx = e.clientX - x0, dy = e.clientY - y0, rtl = L() === 'fa';
+      if (dy > 80 && dy > Math.abs(dx)) { closeStories(); return; }            // swipe down closes
+      if (Math.abs(dx) > 50) { stepStory((dx < 0) !== rtl ? 1 : -1); return; }  // swipe towards the reading direction
+      stepStory((e.clientX > window.innerWidth / 2) !== rtl ? 1 : -1);         // tap the far side for the next one
+    });
+    el.addEventListener('pointercancel', function () { clearTimeout(holdT); active = false; if (held) resumeStory(); });
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sv]');
+      if (!b || !SV) return;
+      e.stopPropagation();
+      if (b.dataset.sv === 'close') closeStories();
+      else if (b.dataset.sv === 'open') {
+        var id = SV.list[SV.i].id;
+        closeStories(true);
+        try { history.replaceState({ sheet: 1 }, ''); } catch (er) { /* ignore */ }
+        openStory(id, true);
+      }
+    });
+  }
+  window.addEventListener('popstate', function () { if (SV) closeStories(true); });
+  document.addEventListener('keydown', function (e) {
+    if (!SV) return;
+    if (e.key === 'Escape') closeStories();
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') stepStory((e.key === 'ArrowRight') !== (L() === 'fa') ? 1 : -1);
+  });
+  document.addEventListener('visibilitychange', function () { if (SV) { if (document.hidden) pauseStory(); else resumeStory(); } });
+
   // ------------------------------------------------------------------ new-story tracking & alerts
   function trackNew(isRefresh) {
     var d = S.d.news24;
@@ -539,13 +694,13 @@
 
   // ------------------------------------------------------------------ sheet
   var sheetOpen = false;
-  function openSheet(html, mount) {
+  function openSheet(html, mount, reuseHistory) {
     var layer = $('#sheetLayer');
     $('#sheetBody').innerHTML = html;
     $('#sheetBody').scrollTop = 0;
     layer.hidden = false;
     requestAnimationFrame(function () { layer.classList.add('open'); });
-    if (!sheetOpen) { try { history.pushState({ sheet: 1 }, ''); } catch (e) { /* ignore */ } }
+    if (!sheetOpen && !reuseHistory) { try { history.pushState({ sheet: 1 }, ''); } catch (e) { /* ignore */ } }
     sheetOpen = true;
     if (mount) mount($('#sheetBody'));
   }
@@ -568,10 +723,10 @@
   })();
 
   function findStory(id) {
-    var lists = [S.d.news24, S.d.newsWeek];
+    var lists = [S.d.news24 && S.d.news24.clusters, S.d.newsWeek && S.d.newsWeek.clusters, S.d.stories && S.d.stories.stories];
     for (var i = 0; i < lists.length; i++) {
       if (!lists[i]) continue;
-      for (var j = 0; j < lists[i].clusters.length; j++) if (lists[i].clusters[j].id === id) return lists[i].clusters[j];
+      for (var j = 0; j < lists[i].length; j++) if (lists[i][j].id === id) return lists[i][j];
     }
     return null;
   }
@@ -581,7 +736,7 @@
     if (c.img) return '<div class="st-media"><img referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="this.parentNode.remove()"></div>';
     return '';
   }
-  function openStory(id) {
+  function openStory(id, reuseHistory) {
     var c = findStory(id);
     if (!c) return;
     var showOrig = false;
@@ -613,7 +768,7 @@
       root.onclick = function (e) {
         if (e.target.closest('[data-a=toggleOrig]')) { e.stopPropagation(); showOrig = !showOrig; root.innerHTML = body(); }
       };
-    });
+    }, reuseHistory);
   }
 
   function openLights() {
@@ -1086,7 +1241,7 @@
     if (window.scrollY > top) window.scrollTo(0, top);
   }
   function renderAll(langChanged) {
-    renderHeader(); renderMarkets(); renderGauge(); renderLamps(); renderFlash();
+    renderHeader(); renderMarkets(); renderGauge(); renderLamps(); renderFlash(); renderStories();
     $$('#rangeSeg button').forEach(function (b) { b.classList.toggle('on', b.dataset.range === S.range); });
     renderChips(); renderFeed(true);
     if (S.tab === 'map') { renderMap(); renderSignals(); }
@@ -1097,6 +1252,7 @@
     unlockAudio();
     var el;
     if ((el = e.target.closest('[data-close]'))) { closeSheet(); return; }
+    if ((el = e.target.closest('[data-sty]'))) { openStories(+el.dataset.sty); return; }
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
     if ((el = e.target.closest('[data-tier]'))) {
@@ -1155,7 +1311,7 @@
 
   // ------------------------------------------------------------------ refresh loop
   function refreshAll(fresh) {
-    var keys = ['ticker', 'signals', 'news24', 'x'];
+    var keys = ['ticker', 'signals', 'news24', 'x', 'stories'];
     if (S.range === 'week' || S.d.newsWeek) keys.push('newsWeek');
     return load(keys, fresh).then(function (ch) {
       S.loaded = true;
@@ -1171,7 +1327,9 @@
     var keys = ['signals', 'news24'];
     if (S.tab === 'x' || Math.random() < 0.5) keys.push('x');
     if (S.range === 'week') keys.push('newsWeek');
+    if (!S.d.stories || nowS() > (S.d.stories.next || 0) - 60) keys.push('stories');      // a new set every two hours
     load(keys).then(function (ch) {
+      if (ch.stories && !SV) renderStories();
       if (ch.news24) trackNew(true);
       if (ch.news24 || ch.signals || ch.newsWeek) {
         renderHeader(); renderGauge(); renderLamps(); renderFlash(); renderChips();

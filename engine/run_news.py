@@ -4,7 +4,7 @@ import os
 import re
 import time
 
-from . import alerts, aviation, collect, config, media, sea, store, util, xposts
+from . import alerts, aviation, collect, config, media, sea, store, stories, util, xposts
 from .classify import classify
 from .cluster import Clusterer, prune, recluster, refresh
 from .http import parallel
@@ -457,7 +457,15 @@ def news_round(full=True):
     # ---------------------------------------------------------------- 9. alerts
     alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run)
 
-    # ---------------------------------------------------------------- 10. outputs
+    # ---------------------------------------------------------------- 10. stories, chosen every two hours
+    if T - (misc.get("stories_t") or 0) >= stories.EVERY - 300 or not os.path.exists(data_path("stories.json")):
+        chosen = stories.pick(clusters, T, hidden=lambda c: c["tier"] == "yellow" and persian_only(c))
+        save_json(data_path("stories.json"), {"v": 1, "updated": T, "next": T + stories.EVERY,
+                                              "stories": [public_cluster(c, short=True) for c in chosen]})
+        misc["stories_t"] = T
+        log(f"stories: {len(chosen)} chosen for the next two hours")
+
+    # ---------------------------------------------------------------- 11. outputs
     clusters.sort(key=lambda c: -c["u"])
     shown = [c for c in clusters if not (c["tier"] == "yellow" and persian_only(c))]
     day = [public_cluster(c) for c in shown if T - c["u"] <= config.H24]

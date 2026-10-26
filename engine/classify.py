@@ -9,6 +9,7 @@ import re
 
 from . import config
 from .classify_fa import score_fa
+from .fronts import saudi_houthi
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
 from .util import to_latin_digits
 
@@ -346,6 +347,9 @@ def classify(item):
     topics |= set(title_topics) | set(body_topics)
     if "statement" in topics and not ({"statement"} & set(title_topics)) and "threat" not in flags:
         topics.discard("statement")
+    if saudi_houthi(fa_t if item.get("lang") == "fa" else en_t, item.get("lang") or "en", flags) == "secondary":
+        flags = set(flags) | {"secondary"}       # on the Saudi-Houthi front only direct attacks are red
+        sev = min(sev, 69.0)
     item["sev"] = round(sev, 1)
     item["topics"] = sorted(topics)
     item["flags"] = sorted(flags)

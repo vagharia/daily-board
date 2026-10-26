@@ -500,6 +500,10 @@ def refresh(c):
     if not set(top.get("flags", [])) & EVENT_FLAGS:
         # many outlets repeating a threat or a plan make it a big story, not a strike
         c["sev"] = min(c["sev"], 69.0)
+    if "secondary" in top.get("flags", []):
+        # its strongest report is a casualty count, a reaction or fighting inside Yemen: many outlets repeating it
+        # don't make it red
+        c["sev"] = min(c["sev"], 69.0)
     if c["ns"] == 1 and max_rel < CORROBORATE_BELOW:
         # a single less reliable outlet (state media, partisan or Telegram channels) can't make a red story
         # on its own; it turns red once another source reports it

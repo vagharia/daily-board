@@ -157,7 +157,8 @@ def compute_lights(clusters, av, sea, markets, t=None):
                 "en": f"{c['en']}: {w.get('src', '')} {w.get('ref', '')}".strip()}
         (data if t - (w.get("issued") or 0) <= 86400 else watch_data).append(line)
     res["airspace"] = (on, watch + ([{"_data": d} for d in watch_data] if not on and not data else []), data[:3])
-    on, watch = by_flag({"deploy"}, 62)
+    # an attack story is evidence for the strike light, not for a build-up, even when it names a carrier or a base
+    on, watch = by_flag({"deploy"}, 62, exclude=("kinetic",))
     res["deploy"] = (on, watch, [])
     on, watch = by_flag({"evac"}, 66)
     res["evac"] = (on, watch, [])
