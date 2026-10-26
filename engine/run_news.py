@@ -439,7 +439,7 @@ def news_round(full=True):
         for p in group:
             p.setdefault("fa", p["text"])
             p.setdefault("en", p["text"])
-            p["fa"] = fix_terms(p["text"], p["fa"], "fa")
+            p["fa"] = fix_terms(p["text"] + " " + (p.get("en") or ""), p["fa"], "fa")
 
     # ---------------------------------------------------------------- 8. signals
     try:

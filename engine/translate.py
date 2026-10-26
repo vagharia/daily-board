@@ -43,6 +43,20 @@ _US_SRC = re.compile(r"(?<![A-Za-z])(U\.S\.?|US|USA)(?![A-Za-z])|(?i:\b(america\
                      r"|white house|washington)\b)")
 _IR_PRES_SRC = re.compile(r"pezeshkian|\biran(ian|'s)? president|president of iran", re.I)
 _OTHER_SCRIPT = re.compile(r"[\u0590-\u05FF\u0600-\u06FF\u0400-\u04FF\u4E00-\u9FFF]")
+# war vocabulary Google gets wrong in Persian, fixed only when the source shows which sense was meant:
+# sea mines come out as mineral mines (معادن), air strikes as labour strikes (اعتصاب), and Iran's Pickaxe Mountain
+# site (کوه کلنگ) as a transliteration
+_MINES_SRC = re.compile(r"\bmines?\b|\bmine[- ]?(lay\w*|sweep\w*|clear\w*|field\w*|hunt\w*)|\bminelay\w*|\bminesweep\w*",
+                        re.I)
+_MINING_SRC = re.compile(r"\b(mining|miners?|ores?|quarr\w*|mineral\w*|coal|copper|gold mines?|lithium|iron mines?"
+                         r"|bitcoin|crypto\w*)\b", re.I)
+_STRIKE_SRC = re.compile(r"\bstrik(e|es|ing)\b|\bstruck\b", re.I)
+_LABOUR_SRC = re.compile(r"\b(workers?|unions?|labou?r|wages?|teachers|drivers|truckers|bazaar\w*|merchants|shopkeepers"
+                         r"|employees|walkouts?|hunger strike|general strike|on strike|went on strike|strikers)\b", re.I)
+_PICKAXE_SRC = re.compile(r"pick-?\s?axe", re.I)
+_PICKAXE_FA = re.compile(r"پیک\s*[\u200c]?\s*اکس|پیککس|پیکاکس|پیکس(?=\s|$)")
+# Persian names that are fixed regardless of the source (also applied to stored translations)
+FA_ALWAYS = [("خلیج عمان", "دریای عمان")]
 _LINEBREAKS = re.compile(r"[\r\n  \u0085\v\f]+")
 
 
@@ -63,6 +77,15 @@ def fix_terms(src, out, tl):
         out = out.replace("مثقال", "شِکِل")
     if _US_PRES_FA.search(out) and not _OTHER_SCRIPT.search(src) and not _US_SRC.search(src):
         out = _US_PRES_FA.sub("رئیس‌جمهور ایران" if _IR_PRES_SRC.search(src) else "رئیس‌جمهور", out)
+    if ("معدن" in out or "معادن" in out) and _MINES_SRC.search(src) and not _MINING_SRC.search(src):
+        out = out.replace("معادن دریایی", "مین‌های دریایی").replace("معدن دریایی", "مین دریایی")
+        out = out.replace("معادن", "مین‌ها").replace("معدن", "مین")
+    if "اعتصاب" in out and _STRIKE_SRC.search(src) and not _LABOUR_SRC.search(src):
+        out = out.replace("اعتصابات", "حملات").replace("اعتصاب", "حمله")
+    if _PICKAXE_SRC.search(src):
+        out = _PICKAXE_FA.sub("کلنگ", out).replace("کوه تبر", "کوه کلنگ")
+    for a, b in FA_ALWAYS:
+        out = out.replace(a, b)
     return out
 
 
