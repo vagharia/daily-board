@@ -201,6 +201,7 @@ def public_cluster(c, short=False):
         "lang": lang, "img": c.get("img"), "vid": c.get("vid"), "src": srcs[:14], "ns": c.get("ns", len(srcs)),
         "topics": c.get("topics", []), "geo": c.get("geo", [])[:4], "ctry": c.get("ctry", [])[:5],
         "ppl": c.get("ppl", [])[:5], "flags": [f for f in c.get("flags", []) if f in PUBLIC_FLAGS],
+        **({"unconf": True} if c.get("unconf") else {}),   # only Telegram channels have reported it so far
     }
 
 

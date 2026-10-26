@@ -31,6 +31,7 @@
       all: 'همه', red: 'خیلی مهم', orange: 'مهم', yellow: 'کم‌اهمیت‌تر',
       now: 'همین الان', minAgo: '{n} دقیقه پیش', hAgo: '{n} ساعت پیش', updated: '{t}',
       sources: '{n} منبع', moreSrc: '+{n}', fresh: 'جدید', sev: 'شدت {n}',
+      unconf: 'گزارش تأییدنشده', unconfNote: 'این خبر را تا الان فقط کانال‌های تلگرامی گزارش کرده‌اند. اگر یک رسانهٔ خبری یا سه کانال همین خبر را گزارش کنند، با اهمیت واقعی‌اش نمایش داده می‌شود.',
       firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
@@ -44,7 +45,7 @@
       noEvidence: 'شاهدی در سه روز اخیر نیست.',
       d24: 'نسبت به ۲۴ ساعت قبل', idxH: 'شاخص تنش', idxNews: 'اخبار', idxSig: 'سیگنال‌های هوایی و دریایی',
       idxWeek: 'هفت روز اخیر', idxMethod: 'چطور محاسبه می‌شود',
-      method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ جابه‌جایی هواپیماهای نظامی و سوخت‌رسان، تهدید، تحریم، رزمایش، گزارش آژانس و قطع یا اختلال اینترنت ایران نارنجی؛ بیانیه، مذاکره، تحلیل و خبرهای ورزشی‌ای که به جنگ گره خورده‌اند (مثل لغو یک مسابقه) زرد. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است. هر خبر به زبان خودش خوانده می‌شود: خبرهای فارسی با قواعد فارسی روی متن اصلی، و خبرهای خارجی با قواعد انگلیسی؛ ترجمه فقط برای نمایش و برای تطبیق خبرهای فارسی و خارجی با هم است.',
+      method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ جابه‌جایی هواپیماهای نظامی و سوخت‌رسان، تهدید، تحریم، رزمایش، گزارش آژانس و قطع یا اختلال اینترنت ایران نارنجی؛ بیانیه، مذاکره، تحلیل و خبرهای ورزشی‌ای که به جنگ گره خورده‌اند (مثل لغو یک مسابقه) زرد. خبری که فقط کانال‌های تلگرامی گزارش کرده‌اند با برچسب «گزارش تأییدنشده» و زرد می‌آید، تا وقتی یک رسانهٔ خبری یا سه کانال همان خبر را گزارش کنند. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است. هر خبر به زبان خودش خوانده می‌شود: خبرهای فارسی با قواعد فارسی روی متن اصلی، و خبرهای خارجی با قواعد انگلیسی؛ ترجمه فقط برای نمایش و برای تطبیق خبرهای فارسی و خارجی با هم است.',
       method2: 'میانگین ساده نیست: رویدادهای جدی‌تر وزن نمایی بیشتری دارند تا یک حمله زیر سی خبر روتین گم نشود، خبرهای تازه سنگین‌ترند (نیمه‌عمر ۶ ساعت)، و هر رویداد فقط یک بار شمرده می‌شود هر چند رسانه گزارشش کنند. اعتبار منبع هم اثر دارد.',
       method3: 'شاخص نهایی ۷۰٪ اخبار و ۳۰٪ سیگنال‌های عینی است: تردد و حوادث تنگه هرمز، و سطح ریسک و هشدارهای رسمی تازه برای حریم هوایی کشورهای منطقه. این یک نشانگر است، نه پیش‌بینی.',
       method4: 'گزارش‌های چند رسانه فقط وقتی زیر یک تیتر می‌آیند که تیترهایشان خیلی شبیه باشد و در نوع رویداد، مکان، زمان (حداکثر ۴ ساعت بعد از اولین گزارش برای رویدادها و ۱۰ ساعت برای اظهارات)، گوینده، رسانه‌ی نقل‌شده و عددها هم یکی باشند. زمان هر خبر، زمان اولین گزارش آن است.',
@@ -83,6 +84,7 @@
       all: 'All', red: 'Critical', orange: 'Important', yellow: 'Lower',
       now: 'just now', minAgo: '{n} min ago', hAgo: '{n} h ago', updated: '{t}',
       sources: '{n} sources', moreSrc: '+{n}', fresh: 'New', sev: 'Severity {n}',
+      unconf: 'Unconfirmed report', unconfNote: 'So far only Telegram channels have reported this. Once a news outlet or three channels report the same story, it is shown with its real importance.',
       firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
@@ -96,7 +98,7 @@
       noEvidence: 'Nothing in the last three days.',
       d24: 'vs 24h ago', idxH: 'Escalation index', idxNews: 'News', idxSig: 'Air & sea signals',
       idxWeek: 'Last seven days', idxMethod: 'How it is calculated',
-      method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; military aircraft and tanker movements, threats, sanctions, exercises, IAEA findings and cuts or disruptions to Iran\'s internet orange; statements, talks, analysis and sports news touched by the war (a match called off, say) yellow. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight. Each report is read in its own language: Persian reports by Persian rules on the original text, foreign ones by English rules; translations are only for display and for matching Persian and foreign reports.',
+      method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; military aircraft and tanker movements, threats, sanctions, exercises, IAEA findings and cuts or disruptions to Iran\'s internet orange; statements, talks, analysis and sports news touched by the war (a match called off, say) yellow. A story only Telegram channels have reported carries an unconfirmed-report label and stays yellow until a news outlet or three channels report it. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight. Each report is read in its own language: Persian reports by Persian rules on the original text, foreign ones by English rules; translations are only for display and for matching Persian and foreign reports.',
       method2: 'It is not a plain average: serious events weigh exponentially more so one strike is not drowned out by thirty routine stories, recent events weigh more (6-hour half-life), and each event counts once however many outlets report it. Source reliability also counts.',
       method3: 'The index is 70% news and 30% objective signals: Hormuz traffic and incidents, and the risk level and fresh official warnings for the region\'s airspace. It is an indicator, not a forecast.',
       method4: 'Reports from several outlets share a headline only when the headlines are very close and they also agree on the kind of event, the place, the time (within 4 hours of the first report for events, 10 hours for statements), the speaker, the outlet being cited and the figures. Each story is timed by its first report.',
@@ -404,7 +406,8 @@
     var first = c.src[0] || { n: '', nf: '' };
     var more = c.ns > 1 ? '<span class="more">' + ic('users') + nfmt(c.ns) + '</span>' : '';
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
-    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
+    var unc = c.unconf ? '<span class="unc">' + esc(t('unconf')) + '</span>' : '';
+    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + unc + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
   }
   // a broken image collapses its frame instead of leaving an empty box
   window.imgFail = function (img) {
@@ -763,9 +766,10 @@
       var isMT = !!primary.mt;
       var shown = showOrig && other && other.ti ? other : primary;
       var h = storyMedia(c);
-      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span><span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
+      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc">' + esc(t('unconf')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
       h += '<h2 class="st-title" dir="auto">' + esc(shown.ti) + '</h2>';
       if (shown.su) h += '<p class="st-sum" dir="auto">' + esc(shown.su) + '</p>';
+      if (c.unconf) h += '<p class="subnote st-unc">' + esc(t('unconfNote')) + '</p>';
       h += '<div class="st-mt">';
       if (isMT || primary.fallback) h += '<span>' + esc(t('mt')) + '</span>';
       if (other && other.ti && other.ti !== primary.ti) h += '<button data-a="toggleOrig">' + esc(showOrig ? t('showTr') : t('showOrig')) + '</button>';

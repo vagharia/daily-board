@@ -4,6 +4,7 @@ import re
 from . import config
 from .classify import cluster_severity, tier
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
+from .sources import BY_ID
 from .sport import CAP as SPORT_CAP
 from .util import sha
 
@@ -70,8 +71,19 @@ REGION_WORDS = re.compile(r"\b(middle east|mideast|west asia|levant|red sea|pers
                           r"|اردن|عربستان|امارات|قطر|کویت|بحرین|عمان", re.I)
 OTHER_WAR_CAP = 40.0
 CORROBORATE_BELOW = 0.75
+# what only Telegram channels (not news organisations) report is an unconfirmed report: yellow at most and labelled
+# so, until a news source reports the same story or CONFIRM_CHANNELS channels do; inside a story a news source has
+# confirmed, the channels' own claims still count as unconfirmed (a news report of a gas explosion doesn't confirm a
+# channel's claim of an assassination)
+CONFIRM_CHANNELS = 3
+UNCONFIRMED_CAP = 44.0
 EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
                "alert", "kinetic_threat"}
+
+
+def channel(m):
+    """The report comes from a Telegram channel, not from a news organisation."""
+    return BY_ID.get(m.get("s"), {}).get("kind") == "tg"
 
 
 def is_core(c):
@@ -496,6 +508,9 @@ def refresh(c):
     max_rel = max(m.get("rel", 0.6) for m in ms)
     # reports from outside the core theatre count at reduced weight, even inside a mixed story
     eff = [m.get("sev", 20) if is_core(m) else min(NONCORE_CAP, m.get("sev", 20) * NONCORE_FACTOR) for m in ms]
+    chans = {m["s"] for m in ms if channel(m)}
+    if len(chans) < CONFIRM_CHANNELS:
+        eff = [min(e, UNCONFIRMED_CAP) if channel(m) else e for e, m in zip(eff, ms)]
     c["sev"] = cluster_severity(eff, c["ns"], max_rel)
     top = ms[max(range(len(ms)), key=lambda i: eff[i])]
     if not set(top.get("flags", [])) & EVENT_FLAGS:
@@ -516,6 +531,11 @@ def refresh(c):
         c["sev"] = min(c["sev"], OTHER_WAR_CAP)
     if all("sport" in m.get("flags", []) for m in ms):
         c["sev"] = min(c["sev"], SPORT_CAP)          # several outlets on a called-off match keep it yellow
+    if len(chans) == len(srcs) and len(chans) < CONFIRM_CHANNELS:
+        c["sev"] = min(c["sev"], UNCONFIRMED_CAP)    # only Telegram channels have it: an unconfirmed report
+        c["unconf"] = True
+    else:
+        c.pop("unconf", None)
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []

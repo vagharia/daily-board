@@ -1,6 +1,6 @@
 """Stories: up to ten recent orange and yellow reports about the confrontation between Iran and Israel or the US,
 chosen every two hours and shown as a row of stories at the top of the news tab (red stories have their own place
-at the top of the feed and in the alerts)."""
+at the top of the feed and in the alerts). Unconfirmed reports from Telegram channels are left out."""
 from . import config, media
 from .http import parallel
 from .util import log
@@ -25,7 +25,7 @@ def pick(clusters, t, hidden=lambda c: False):
     """The most important such stories of the last few hours, shown newest first, each with a picture where one
     can be found."""
     pool = [c for c in clusters if c["tier"] in ("orange", "yellow") and t - c["t"] <= config.H24 and iran_war(c)
-            and "opinion" not in c.get("flags", []) and not hidden(c)]
+            and "opinion" not in c.get("flags", []) and not c.get("unconf") and not hidden(c)]
     recent = [c for c in pool if t - c["t"] <= FRESH]
     if len(recent) < MAX:
         recent = pool
