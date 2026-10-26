@@ -70,6 +70,10 @@
       xGeo: 'سیاسی و نظامی', xEcon: 'نفت و طلا', xNote: 'ایکس API رایگان ندارد؛ این‌ها پست‌های حساب‌های معتبرند که رسانه‌های معتبر نقل کرده‌اند، به‌علاوه پست‌های تروث‌سوشال ترامپ.',
       xEmpty: 'هنوز پستی از حساب‌های منتخب ثبت نشده. با هر به‌روزرسانی اضافه می‌شود.', cites: '{n} رسانه نقل کرده', openX: 'باز کردن', telegram: 'تلگرام',
       newRed: 'خبر خیلی مهم جدید', refreshed: 'به‌روز شد', loading: 'در حال دریافت…', stories: '{n} خبر',
+      tEcon: 'اکونومیست', ecIssue: 'شماره‌ی {d}', ecCount: '{n} مطلب برگزیده', ecImpact: 'اثرات',
+      ecRead: 'متن کامل در سایت اکونومیست', ecPage: 'صفحه‌ی {n}', ecEmpty: 'این هفته در اکونومیست مطلبی برای دسته‌ی «{c}» نبود.',
+      ecTierEmpty: 'با این سطح‌ها مطلبی نیست.', ecNone: 'هنوز شماره‌ای از اکونومیست ثبت نشده.',
+      ecNote: 'خلاصه‌ها برداشت آزاد از مقاله‌هاست، نه ترجمه‌ی متن کامل. تصویرها پیش‌نمایش خود سایت اکونومیست‌اند.',
       cats: { tanker: 'سوخت‌رسان', isr: 'شناسایی', bomber: 'بمب‌افکن', transport: 'ترابری', other: 'سایر' }
     },
     en: {
@@ -118,6 +122,10 @@
       xGeo: 'Politics & military', xEcon: 'Oil & gold', xNote: 'X has no free API; these are posts from credible accounts cited by reputable media, plus Trump\'s Truth Social posts.',
       xEmpty: 'No posts from the selected accounts yet. They are added with each update.', cites: 'cited by {n} outlets', openX: 'Open', telegram: 'Telegram',
       newRed: 'New critical story', refreshed: 'Updated', loading: 'Loading…', stories: '{n} stories',
+      tEcon: 'Economist', ecIssue: 'Issue of {d}', ecCount: '{n} selected articles', ecImpact: 'Why it matters',
+      ecRead: 'Read on economist.com', ecPage: 'p. {n}', ecEmpty: 'No Economist article for “{c}” this week.',
+      ecTierEmpty: 'No articles at these levels.', ecNone: 'No Economist issue yet.',
+      ecNote: 'Summaries are free paraphrases, not translations. Pictures are the site’s own previews.',
       cats: { tanker: 'Tankers', isr: 'ISR', bomber: 'Bombers', transport: 'Transport', other: 'Other' }
     }
   };
@@ -144,17 +152,29 @@
   var TIER_ORDER = ['red', 'orange', 'yellow'];
   // which importance levels the feed shows; each can be switched on or off (lower-importance ones are off at first)
   var DEF_TIERS = { red: true, orange: true, yellow: false };
-  function savedTiers() {
-    var v = store.get('tiers', null), out = {};
-    TIER_ORDER.forEach(function (k) { out[k] = v && typeof v[k] === 'boolean' ? v[k] : DEF_TIERS[k]; });
-    return out.red || out.orange || out.yellow ? out : Object.assign({}, DEF_TIERS);
+  function savedTiers(key, def) {
+    var v = store.get(key || 'tiers', null), out = {};
+    def = def || DEF_TIERS;
+    TIER_ORDER.forEach(function (k) { out[k] = v && typeof v[k] === 'boolean' ? v[k] : def[k]; });
+    return out.red || out.orange || out.yellow ? out : Object.assign({}, def);
   }
+  // the Economist tab: five fixed categories (one may be empty in a given week), sections of the magazine
+  var EC_CATS = ['pol', 'gold', 'oil', 'money', 'ai'];
+  var EC_CAT = { pol: ['سیاسی و نظامی', 'Politics & military', 'shield'], gold: ['طلا', 'Gold', 'gold'], oil: ['نفت', 'Oil', 'drop'],
+    money: ['پولی و بانکی', 'Money & banking', 'bank'], ai: ['هوش مصنوعی', 'AI', 'chip'] };
+  var EC_SEC = { leaders: ['سرمقاله', 'Leaders'], briefing: ['گزارش ویژه', 'Briefing'], wtw: ['رویدادهای هفته', 'The world this week'],
+    us: ['آمریکا', 'United States'], americas: ['قاره‌ی آمریکا', 'The Americas'], asia: ['آسیا', 'Asia'], china: ['چین', 'China'],
+    mea: ['خاورمیانه و آفریقا', 'Middle East & Africa'], europe: ['اروپا', 'Europe'], britain: ['بریتانیا', 'Britain'],
+    intl: ['بین‌الملل', 'International'], business: ['کسب‌وکار', 'Business'], finance: ['مالی و اقتصاد', 'Finance & economics'],
+    science: ['علم و فناوری', 'Science & technology'], culture: ['فرهنگ', 'Culture'] };
+  var EC_TIERS = { red: true, orange: true, yellow: true };
 
   // ------------------------------------------------------------------ state
   var S = {
     lang: store.get('lang', 'fa'), tab: 'news', range: store.get('range', '24h'), tiers: savedTiers(), topic: null, ctry: null,
     ppl: null, sort: store.get('sort', 'time'), q: '', xseg: 'geo', layers: { news: true },
-    sound: store.get('sound', true), d: { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null },
+    econCat: store.get('econCat', 'pol'), econTiers: savedTiers('econTiers', EC_TIERS),
+    sound: store.get('sound', true), d: { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null, econ: null },
     seen: null, newIds: {}, shown: 0, list: [], gaugeSet: false, mapData: null, offline: false, origX: {}
   };
   var seenArr = store.get('seen', null);
@@ -227,7 +247,7 @@
     }, function (e) { clearTimeout(tm); throw e; });
   }
   var KEYS = { ticker: 'ticker.json', signals: 'signals.json', news24: 'news_24h.json', newsWeek: 'news_week.json', x: 'x.json', health: 'health.json',
-    stories: 'stories.json' };
+    stories: 'stories.json', econ: 'economist.json' };
   function load(keys, fresh) {
     return Promise.all(keys.map(function (k) {
       return getJSON(KEYS[k], fresh).then(function (j) { return [k, j, null]; }, function (e) { return [k, null, e]; });
@@ -246,7 +266,7 @@
     });
   }
   function bootCache() {
-    ['ticker', 'signals', 'news24', 'x', 'stories'].forEach(function (k) {
+    ['ticker', 'signals', 'news24', 'x', 'stories', 'econ'].forEach(function (k) {
       var c = store.get('cache.' + k, null);
       if (c) S.d[k] = c;
     });
@@ -1177,6 +1197,94 @@
       '<a href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer">' + esc(t('openX')) + ic('ext', 'ic-sm') + '</a></div></article>';
   }
 
+  // ------------------------------------------------------------------ Economist
+  // The week's issue, summarised by hand into five categories; politics also has red / orange / yellow levels.
+  // Each card links to the article; its picture is the site's own preview, with a news-search thumbnail as backup.
+  function issueDate(s) {
+    var d = new Date(String(s) + 'T12:00:00Z');
+    if (isNaN(d)) return s || '';
+    return new Intl.DateTimeFormat(LOC(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
+  }
+  function ecLabel(k) { return L() === 'fa' ? EC_CAT[k][0] : EC_CAT[k][1]; }
+  window.ecImgFail = function (img) {
+    var alt = img.getAttribute('data-alt');
+    if (alt) { img.removeAttribute('data-alt'); img.src = alt; return; }
+    var box = img.parentNode;
+    img.remove();
+    if (box && !box.classList.contains('noimg')) {
+      box.classList.add('noimg');
+      box.insertAdjacentHTML('beforeend', ic((EC_CAT[box.getAttribute('data-cat')] || EC_CAT.pol)[2], 'ec-glyph'));
+    }
+  };
+  function ecCard(a, cat) {
+    var x = a[L()] && a[L()].t ? a[L()] : a.fa;
+    var tier = cat === 'pol' && TIER_ORDER.indexOf(a.tier) >= 0 ? a.tier : null;
+    var tag = tier ? '<span class="s-tag"><i class="t-dot ' + tier + '"></i>' + esc(t(tier)) + '</span>' : '';
+    var src = a.img || a.alt;
+    var pic = src
+      ? '<div class="ec-pic" data-cat="' + cat + '"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(src) + '"' +
+        (a.img && a.alt ? ' data-alt="' + esc(a.alt) + '"' : '') + ' alt="" onerror="ecImgFail(this)">' + tag + '</div>'
+      : '<div class="ec-pic noimg" data-cat="' + cat + '">' + tag + ic(EC_CAT[cat][2], 'ec-glyph') + '</div>';
+    var sec = EC_SEC[a.sec] ? pick(EC_SEC[a.sec]) : '';
+    var col = a.col ? (L() === 'fa' ? a.col.fa : a.col.en) : '';
+    var kick = '<div class="ec-kick">' + (sec ? '<b>' + esc(sec) + '</b>' : '') + (col ? '<span>' + esc(col) + '</span>' : '') +
+      (a.page ? '<span class="pg">' + esc(t('ecPage', { n: nfmt(a.page) })) + '</span>' : '') + '</div>';
+    var paras = String(x.s || '').split(/\n\s*\n/).map(function (p) { return '<p>' + esc(p.trim()) + '</p>'; }).join('');
+    var imp = x.i ? '<div class="ec-impact"><b>' + ic('signal', 'ic-sm') + esc(t('ecImpact')) + '</b><p>' + esc(x.i) + '</p></div>' : '';
+    return '<article class="ec-card' + (tier ? ' t-' + tier : '') + '">' + pic + '<div class="ec-body">' + kick +
+      '<h3 class="ec-title">' + esc(x.t) + '</h3><div class="ec-sum">' + paras + '</div>' + imp +
+      '<a class="ec-link" href="' + esc(a.url) + '" target="_blank" rel="noopener noreferrer">' + esc(t('ecRead')) + ic('ext', 'ic-sm') + '</a></div></article>';
+  }
+  function renderEcon() {
+    var d = S.d.econ, feed = $('#ecFeed'), tiers = $('#ecTiers');
+    if (!d || !d.articles) {
+      $('#ecHead').innerHTML = ''; $('#ecCats').innerHTML = ''; tiers.hidden = true;
+      feed.innerHTML = S.offline ? '<div class="empty">' + ic('offline') + '<p>' + esc(t('offline')) + '</p></div>'
+        : S.econTried ? '<div class="empty">' + ic('book') + '<p>' + esc(t('ecNone')) + '</p></div>' : skeleton();
+      return;
+    }
+    var byId = {};
+    d.articles.forEach(function (a) { byId[a.id] = a; });
+    var ids = function (k) { return ((d.cats || {})[k] || []).filter(function (id) { return byId[id]; }); };
+    if (EC_CATS.indexOf(S.econCat) < 0) S.econCat = 'pol';
+    $('#ecHead').innerHTML = '<span class="ec-mark">' + ic('book') + '</span><div><b>' + esc(t('ecIssue', { d: issueDate(d.issue) })) + '</b>' +
+      '<span>' + esc(t('ecCount', { n: nfmt(d.articles.length) })) + '</span></div>';
+    $('#ecCats').innerHTML = EC_CATS.map(function (k) {
+      var n = ids(k).length, on = S.econCat === k;
+      return '<button class="ec-cat' + (on ? ' on' : '') + (n ? '' : ' empty') + '" data-ecat="' + k + '" role="tab" aria-selected="' + on + '">' +
+        ic(EC_CAT[k][2]) + '<span>' + esc(ecLabel(k)) + '</span>' + (n ? '<b>' + nfmt(n) + '</b>' : '') + '</button>';
+    }).join('');
+    var all = ids(S.econCat).map(function (id) { return byId[id]; }), list = all;
+    if (S.econCat === 'pol' && all.length) {
+      var counts = { red: 0, orange: 0, yellow: 0 };
+      all.forEach(function (a) { if (counts[a.tier] != null) counts[a.tier]++; });
+      tiers.innerHTML = TIER_ORDER.map(function (k) {
+        var on = !!S.econTiers[k];
+        return '<button class="chip chip--tier' + (on ? ' on' : '') + '" data-etier="' + k + '" aria-pressed="' + on + '"><i class="t-dot ' + k + '"></i>' +
+          esc(t(k)) + ' <b>' + nfmt(counts[k]) + '</b></button>';
+      }).join('');
+      tiers.hidden = false;
+      list = all.filter(function (a) { return TIER_ORDER.indexOf(a.tier) < 0 || S.econTiers[a.tier]; });
+      list = TIER_ORDER.reduce(function (acc, k) { return acc.concat(list.filter(function (a) { return a.tier === k; })); },
+        list.filter(function (a) { return TIER_ORDER.indexOf(a.tier) < 0; }));
+    } else tiers.hidden = true;
+    if (!list.length) {
+      feed.innerHTML = '<div class="empty">' + ic(EC_CAT[S.econCat][2]) + '<p>' +
+        esc(all.length ? t('ecTierEmpty') : t('ecEmpty', { c: ecLabel(S.econCat) })) + '</p></div>';
+      return;
+    }
+    feed.innerHTML = list.map(function (a) { return ecCard(a, S.econCat); }).join('') + '<p class="ec-note">' + esc(t('ecNote')) + '</p>';
+  }
+  // a dot on the tab until this browser has opened the current issue
+  function econDot() {
+    var d = S.d.econ;
+    $('#ecDot').hidden = !(d && d.issue && S.tab !== 'econ' && store.get('econSeen', null) !== d.issue);
+  }
+  function econSeen() {
+    if (S.d.econ && S.d.econ.issue) store.set('econSeen', S.d.econ.issue);
+    econDot();
+  }
+
   // ------------------------------------------------------------------ PIN lock
   function sha256(s) {
     return crypto.subtle.digest('SHA-256', new TextEncoder().encode('db:' + s)).then(function (b) {
@@ -1233,6 +1341,14 @@
     $$('.pane').forEach(function (p) { p.hidden = p.dataset.pane !== tab; });
     if (tab === 'map') { renderMap(); renderSignals(); }
     if (tab === 'x') renderX();
+    if (tab === 'econ') {
+      renderEcon(); econSeen();
+      if (!S.d.econ && !S.econBusy) {
+        S.econBusy = true;
+        getJSON(KEYS.econ).then(function (j) { S.d.econ = j; store.set('cache.econ', j); }, function () { /* not published yet */ })
+          .then(function () { S.econBusy = false; S.econTried = true; if (S.tab === 'econ') { renderEcon(); econSeen(); } });
+      }
+    } else econDot();
     var panel = $('#panel');
     var top = panel.offsetTop + panel.offsetHeight - 10;
     if (window.scrollY > top) window.scrollTo(0, top);
@@ -1243,6 +1359,8 @@
     renderChips(); renderFeed(true);
     if (S.tab === 'map') { renderMap(); renderSignals(); }
     if (S.tab === 'x' || langChanged) renderX();
+    if (S.tab === 'econ' || langChanged) renderEcon();
+    econDot();
   }
 
   document.addEventListener('click', function (e) {
@@ -1252,6 +1370,18 @@
     if ((el = e.target.closest('[data-sty]'))) { openStories(+el.dataset.sty); return; }
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
+    if ((el = e.target.closest('[data-ecat]'))) {
+      S.econCat = el.dataset.ecat; store.set('econCat', S.econCat); renderEcon();
+      var top = $('#pane-econ').offsetTop - 64;
+      if (window.scrollY > top) window.scrollTo(0, top);
+      return;
+    }
+    if ((el = e.target.closest('[data-etier]'))) {
+      var et = Object.assign({}, S.econTiers);
+      et[el.dataset.etier] = !et[el.dataset.etier];
+      if (!et.red && !et.orange && !et.yellow) return;              // at least one level stays on
+      S.econTiers = et; store.set('econTiers', et); renderEcon(); return;
+    }
     if ((el = e.target.closest('[data-tier]'))) {
       var nt = Object.assign({}, S.tiers);
       nt[el.dataset.tier] = !nt[el.dataset.tier];
@@ -1308,10 +1438,11 @@
 
   // ------------------------------------------------------------------ refresh loop
   function refreshAll(fresh) {
-    var keys = ['ticker', 'signals', 'news24', 'x', 'stories'];
+    var keys = ['ticker', 'signals', 'news24', 'x', 'stories', 'econ'];
     if (S.range === 'week' || S.d.newsWeek) keys.push('newsWeek');
+    S.econAt = nowS();
     return load(keys, fresh).then(function (ch) {
-      S.loaded = true;
+      S.loaded = true; S.econTried = true;
       if (ch.news24) trackNew(!!S.firstDone);
       S.firstDone = true;
       renderAll();
@@ -1325,8 +1456,10 @@
     if (S.tab === 'x' || Math.random() < 0.5) keys.push('x');
     if (S.range === 'week') keys.push('newsWeek');
     if (!S.d.stories || nowS() > (S.d.stories.next || 0) - 60) keys.push('stories');      // a new set every two hours
+    if (nowS() - (S.econAt || 0) > 1800) { S.econAt = nowS(); keys.push('econ'); }       // a new issue once a week
     load(keys).then(function (ch) {
       if (ch.stories && !SV) renderStories();
+      if (ch.econ) { if (S.tab === 'econ') { renderEcon(); econSeen(); } else econDot(); }
       if (ch.news24) trackNew(true);
       if (ch.news24 || ch.signals || ch.newsWeek) {
         renderHeader(); renderGauge(); renderLamps(); renderFlash(); renderChips();

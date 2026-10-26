@@ -56,7 +56,10 @@
     eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     offline: '<path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.3M15 10.2a10 10 0 0 1 4 2.3M12 20h.01"/>',
     tanker: '<path d="M2.5 15.5h19l-2.2 4H4.7z"/><path d="M5 15.5V12h10v3.5M15 13.2h3.6l1.4 2.3M8 12V9.5h3V12"/>',
-    image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.4"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17.5l5-4.5 4 3.5 3-2.5 4.5 4"/>'
+    image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.4"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17.5l5-4.5 4 3.5 3-2.5 4.5 4"/>',
+    book: '<path d="M12 6.8c-2.6-1.7-5.6-2.1-8.5-1.3v12.9c2.9-.8 5.9-.4 8.5 1.3 2.6-1.7 5.6-2.1 8.5-1.3V5.5c-2.9-.8-5.9-.4-8.5 1.3z"/><path d="M12 6.8v12.9"/>',
+    bank: '<path d="M3.5 9.2L12 4.5l8.5 4.7"/><path d="M5.8 10.8v6.2M9.9 10.8v6.2M14.1 10.8v6.2M18.2 10.8v6.2"/><path d="M3.5 19.5h17"/>',
+    chip: '<rect x="7" y="7" width="10" height="10" rx="2"/><rect x="10.2" y="10.2" width="3.6" height="3.6" rx=".7"/><path d="M10 3.8V7M14 3.8V7M10 17v3.2M14 17v3.2M3.8 10H7M3.8 14H7M17 10h3.2M17 14h3.2"/>'
   };
   var out = '<svg xmlns="http://www.w3.org/2000/svg" style="display:none">';
   for (var k in I) {

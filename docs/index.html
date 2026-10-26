@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -132,12 +132,20 @@
     <p class="note" data-t="xNote"></p>
     <div id="xFeed" class="xfeed"></div>
   </section>
+
+  <section class="pane" id="pane-econ" data-pane="econ" hidden>
+    <div class="ec-head" id="ecHead"></div>
+    <div class="ec-cats" id="ecCats" role="tablist"></div>
+    <div class="chips ec-tiers" id="ecTiers" hidden></div>
+    <div class="ec-feed" id="ecFeed"></div>
+  </section>
 </main>
 
 <nav class="tabs" id="tabs">
   <button data-tab="news" class="on"><svg class="ic"><use href="#i-news"/></svg><span data-t="tNews"></span></button>
   <button data-tab="map"><svg class="ic"><use href="#i-radar"/></svg><span data-t="tMap"></span></button>
   <button data-tab="x"><svg class="ic"><use href="#i-quote"/></svg><span data-t="tX"></span></button>
+  <button data-tab="econ"><svg class="ic"><use href="#i-book"/></svg><span data-t="tEcon"></span><i class="tab-dot" id="ecDot" hidden></i></button>
 </nav>
 
 <div class="toast" id="toast" role="status" hidden></div>
@@ -151,7 +159,7 @@
   </section>
 </div>
 
-<script src="icons.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="icons.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

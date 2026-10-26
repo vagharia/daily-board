@@ -4,7 +4,7 @@ import os
 import re
 import time
 
-from . import alerts, aviation, collect, config, media, sea, store, stories, util, xposts
+from . import alerts, aviation, collect, config, magazine, media, sea, store, stories, util, xposts
 from .classify import classify
 from .cluster import Clusterer, prune, recluster, refresh
 from .http import parallel
@@ -464,6 +464,12 @@ def news_round(full=True):
                                               "stories": [public_cluster(c, short=True) for c in chosen]})
         misc["stories_t"] = T
         log(f"stories: {len(chosen)} chosen for the next two hours")
+
+    # ---------------------------------------------------------------- 10b. the weekly Economist tab
+    try:
+        magazine.update(misc, T)
+    except Exception as e:  # noqa: BLE001 - never holds up the news
+        log("economist tab failed:", str(e)[:200])
 
     # ---------------------------------------------------------------- 11. outputs
     clusters.sort(key=lambda c: -c["u"])
