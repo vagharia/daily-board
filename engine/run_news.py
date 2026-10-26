@@ -416,6 +416,10 @@ def news_round(full=True):
             extra += xposts.x_timelines(x_state, tr)[0]
         except Exception as e:  # noqa: BLE001
             log("x timelines failed:", str(e)[:120])
+    try:
+        extra += xposts.manual_posts()                # posts read off screenshots of X
+    except Exception as e:  # noqa: BLE001
+        log("posts from screenshots failed:", str(e)[:120])
     xstats = xposts.update(x_state, candidates, truth, extra)
     posts = xposts.ranked(x_state.get("posts", {}))
     by_lang = {}

@@ -2,8 +2,10 @@
 embedded timelines of some official accounts, read sparingly because X limits them), Trump's Truth Social
 posts, and the public Telegram channels that officials and leading journalists run. X's own API is paid-only,
 so this is deliberately selective. Only posts about the region and the conflict are kept."""
+import hashlib
 import json
 import math
+import os
 import re
 from datetime import datetime
 
@@ -15,7 +17,7 @@ from .cluster import is_core
 from .feeds import parse_feed
 from .lexicon import COUNTRIES_RX, match_keys
 from .relevance import relevance_en, relevance_fa, ukraine_war
-from .util import clean_summary, fa_norm, has_fa, log, now, parse_date
+from .util import clean_summary, fa_norm, has_fa, load_json, log, now, parse_date
 
 # handle (lowercase) -> (segment, role fa, role en)
 WHITELIST = {
@@ -163,6 +165,7 @@ WHITELIST = {
     "tparsi": ("geo", "تحلیلگر موسسه کوئینسی", "Quincy Institute"),
     "mdubowitz": ("geo", "مدیر FDD", "FDD chief executive"),
     "behnambentaleblu": ("geo", "تحلیلگر FDD", "FDD analyst"),
+    "behnamben": ("geo", "تحلیلگر FDD", "FDD analyst"),
     "jasonmbrodsky": ("geo", "تحلیلگر UANI", "UANI analyst"),
     "alexvatanka": ("geo", "تحلیلگر موسسه خاورمیانه", "MEI analyst"),
     "thestudyofwar": ("geo", "اندیشکده مطالعات جنگ", "ISW"),
@@ -187,6 +190,7 @@ WHITELIST = {
     "kpler": ("econ", "کپلر", "Kpler"),
     "vortexa": ("econ", "ورتکسا", "Vortexa"),
     "lloyds_list": ("econ", "لویدز لیست", "Lloyd's List"),
+    "lloydslist": ("econ", "لویدز لیست", "Lloyd's List"),
     "reuterscommods": ("econ", "رویترز کامادیتی", "Reuters Commodities"),
 }
 
@@ -636,6 +640,32 @@ def x_timelines(state, tr):
     kept = _relevant(got, tr)
     log(f"x timelines: {status}, {len(got)} recent posts, {len(kept)} about the region")
     return kept, status
+
+
+# posts read off screenshots of X that the owner sends; see engine/xmanual/README.md
+MANUAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "xmanual", "posts.json")
+
+
+def manual_posts():
+    """The posts in engine/xmanual/posts.json, shaped like any other post in the X tab."""
+    data = load_json(MANUAL, None) or {}
+    out = []
+    for p in data.get("posts", []):
+        h = str(p.get("h") or "").lstrip("@")
+        ts = parse_date(p["t"]) if isinstance(p.get("t"), str) else p.get("t")
+        text = (p.get("text") or "").strip()
+        if not h or not text or not ts or now() - ts > POST_MAX_AGE:
+            continue
+        who = WHITELIST.get(h.lower())
+        pid = "m" + hashlib.sha1(f"{h.lower()}|{ts}|{text[:80]}".encode("utf-8")).hexdigest()[:15]
+        out.append({
+            "id": pid, "platform": "x", "h": h, "n": p.get("n") or h, "img": None, "v": False, "t": ts,
+            "text": text, "fa": p.get("fa") or text, "en": p.get("en") or text,
+            "lang": "fa" if has_fa(text) else "en", "media": [], "likes": 0, "replies": 0,
+            "url": p.get("url") or f"https://x.com/{h}", "seg": p.get("seg") or (who[0] if who else "geo"),
+            "role_fa": who[1] if who else p.get("role_fa", ""), "role_en": who[2] if who else p.get("role_en", ""),
+        })
+    return out
 
 
 def ranked(posts):
