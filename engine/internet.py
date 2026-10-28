@@ -38,7 +38,7 @@ DOWN_FA = re.compile(R("(?:قطع|قطعی|اختلال|اختلالات|کند�
                        _NET_FA, _ANY % 50, "(?:قطع|مختل|خاموش|ریزش|سقوط|از\\s*دسترس\\s*خارج)")
                      + "|" + F("نت بلاکس", "نتبلاکس", "کلادفلر رادار"))
 UP_FA = re.compile(R("(?:وصل\\s*شدن|وصل\\s*شد|بازگشت|برقراری|برقرار\\s*شد|اتصال\\s*مجدد|رفع\\s*اختلال|رفع\\s*محدودیت"
-                     "|بازگشایی)", _ANY % 20, "اینترنت", "|", "اینترنت", _ANY % 20,
+                     "|بازگشایی)", _ANY % 20, "اینترنت", "|", "اینترنت", _ANY % 35,
                      "(?:وصل\\s*شد|برقرار\\s*شد|بازگشت|بازگشایی|رفع\\s*شد)"))
 DENIAL_FA = re.compile(F("تکذیب", "شایعه", "صحت ندارد", "کذب", "بی اساس"))
 PRICE_FA = re.compile(F("قیمت", "تعرفه", "هزینه", "بسته اینترنت", "بسته های اینترنت", "اینترنت رایگان", "حجم",
@@ -52,13 +52,20 @@ ABROAD_FA = re.compile(F("افغانستان", "پاکستان", "عراق", "س
                          "ونزوئلا", "میانمار", "سودان", "اتیوپی", "چین", "آمریکا", "اروپا", "جهانی", "کلادفلر",
                          "آمازون", "مایکروسافت", "گوگل کلود"))
 IRAN_FA = re.compile(F("ایران", "کشور", "تهران"))
+# "internet" as in online fraud, shopping or banking: police news, not the country's connection
+CRIME_FA = re.compile(F("کلاهبرداری", "کلاه برداری", "فیشینگ", "برداشت غیرمجاز", "برداشت غیر مجاز", "پلیس فتا", "فتا$",
+                        "جرائم سایبری", "جرایم سایبری", "خرید اینترنتی", "فروش اینترنتی", "فروشگاه اینترنتی",
+                        "بانکداری اینترنتی", "درگاه", "وجه", "شاکی", "مالباخته", "سرقت", "دستگیری", "دستگیر",
+                        "قمار", "شرط بندی", "مجرمانه"))
+CRIME_EN = re.compile(r"\b(?:fraud\w*|scam\w*|phishing|cyber ?crime\w*|online (?:shopping|banking|gambling|betting)"
+                      r"|e-?commerce|arrest\w*|stolen|theft)\b", re.I)
 
 
 def internet(lang, title, summary=""):
     """'down', 'up' or None for a report's headline (and the start of its text)."""
     if lang == "fa":
         t, s = fa_norm(title or ""), fa_norm(summary or "")[:300]
-        if not (DOWN_FA.search(t) or UP_FA.search(t)) or PRICE_FA.search(t):
+        if not (DOWN_FA.search(t) or UP_FA.search(t)) or PRICE_FA.search(t) or CRIME_FA.search(t):
             return None
         if ABROAD_FA.search(t) and not IRAN_FA.search(t):
             return None
@@ -68,7 +75,7 @@ def internet(lang, title, summary=""):
             return "up"
         return "down"
     t, s = title or "", (summary or "")[:300]
-    if not (DOWN_EN.search(t) or UP_EN.search(t)) or PRICE_EN.search(t):
+    if not (DOWN_EN.search(t) or UP_EN.search(t)) or PRICE_EN.search(t) or CRIME_EN.search(t):
         return None
     if not (IRAN_EN.search(t) or IRAN_EN.search(s)):
         return None
