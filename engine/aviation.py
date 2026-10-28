@@ -84,6 +84,25 @@ def parse_country(html, slug):
     return out
 
 
+FRESH = 30 * 86400
+
+
+def in_force(w, t):
+    """A warning worth listing: not expired, and either issued in the last month or without an end date."""
+    until = w.get("until_t")
+    if until and until + 86400 <= t:               # an end date is good through that day
+        return False
+    return not until or bool(w.get("issued") and t - w["issued"] <= FRESH)
+
+
+def current(data, t):
+    """The cached block with the warnings that have expired since it was fetched left out."""
+    out = dict(data)
+    out["countries"] = [dict(c, warnings=[w for w in c.get("warnings", []) if in_force(w, t)])
+                        for c in data.get("countries", [])]
+    return out
+
+
 def parse_feed(html):
     soup = BeautifulSoup(html, "lxml")
     out = []
@@ -100,7 +119,7 @@ def run(state, translate=None):
     """state caches the result; returns the public 'aviation' block for signals.json."""
     t = now()
     if state.get("data") and t - state.get("fetched", 0) < REFRESH:
-        return state["data"]
+        return current(state["data"], t)
     prev = {c["id"]: c for c in (state.get("data") or {}).get("countries", [])}
     countries, errors = [], []
 
@@ -135,7 +154,7 @@ def run(state, translate=None):
                     w["note_fa"] = res[w["note"]]
     countries.sort(key=lambda c: (c.get("level") or 9, -max([w["issued"] or 0 for w in c["warnings"]] or [0])))
     for c in countries:
-        c["warnings"] = c["warnings"][:6]
+        c["warnings"] = [w for w in c["warnings"] if in_force(w, t)][:6]
         c["new"] = sum(1 for w in c["warnings"] if w.get("issued") and t - w["issued"] <= 3 * 86400)
     data = {"updated": t, "status": "ok" if countries else "fail", "errors": errors[:6], "countries": countries,
             "source": "Safe Airspace (OPSGROUP)"}

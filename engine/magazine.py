@@ -6,14 +6,15 @@ effects, in Persian and English (see engine/economist/README.md). This step adds
 the article's preview picture, and publishes economist.json for the app.
 
 The Economist's article pages turn away requests from cloud machines, so the lead picture is read from a public
-reader service's copy of the page (r.jina.ai), and a Bing News thumbnail of the same article is kept as a second
-choice for when the first cannot be loaded. Pictures are only linked, never copied."""
+reader service's copy of the page (r.jina.ai). Only the article's own picture is used (news-search thumbnails were
+sometimes about something else); an article without one shows none, unless a picture made for it by hand is given
+in issue.json ("pic"), and "nopic" hides an own picture that doesn't fit. Pictures are only linked, never copied."""
 import hashlib
 import json
 import os
 import re
 from html import unescape
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import unquote
 
 from . import http
 from .http import parallel
@@ -53,39 +54,6 @@ def _reader(url):
     return img, title
 
 
-def _section_titles(urls):
-    """Web headlines from the section feeds, for articles the reader service could not open."""
-    out = {}
-    for sec in sorted({urlparse(u).path.strip("/").split("/")[0] for u in urls}):
-        try:
-            text = http.get(f"https://www.economist.com/{sec}/rss.xml", timeout=20, retries=0).text
-        except Exception:  # noqa: BLE001
-            continue
-        for it in re.findall(r"<item>(.*?)</item>", text, re.S):
-            ti = re.search(r"<title>\s*(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?\s*</title>", it, re.S)
-            li = re.search(r"<link>\s*(.*?)\s*</link>", it, re.S)
-            if ti and li:
-                out[_norm(li.group(1))] = unescape(ti.group(1).strip())
-    return out
-
-
-def _bing(url, title):
-    """A Bing News thumbnail of exactly this article, found by its headline."""
-    q = (title or urlparse(url).path.rstrip("/").rsplit("/", 1)[-1].replace("-", " ")) + " economist"
-    text = http.get("https://www.bing.com/news/search", params={"q": q, "format": "rss"}, timeout=20, retries=0).text
-    want = _norm(url)
-    for it in re.findall(r"<item>(.*?)</item>", text, re.S):
-        link = re.search(r"<link>(.*?)</link>", it, re.S)
-        img = re.search(r"<News:Image>(.*?)</News:Image>", it, re.S)
-        if not (link and img):
-            continue
-        target = parse_qs(urlparse(unescape(link.group(1).strip())).query).get("url", [""])[0]
-        if _norm(target) == want:
-            u = unescape(img.group(1).strip()).replace("http://", "https://", 1)
-            return u + ("&" if "?" in u else "?") + "w=960&h=540&c=7"
-    return None
-
-
 def _look_up(arts, pics, t):
     for a, res, err in parallel(lambda x: _reader(x["url"]), [a for a in arts if not pics[a["url"]].get("img")],
                                 workers=4):
@@ -98,14 +66,6 @@ def _look_up(arts, pics, t):
                 p["wt"] = title
         elif err is not None:
             p["err"] = str(err)[:80]
-    need = [a for a in arts if not pics[a["url"]].get("alt")]
-    if need:
-        untitled = [a["url"] for a in need if not pics[a["url"]].get("wt")]
-        titles = _section_titles(untitled) if untitled else {}
-        headline = lambda a: pics[a["url"]].get("wt") or titles.get(_norm(a["url"]))  # noqa: E731
-        for a, alt, err in parallel(lambda x: _bing(x["url"], headline(x)), need, workers=4):
-            if err is None and alt:
-                pics[a["url"]]["alt"] = alt
     for a in arts:
         p = pics[a["url"]]
         p["n"] = p.get("n", 0) + 1
@@ -152,8 +112,7 @@ def update(misc, t):
     todo = [a for a in arts if not pics[a["url"]].get("n")]
     if todo:
         _look_up(todo[:PER_ROUND], pics, t)
-        log(f"economist: pictures for {sum(1 for a in arts if pics[a['url']].get('img'))} of {len(arts)} articles, "
-            f"thumbnails for {sum(1 for a in arts if pics[a['url']].get('alt'))}")
+        log(f"economist: pictures for {sum(1 for a in arts if pics[a['url']].get('img'))} of {len(arts)} articles")
 
     out_arts = []
     for a in issue["articles"]:
@@ -161,7 +120,9 @@ def update(misc, t):
             continue
         p = pics.get(a.get("url")) or {}
         o = {k: a[k] for k in ("id", "url", "sec", "col", "page", "tier", "fa", "en") if k in a}
-        o["img"], o["alt"] = p.get("img"), p.get("alt")
+        # only the article's own picture (a news-search thumbnail was sometimes about something else), or one made
+        # by hand for it ("pic": a file under docs/econ/), or none ("nopic": its own picture doesn't fit)
+        o["img"] = a.get("pic") or (None if a.get("nopic") else p.get("img"))
         out_arts.append(o)
     ids = {a["id"] for a in out_arts}
     cats = {k: [i for i in (issue.get("cats") or {}).get(k, []) if i in ids] for k in CATS}

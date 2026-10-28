@@ -153,6 +153,27 @@ def same_spot(a, b):
     return a["blast"] and b["blast"] and not common <= tehran
 
 
+# what kind of unconfirmed report a channel post is: it relays a named outlet ("cited": awaiting that outlet), it quotes
+# a person or a body without saying where the words come from ("quote": source not stated), or it tells of something
+# that happened ("event": unconfirmed report)
+_QUOTE_FA = re.compile(r"^[^:：]{2,45}[:：]" + "|" + R(_B, "(?:گفت|گفته\\s*است|اعلام\\s*کرد|تاکید\\s*کرد|هشدار\\s*داد"
+                       "|افزود|اظهار\\s*داشت|مدعی\\s*شد|خاطرنشان\\s*کرد|تصریح\\s*کرد|نوشت)(?![\u0621-\u06FF])"))
+_QUOTE_EN = re.compile(r"^[^:]{2,45}:|\b(says|said|told|tells|warns|warned|claims|claimed|stated)\b", re.I)
+
+
+def unconf_kind(ms):
+    from .citation import cited                    # citation builds on this module
+    if any(cited(m) for m in ms):
+        return "cited"
+    if any(strike(m) for m in ms):
+        return "event"
+    for m in ms:
+        t = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else (m.get("ti") or "")
+        if (_QUOTE_FA if m.get("lang") == "fa" else _QUOTE_EN).search(t):
+            return "quote"
+    return "event"
+
+
 def channel(m):
     """The report comes from a Telegram channel, not from a news organisation."""
     return BY_ID.get(m.get("s"), {}).get("kind") == "tg"
@@ -643,7 +664,7 @@ def refresh(c):
         # one Telegram channel alone: an unconfirmed report, red when it tells of a strike, yellow otherwise (a post
         # relaying a named outlet that really reported it is verified, see citation.py)
         c["sev"] = max(c["sev"], RED_FLOOR) if ch_strike else min(c["sev"], UNCONFIRMED_CAP)
-        c["unconf"] = True
+        c["unconf"] = unconf_kind(ms)
         c["claim"] = round(claim, 1)                 # how serious the channel's claim would be if confirmed
     else:
         c.pop("unconf", None)

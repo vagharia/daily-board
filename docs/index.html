@@ -15,7 +15,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="app.css?v=18">
+<script>try{if(JSON.parse(localStorage.getItem('db.theme'))==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
+<link rel="stylesheet" href="app.css?v=19">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -49,6 +50,7 @@
       <span class="mini-usd" id="miniUsd"></span>
     </div>
     <div class="actions">
+      <button class="icon-btn lite-btn" id="liteBtn" data-a="lite" aria-label="Data saver" aria-pressed="false"><svg class="ic"><use href="#i-lite"/></svg></button>
       <button class="lang" id="langBtn" aria-label="Language"><span data-l="fa">فا</span><span data-l="en">EN</span></button>
       <button class="icon-btn" id="settingsBtn" data-a="settings"><svg class="ic"><use href="#i-gear"/></svg></button>
     </div>
@@ -125,10 +127,6 @@
   </section>
 
   <section class="pane" id="pane-x" data-pane="x" hidden>
-    <div class="seg seg--wide" id="xSeg">
-      <button data-seg="geo" data-t="xGeo"></button>
-      <button data-seg="econ" data-t="xEcon"></button>
-    </div>
     <p class="note" data-t="xNote"></p>
     <div id="xFeed" class="xfeed"></div>
   </section>
@@ -159,7 +157,7 @@
   </section>
 </div>
 
-<script src="icons.js?v=18"></script>
-<script src="app.js?v=18"></script>
+<script src="icons.js?v=19"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

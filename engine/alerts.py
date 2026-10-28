@@ -158,7 +158,8 @@ def _story(c):
     label = "منبع" if len(names) == 1 else "منابع"
     body = f"🔴 <b>{title}</b>"
     if c.get("unconf"):
-        body += "\n⚠️ گزارش تأییدنشده؛ فعلاً فقط یک کانال تلگرامی گزارشش کرده"
+        body += "\n⚠️ " + {"cited": "در انتظار تأیید منبع", "quote": "منبع ذکر نشده"}.get(c["unconf"], "گزارش تأییدنشده") \
+            + "؛ فعلاً فقط یک کانال تلگرامی گزارشش کرده"
     if summ:
         body += f"\n{summ}"
     if names:

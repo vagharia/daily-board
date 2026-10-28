@@ -212,6 +212,27 @@ def rescore(clusters):
     return out
 
 
+def lite(T, day, idx, lights, lang):
+    """Everything the app's data-saving mode shows, in one small file per language: the three prices, the index,
+    the lamps and the last day's headlines (no summaries, links, pictures or tags)."""
+    tk = load_json(data_path("ticker.json"), {}) or {}
+    pick = lambda d, ks: {k: d.get(k) for k in ks if d.get(k) is not None}  # noqa: E731
+    other = "en" if lang == "fa" else "fa"
+    return {
+        "v": 1, "updated": T,
+        "ticker": {"dollar": pick(tk.get("dollar") or {}, ("price", "chgDayPct", "status")),
+                   "brent": pick(tk.get("brent") or {}, ("price", "chgPct", "status")),
+                   "gold": pick(tk.get("gold") or {}, ("price", "chgPct", "status"))},
+        "index": pick(idx, ("value", "zone", "label_fa", "label_en", "delta24")),
+        "lights": [pick(l, ("id", "state", "fa", "en")) for l in lights],
+        # id, tier, severity, time, number of sources, headline, first source, unconfirmed label
+        "news": [[c["id"], c["tier"], round(c["sev"]), c["t"], c["ns"],
+                  (c[lang] or {}).get("ti") or (c[other] or {}).get("ti", ""),
+                  (c["src"][0].get("nf" if lang == "fa" else "n") or c["src"][0].get("n") or "") if c["src"] else "",
+                  c.get("unconf") or ""] for c in day],
+    }
+
+
 def public_cluster(c, short=False):
     srcs, seen = [], set()
     for m in sorted(c["m"], key=lambda m: (-(m.get("rel") or 0), m["t"])):
@@ -230,7 +251,7 @@ def public_cluster(c, short=False):
         "lang": lang, "img": c.get("img"), "vid": c.get("vid"), "src": srcs[:14], "ns": c.get("ns", len(srcs)),
         "topics": c.get("topics", []), "geo": c.get("geo", [])[:4], "ctry": c.get("ctry", [])[:5],
         "ppl": c.get("ppl", [])[:5], "flags": [f for f in c.get("flags", []) if f in PUBLIC_FLAGS],
-        **({"unconf": True} if c.get("unconf") else {}),   # only Telegram channels have reported it so far
+        **({"unconf": c["unconf"] if isinstance(c["unconf"], str) else "event"} if c.get("unconf") else {}),
     }
 
 
@@ -528,6 +549,8 @@ def news_round(full=True):
         "schedule": {"news_min": 5, "ticker_min": 5, "full_min": 15},
     })
     save_json(data_path("x.json"), {"v": 1, "updated": T, "posts": posts[:120], "stats": xstats})
+    for lang in ("fa", "en"):
+        save_json(data_path(f"lite_{lang}.json"), lite(T, day, idx, lights, lang))
     src_health = []
     for s in SOURCES:
         h = health[s["id"]]

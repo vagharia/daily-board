@@ -39,7 +39,10 @@ live run, which publishes `economist.json` within a few minutes; preview picture
 
 - Summaries are written in our own words; no passages are copied from the magazine.
 - No pictures are taken from the printed magazine, and the magazine file itself never goes into this repository.
-  Each card shows the article's own web preview picture, found by the engine (a reader service's copy of the page,
-  with a Bing News thumbnail as a backup) and only linked. Each article is looked up once; if no picture turns up,
-  the card shows its category icon instead and the engine does not try again.
+  Each card shows the article's own web preview picture, found by the engine (a reader service's copy of the page)
+  and only linked; never a picture from a news search, which can be about something else. Each article is looked
+  up once; if no picture turns up, the card shows its category icon instead and the engine does not try again.
+- When the new issue is in, list the articles without a picture for the owner, who may make pictures for them. A
+  picture made for an article goes in `docs/econ/` and its path in the article's `"pic"` field (e.g.
+  `"pic": "econ/2026-10-31-gulf.jpg"`); `"nopic": true` hides an own picture that doesn't fit the article.
 - Articles about the war between Russia and Ukraine are left out.

@@ -482,16 +482,19 @@ def _ukraine(p):
 
 
 def prune_off_topic(state):
-    """Drop stored posts that the current rules no longer keep: channels no longer followed, posts read from
-    channels and timelines that are off topic, and anything about the Russia-Ukraine war."""
+    """Drop stored posts that the current rules no longer keep: channels no longer followed, oil and gold market
+    accounts, posts from channels, timelines and Truth Social that are off topic, and anything about the
+    Russia-Ukraine war."""
     posts, cand = state.get("posts", {}), state.get("cand", {})
     gone = []
     for k, p in posts.items():
         if (p.get("platform") == "telegram" and p.get("h") not in TG_ACCOUNTS) or \
                 (p.get("h") or "").lower() in UNFOLLOWED:
             gone.append(k)
-        elif (p.get("platform") == "telegram" or p.get("via") == "timeline") and not _on_topic(p):
-            gone.append(k)
+        elif p.get("seg") == "econ":
+            gone.append(k)                      # the X tab is politics and war only (no oil or gold markets)
+        elif (p.get("platform") in ("telegram", "truth") or p.get("via") == "timeline") and not _on_topic(p):
+            gone.append(k)                      # e.g. Trump endorsing a candidate
         elif _ukraine(p):
             gone.append(k)
     for k in gone:
@@ -669,5 +672,7 @@ def manual_posts():
 
 
 def newest(posts):
-    """The posts, newest first (the order of the X tab)."""
-    return sorted(posts.values(), key=lambda p: p["t"], reverse=True)
+    """The posts the X tab shows, newest first: politics and war only, so no oil or gold market accounts and no Truth
+    Social post off the topic."""
+    keep = [p for p in posts.values() if p.get("seg") != "econ" and (p.get("platform") != "truth" or _on_topic(p))]
+    return sorted(keep, key=lambda p: p["t"], reverse=True)

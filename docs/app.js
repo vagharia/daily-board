@@ -32,6 +32,10 @@
       now: 'همین الان', minAgo: '{n} دقیقه پیش', hAgo: '{n} ساعت پیش', updated: '{t}',
       sources: '{n} منبع', moreSrc: '+{n}', fresh: 'جدید', sev: 'شدت {n}',
       unconf: 'گزارش تأییدنشده', unconfShort: 'تأییدنشده:', unconfNote: 'این خبر را تا الان فقط یک کانال تلگرامی گزارش کرده است. وقتی یک رسانهٔ خبری یا کانال دیگری همین خبر را گزارش کند، تأییدشده حساب می‌شود و رنگش بر اساس گزارش تازه تعیین می‌شود.',
+      unconfQuote: 'منبع ذکر نشده', unconfQuoteShort: 'بی‌منبع:', unconfQuoteNote: 'این نقل‌قول را فقط یک کانال تلگرامی منتشر کرده و نگفته از کجا آمده است. وقتی یک رسانهٔ خبری یا کانال دیگری همین را گزارش کند، تأییدشده حساب می‌شود.',
+      unconfCited: 'در انتظار تأیید منبع', unconfCitedShort: 'در انتظار تأیید:', unconfCitedNote: 'کانال تلگرامی این خبر را از رسانه‌ای نقل کرده، ولی گزارش خود آن رسانه هنوز پیدا نشده است. وقتی پیدا شود، برچسب برداشته می‌شود.',
+      lite: 'حالت کم‌مصرف', liteOn: 'حالت کم‌مصرف روشن شد: فقط تیتر خبرهای ۲۴ ساعت، بدون عکس و ویدیو.', liteOffMsg: 'حالت کم‌مصرف خاموش شد.', liteTab: 'در حالت کم‌مصرف فقط تب خبرها کار می‌کند.', liteWeek: 'در حالت کم‌مصرف فقط خبرهای ۲۴ ساعت می‌آید.', liteNote: 'حالت کم‌مصرف: فقط تیتر خبرها؛ متن کامل و منابع در حالت عادی.',
+      theme: 'تم', themeDark: 'تیره', themeLight: 'روشن', liveAir: 'نقشه زنده پروازها', liveMil: 'پروازهای نظامی (ADS-B Exchange)',
       firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
@@ -85,6 +89,10 @@
       now: 'just now', minAgo: '{n} min ago', hAgo: '{n} h ago', updated: '{t}',
       sources: '{n} sources', moreSrc: '+{n}', fresh: 'New', sev: 'Severity {n}',
       unconf: 'Unconfirmed report', unconfShort: 'Unconfirmed:', unconfNote: 'So far only one Telegram channel has reported this. Once a news outlet or another channel reports it, it counts as confirmed and its colour follows the new report.',
+      unconfQuote: 'Source not stated', unconfQuoteShort: 'No source:', unconfQuoteNote: 'Only one Telegram channel has published this quote, without saying where it comes from. Once a news outlet or another channel reports it, it counts as confirmed.',
+      unconfCited: 'Awaiting source check', unconfCitedShort: 'Awaiting check:', unconfCitedNote: 'A Telegram channel relays this from an outlet, but that outlet\'s own report hasn\'t been found yet. Once it is, the label goes.',
+      lite: 'Data saver', liteOn: 'Data saver on: only the day\'s headlines, no pictures or video.', liteOffMsg: 'Data saver off.', liteTab: 'In data saver mode only the news tab works.', liteWeek: 'In data saver mode only the last 24 hours are loaded.', liteNote: 'Data saver: headlines only; full text and sources in normal mode.',
+      theme: 'Theme', themeDark: 'Dark', themeLight: 'Light', liveAir: 'Live flight map', liveMil: 'Military flights (ADS-B Exchange)',
       firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
@@ -177,8 +185,10 @@
     ppl: null, sort: store.get('sort', 'time'), q: '', xseg: 'geo', layers: { news: true },
     econCat: store.get('econCat', 'pol'), econTiers: savedTiers('econTiers', EC_TIERS),
     sound: store.get('sound', true), d: { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null, econ: null },
-    seen: null, newIds: {}, shown: 0, list: [], gaugeSet: false, mapData: null, offline: false, origX: {}
+    seen: null, newIds: {}, shown: 0, list: [], gaugeSet: false, mapData: null, offline: false, origX: {},
+    lite: !!store.get('lite', false), theme: store.get('theme', 'dark')
   };
+  if (S.lite) S.range = '24h';
   var seenArr = store.get('seen', null);
   S.seen = seenArr ? new Set(seenArr) : null;      // null = very first visit: nothing is "new"
 
@@ -268,6 +278,7 @@
     });
   }
   function bootCache() {
+    if (S.lite) { applyLite(store.get('cache.' + liteKey(), null)); return; }
     ['ticker', 'signals', 'news24', 'x', 'stories', 'econ'].forEach(function (k) {
       var c = store.get('cache.' + k, null);
       if (c) S.d[k] = c;
@@ -369,7 +380,7 @@
     reds = reds.slice(0, 6);
     if (!reds.length) { box.hidden = true; return; }
     box.hidden = false;
-    var one = reds.map(function (c) { return '<button data-story="' + c.id + '">' + (c.unconf ? '<span class="fl-unc">' + esc(t('unconfShort')) + '</span> ' : '') + esc(txt(c).ti) + '</button>'; }).join('');
+    var one = reds.map(function (c) { return '<button data-story="' + c.id + '">' + (c.unconf ? '<span class="fl-unc">' + esc(uncText(c, 'Short')) + '</span> ' : '') + esc(txt(c).ti) + '</button>'; }).join('');
     var tr = $('#flashTrack');
     tr.innerHTML = one + one;
     var len = reds.reduce(function (a, c) { return a + txt(c).ti.length; }, 0);
@@ -404,11 +415,16 @@
     else list.sort(function (a, b) { return b.t - a.t; });
     return list;
   }
+  // the label of a report only one Telegram channel has: an event, a quote without a source, or a relayed outlet
+  function uncText(c, part) {
+    var k = c.unconf === 'quote' ? 'unconfQuote' : c.unconf === 'cited' ? 'unconfCited' : 'unconf';
+    return t(k + part);
+  }
   function metaHtml(c) {
     var first = c.src[0] || { n: '', nf: '' };
     var more = c.ns > 1 ? '<span class="more">' + ic('users') + nfmt(c.ns) + '</span>' : '';
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
-    var unc = c.unconf ? '<span class="unc">' + esc(t('unconf')) + '</span>' : '';
+    var unc = c.unconf ? '<span class="unc">' + esc(uncText(c, '')) + '</span>' : '';
     return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + unc + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
   }
   // a broken image collapses its frame instead of leaving an empty box
@@ -520,7 +536,7 @@
     if (f && !f.classList.contains('noimg')) { f.classList.add('noimg'); f.insertAdjacentHTML('afterbegin', ic('news', 'sty-ic')); }
   };
   function renderStories() {
-    var box = $('#stories'), list = storyList();
+    var box = $('#stories'), list = S.lite ? [] : storyList();
     if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
     box.hidden = false;
     box.setAttribute('aria-label', t('storiesH'));
@@ -768,16 +784,18 @@
       var isMT = !!primary.mt;
       var shown = showOrig && other && other.ti ? other : primary;
       var h = storyMedia(c);
-      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc">' + esc(t('unconf')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
+      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc">' + esc(uncText(c, '')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
       h += '<h2 class="st-title" dir="auto">' + esc(shown.ti) + '</h2>';
       if (shown.su) h += '<p class="st-sum" dir="auto">' + esc(shown.su) + '</p>';
-      if (c.unconf) h += '<p class="subnote st-unc">' + esc(t('unconfNote')) + '</p>';
+      if (c.unconf) h += '<p class="subnote st-unc">' + esc(uncText(c, 'Note')) + '</p>';
+      if (c.lite) h += '<p class="subnote">' + esc(t('liteNote')) + '</p>';
       h += '<div class="st-mt">';
       if (isMT || primary.fallback) h += '<span>' + esc(t('mt')) + '</span>';
       if (other && other.ti && other.ti !== primary.ti) h += '<button data-a="toggleOrig">' + esc(showOrig ? t('showTr') : t('showOrig')) + '</button>';
       h += '</div>';
       h += '<div class="st-mt"><span>' + esc(t('firstRep', { t: dtime(c.t) })) + '</span>' + (c.u - c.t > 600 ? '<span>' + esc(t('lastRep', { t: dtime(c.u) })) + '</span>' : '') + '</div>';
       h += '<h4>' + esc(t('srcList')) + '</h4><div class="srcs">' + c.src.map(function (s) {
+        if (!s.u) return '<span class="src-plain"><span class="n">' + esc(srcName(s)) + '</span><span class="t">' + esc(ago(s.t)) + '</span></span>';
         return '<a href="' + esc(s.u) + '" target="_blank" rel="noopener noreferrer"><span class="n">' + esc(srcName(s)) + '</span><span class="t">' + esc(ago(s.t)) + '</span>' + ic('ext') + '</a>';
       }).join('') + '</div>';
       var tags = [];
@@ -818,7 +836,7 @@
     if (!idx) return;
     var h = '<h2>' + esc(t('idxH')) + ': ' + nfmt(idx.value) + '</h2>';
     h += '<div class="hrows hrows--wide">';
-    h += '<div class="hrow"><span class="l">' + esc(t('idxNews')) + '</span><span class="htrack"><i style="--w:' + idx.news + '%;background:' + rgba(heat(idx.news), 1) + '"></i></span><span class="v">' + nfmt(Math.round(idx.news)) + '</span></div>';
+    if (idx.news != null) h += '<div class="hrow"><span class="l">' + esc(t('idxNews')) + '</span><span class="htrack"><i style="--w:' + idx.news + '%;background:' + rgba(heat(idx.news), 1) + '"></i></span><span class="v">' + nfmt(Math.round(idx.news)) + '</span></div>';
     if (idx.signals != null) h += '<div class="hrow"><span class="l">' + esc(t('idxSig')) + '</span><span class="htrack"><i style="--w:' + idx.signals + '%;background:' + rgba(heat(idx.signals), 1) + '"></i></span><span class="v">' + nfmt(Math.round(idx.signals)) + '</span></div>';
     h += '</div>';
     h += '<h4>' + esc(t('idxWeek')) + '</h4><div class="chart" id="idxChart"></div>';
@@ -915,6 +933,8 @@
     var hasPin = !!store.get('pin', null);
     var h = '<h2>' + esc(t('settings')) + '</h2>';
     h += '<button class="set-row" data-a="lang">' + ic('globe') + '<span>' + esc(t('lang')) + '</span><span class="r">' + (L() === 'fa' ? 'فارسی' : 'English') + '</span></button>';
+    h += '<button class="set-row" data-a="theme">' + ic(S.theme === 'light' ? 'sun' : 'moon') + '<span>' + esc(t('theme')) + '</span><span class="r">' + esc(S.theme === 'light' ? t('themeLight') : t('themeDark')) + '</span></button>';
+    h += '<button class="set-row" data-a="lite">' + ic('lite') + '<span>' + esc(t('lite')) + '</span><span class="r"><i class="switch' + (S.lite ? ' on' : '') + '"></i></span></button>';
     h += '<button class="set-row" data-a="sound">' + ic('sound') + '<span>' + esc(t('sound')) + '</span><span class="r"><i class="switch' + (S.sound ? ' on' : '') + '"></i></span></button>';
     h += '<button class="set-row" data-a="pin">' + ic('lock') + '<span>' + esc(t('lock')) + '</span><span class="r">' + esc(hasPin ? t('lockOff') : t('lockSet')) + '</span></button>';
     h += '<div class="set-row">' + ic('send') + '<span>' + esc(t('tg')) + '</span><span class="r">' + esc(tgState) + '</span></div>';
@@ -930,6 +950,8 @@
         var act = a.dataset.a;
         if (act === 'sound') { S.sound = !S.sound; store.set('sound', S.sound); unlockAudio(); $('.switch', a).classList.toggle('on', S.sound); if (S.sound) beep(); }
         else if (act === 'lang') { setLang(L() === 'fa' ? 'en' : 'fa'); openSettings(); }
+        else if (act === 'theme') { setTheme(S.theme === 'light' ? 'dark' : 'light'); openSettings(); }
+        else if (act === 'lite') { closeSheet(); setLite(!S.lite); }
         else if (act === 'pin') { closeSheet(); setTimeout(function () { hasPin ? removePin() : setPin(); }, 350); }
         else if (act === 'sources') openSources();
         else if (act === 'index') openIndex();
@@ -1135,7 +1157,9 @@
       if (c.url) h += '<a class="av-link" target="_blank" rel="noopener" href="' + esc(c.url) + '">' + esc(t('avMore')) + ' ' + ic('ext', 'ic-sm') + '</a>';
       h += '</details>';
     });
-    h += '</div><p class="subnote">' + esc(t('avNote')) + '</p></div>';
+    h += '</div><p class="subnote">' + esc(t('avNote')) + '</p>';
+    h += '<div class="btns"><a class="btn" target="_blank" rel="noopener" href="https://www.flightradar24.com/29.5,50.5/5">' + ic('plane') + esc(t('liveAir')) + '</a>' +
+      '<a class="btn" target="_blank" rel="noopener" href="https://globe.adsbexchange.com/?lat=29.5&lon=50.5&zoom=5&mil=1">' + ic('crosshair') + esc(t('liveMil')) + '</a></div></div>';
     return h;
   }
 
@@ -1175,11 +1199,11 @@
   // ------------------------------------------------------------------ X
   function renderX() {
     var box = $('#xFeed');
-    $$('#xSeg button').forEach(function (b) { b.classList.toggle('on', b.dataset.seg === S.xseg); });
     var d = S.d.x;
     if (!d) { box.innerHTML = skeleton(); return; }
     // newest first
-    var posts = d.posts.filter(function (p) { return p.seg === S.xseg; }).sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
+    // politics and war only, one list (the engine no longer keeps oil and gold market accounts)
+    var posts = d.posts.filter(function (p) { return p.seg !== 'econ'; }).sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
     if (!posts.length) { box.innerHTML = '<div class="empty">' + ic('quote') + '<p>' + esc(t('xEmpty')) + '</p></div>'; return; }
     box.innerHTML = posts.map(postHtml).join('');
   }
@@ -1341,8 +1365,55 @@
   function setLang(l) {
     S.lang = l; store.set('lang', l);
     applyLang(); renderAll(true);
+    if (S.lite) refreshAll(true);                 // the data-saving file is per language
+  }
+  function setTheme(th) {
+    S.theme = th; store.set('theme', th);
+    applyTheme();
+    renderAll();
+  }
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', S.theme === 'light' ? 'light' : 'dark');
+    var m = document.querySelector('meta[name=theme-color]');
+    if (m) m.setAttribute('content', S.theme === 'light' ? '#F3F6FB' : '#07142B');
+  }
+  // data-saving mode: one small file per round, the news tab only, headlines of the last 24 hours, no pictures
+  function applyLiteUi() {
+    document.body.classList.toggle('lite', S.lite);
+    var b = $('#liteBtn');
+    if (b) { b.classList.toggle('on', S.lite); b.setAttribute('aria-pressed', S.lite); }
+  }
+  function setLite(on) {
+    S.lite = on; store.set('lite', on);
+    if (!on) { toast(esc(t('liteOffMsg'))); setTimeout(function () { location.reload(); }, 400); return; }
+    S.range = '24h'; store.set('range', '24h');
+    if (S.tab !== 'news') setTab('news');
+    S.d = { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null, econ: null, stories: null };
+    applyLiteUi(); renderAll();
+    refreshAll(true).then(function () { toast(esc(t('liteOn'))); });
+  }
+  function liteKey() { return 'lite_' + L() + '.json'; }
+  function applyLite(j) {
+    if (!j) return;
+    S.d.ticker = j.ticker || {};
+    S.d.signals = { updated: j.updated, index: j.index, lights: (j.lights || []).map(function (l) { return Object.assign({ evidence: [] }, l); }) };
+    S.d.news24 = { updated: j.updated, range: '24h', clusters: (j.news || []).map(function (r) {
+      var tx = { ti: r[5], su: '' };
+      return { id: r[0], tier: r[1], sev: r[2], t: r[3], u: r[3], ns: r[4], fa: tx, en: tx, lang: L(), img: null, vid: null,
+        src: r[6] ? [{ id: '', n: r[6], nf: r[6], u: '', t: r[3] }] : [], topics: [], geo: [], ctry: [], ppl: [], flags: [],
+        unconf: r[7] || undefined, lite: true };
+    }) };
+  }
+  function loadLite(fresh) {
+    var old = S.d.news24 && S.d.news24.updated;
+    return getJSON(liteKey(), fresh).then(function (j) {
+      applyLite(j); store.set('cache.' + liteKey(), j); S.offline = false;
+      var ch = j.updated !== old;
+      return { news24: ch, signals: ch, ticker: ch };
+    }, function () { S.offline = true; return {}; });
   }
   function setTab(tab) {
+    if (S.lite && tab !== 'news') { toast(esc(t('liteTab'))); return; }
     S.tab = tab;
     $$('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === tab); });
     $$('.pane').forEach(function (p) { p.hidden = p.dataset.pane !== tab; });
@@ -1395,14 +1466,15 @@
       if (!nt.red && !nt.orange && !nt.yellow) return;              // at least one level stays on
       S.tiers = nt; store.set('tiers', nt); renderChips(); renderFeed(); return;
     }
+    if ((el = e.target.closest('[data-range]')) && S.lite && el.dataset.range === 'week') { toast(esc(t('liteWeek'))); return; }
     if ((el = e.target.closest('[data-range]'))) { S.range = el.dataset.range; store.set('range', S.range); renderAll(); return; }
     if ((el = e.target.closest('[data-range-toggle]'))) { S.range = S.range === 'week' ? '24h' : 'week'; store.set('range', S.range); if (S.range === 'week' && !S.d.newsWeek) load(['newsWeek']).then(function () { renderAll(); }); renderAll(); return; }
     if ((el = e.target.closest('[data-layer]'))) { var k = el.dataset.layer; S.layers[k] = !S.layers[k]; store.set('layers', S.layers); renderMap(); return; }
-    if ((el = e.target.closest('[data-seg]'))) { S.xseg = el.dataset.seg; renderX(); return; }
     if ((el = e.target.closest('[data-orig]'))) { var id = el.dataset.orig; S.origX[id] = !S.origX[id]; renderX(); return; }
     if ((el = e.target.closest('[data-a]'))) {
       var a = el.dataset.a;
       if (a === 'settings') openSettings();
+      else if (a === 'lite') setLite(!S.lite);
       else if (a === 'lights') openLights();
       else if (a === 'index') openIndex();
       else if (a === 'markets') openMarkets();
@@ -1445,6 +1517,7 @@
 
   // ------------------------------------------------------------------ refresh loop
   function refreshAll(fresh) {
+    if (S.lite) return loadLite(fresh).then(function (ch) { S.loaded = true; if (ch.news24) trackNew(!!S.firstDone); S.firstDone = true; renderAll(); });
     var keys = ['ticker', 'signals', 'news24', 'x', 'stories', 'econ'];
     if (S.range === 'week' || S.d.newsWeek) keys.push('newsWeek');
     S.econAt = nowS();
@@ -1456,9 +1529,19 @@
     });
   }
   function tickTicker() {
+    if (S.lite) return;                           // the data-saving file carries the prices
     load(['ticker']).then(function (ch) { if (ch.ticker) { renderMarkets(); renderHeader(); } });
   }
   function tickNews() {
+    if (S.lite) {
+      if (nowS() - (S.liteAt || 0) < 280) return;  // one small file every five minutes
+      S.liteAt = nowS();
+      loadLite().then(function (ch) {
+        if (ch.news24) { trackNew(true); renderMarkets(); renderGauge(); renderLamps(); renderFlash(); renderChips(); if (window.scrollY < 400) renderFeed(true); }
+        renderHeader();
+      });
+      return;
+    }
     var keys = ['signals', 'news24'];
     if (S.tab === 'x' || Math.random() < 0.5) keys.push('x');
     if (S.range === 'week') keys.push('newsWeek');
@@ -1483,7 +1566,9 @@
   setInterval(function () { if (!document.hidden) renderHeader(); }, 30 * 1000);
 
   // ------------------------------------------------------------------ boot
+  applyTheme();
   applyLang();
+  applyLiteUi();
   bootCache();
   if (S.d.news24) { S.loaded = true; trackNew(false); }
   renderAll();
