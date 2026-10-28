@@ -72,6 +72,10 @@ def _pre(text, sl):
 
 
 _DOCTORS_EN = re.compile(r"\b(the )?[Dd]octors\b")
+# a film director comes out as a manager (مدیر); when the source is about cinema, he is a کارگردان
+_FILM_SRC = re.compile(r"\b(?:film\w*|movie\w*|cinema\w*|screen\w*|oscar\w*|cannes|berlinale|venice|award-winning"
+                       r"|panahi|rasoulof|farhadi|kiarostami|makhmalbaf)\b", re.I)
+_DIRECTOR_SRC = re.compile(r"\bdirector\b", re.I)
 
 
 def fix_terms(src, out, tl):
@@ -90,6 +94,8 @@ def fix_terms(src, out, tl):
         out = out.replace("معادن", "مین‌ها").replace("معدن", "مین")
     if "اعتصاب" in out and _STRIKE_SRC.search(src) and not _LABOUR_SRC.search(src):
         out = out.replace("اعتصابات", "حملات").replace("اعتصاب", "حمله")
+    if _DIRECTOR_SRC.search(src) and _FILM_SRC.search(src) and "مدیر" in out:
+        out = re.sub(r"مدیر(?=\s|$|،)", "کارگردان", out).replace("مدیران", "کارگردانان")
     if _PICKAXE_SRC.search(src):
         out = _PICKAXE_FA.sub("کلنگ", out).replace("کوه تبر", "کوه کلنگ")
     for a, b in FA_ALWAYS:
