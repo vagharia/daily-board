@@ -315,6 +315,9 @@ def roundup(item):
 
 def is_relevant(item):
     item = dict(item, su=strip_dateline(item.get("su") or ""))   # "تهران- ایرنا- …" doesn't make a story Iran's
+    from .classify import cable
+    if cable(item.get("lang") or "en", item.get("ti", ""), item.get("su", "")):
+        return 70, True                       # undersea cables of the region threatened, cut or damaged
     if roundup(item):
         item = dict(item, su="")                       # a roundup counts by its headline only
     if item.get("lang") == "fa":

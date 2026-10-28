@@ -180,6 +180,53 @@ PATTERNS = [
 KINETIC_BASE = 70
 
 POWERS_SOFT_CAP = 40.0
+CABLE_THREAT_SEV, CABLE_CUT_SEV, CABLE_ATTACK_SEV = 60.0, 64.0, 72.0
+_CABLE_FA = re.compile(r"کابل(?:\s*ها(?:ی)?)?\s*(?:اینترنت|فیبر\s*نوری|ارتباطی|مخابراتی|زیر\s*دریایی|زیردریایی|دریایی|داده|انتقال\s*داده)"
+                       r"|کابل[^.؛]{0,40}(?:زیر\s*دریا|زیردریایی|کف\s*دریا|بستر\s*دریا)")
+_CABLE_EN = re.compile(r"\b(?:undersea|subsea|submarine|underwater|seabed|sea-?floor|fib(?:er|re)[- ]optic|internet|data)"
+                       r"\s+(?:communications?\s+)?cables?\b", re.I)
+_CABLE_THREAT_FA = re.compile(r"تهدید|هشدار|هدف\s*قرار\s*(?:می\s*گیرند|می\s*گیرد|خواهند|خواهد|دهیم|می\s*دهیم)"
+                              r"|قطع\s*(?:می\s*کند|می\s*کنیم|خواهد|خواهیم|کنند)|ممکن|احتمال|نقشه|قادر|خطر|نگرانی"
+                              r"|طرح|برنامه|قصد|آماده|در\s*صورت|هدف\s*قرار\s*دادن")
+_CABLE_THREAT_EN = re.compile(r"\b(?:threat\w*|warn\w*|could|may|might|vow\w*|plans?|planning|capable|risk\w*|fears?"
+                              r"|concerns?|target(?:s|ing)?)\b", re.I)
+_CABLE_CUT_FA = re.compile(r"قطع|آسیب|پاره|بریده|خرابکاری|هدف\s*قرار\s*گرفت|اختلال")
+_CABLE_CUT_EN = re.compile(r"\b(?:cut|severed|damag\w*|sabotag\w*|disrupt\w*|ruptur\w*|outages?|attacked|struck)\b", re.I)
+_CABLE_TALK_FA = re.compile(r"واکنش|جبهه\s*جدید|تحلیل|بررسی|چرا|چگونه|به\s*کجا|\?|؟")
+_CABLE_ATTACK_FA = re.compile(r"خرابکاری|هدف\s*قرار\s*گرفت|حمله|عمدی|بریده\s*شد|ترور")
+_CABLE_ATTACK_EN = re.compile(r"\b(?:sabotag\w*|attack\w*|deliberate\w*|targeted|struck|hit by)\b", re.I)
+_CABLE_REGION_FA = re.compile(r"ایران|سپاه|حوثی|یمن|هرمز|خلیج\s*فارس|دریای\s*سرخ|دریای\s*عمان|دریای\s*عرب|باب\s*المندب"
+                              r"|عربستان|امارات|قطر|بحرین|کویت|عمان|خاورمیانه")
+_CABLE_REGION_EN = re.compile(r"\b(?:iran\w*|irgc|houthis?|yemen\w*|hormuz|persian gulf|gulf|red sea|gulf of oman|arabian sea"
+                              r"|bab el-?mandeb|saudi\w*|emirat\w*|uae|qatar\w*|bahrain\w*|kuwait\w*|oman\w*|middle east)\b",
+                              re.I)
+
+
+def cable(lang, t, s=""):
+    """Undersea cables in the region: 'threat' (a threat to cut them), 'attack' (cut on purpose), 'cut' (cut or
+    damaged), or None."""
+    text = (t or "") + " " + first_sentences(s or "", 220)
+    if lang == "fa":
+        text = fa_norm(text)
+        if not (_CABLE_FA.search(fa_norm(t or "")) and _CABLE_REGION_FA.search(text)):
+            return None
+        tt = fa_norm(t or "")
+        if _CABLE_TALK_FA.search(tt):
+            return None                           # a reaction or an analysis, not the event
+        if _CABLE_THREAT_FA.search(tt):
+            return "threat"
+        if not _CABLE_CUT_FA.search(tt):
+            return None
+        return "attack" if _CABLE_ATTACK_FA.search(text) else "cut"
+    if not (_CABLE_EN.search(t or "") and _CABLE_REGION_EN.search(text)):
+        return None
+    if re.search(r"\b(?:analysis|explainer|why|how|what)\b|\?", t or "", re.I):
+        return None
+    if _CABLE_THREAT_EN.search(t or ""):
+        return "threat"
+    if not _CABLE_CUT_EN.search(t or ""):
+        return None
+    return "attack" if _CABLE_ATTACK_EN.search(text) else "cut"
 FAR_CAP = 40.0
 _FA_L = "\u0600-\u06FF"
 _FAR_FA = re.compile(r"(?<![" + _FA_L + r"])(?:چین|چینی|پکن|هند|هندی|هندوستان|دهلی|هیمالیا|کوبا|هاوانا|ونزوئلا|کاراکاس|تایوان|ژاپن"
@@ -446,6 +493,16 @@ def classify(item):
         # a match called off or a team that won't travel for fear of the war is a yellow story, not a strike
         flags = (set(flags) - HARD_EVENTS) | {"sport"}
         sev = min(sev, sport.CAP)
+    cb = cable(lang, fa_t or en_t, fa_s or en_s)
+    if cb:
+        # undersea internet cables in the region: a threat to cut them, or cables cut or damaged
+        topics = set(topics) | {"net", "maritime"}
+        if cb == "threat":
+            flags = (set(flags) - {"internet"}) | {"threat", "cable"}      # a threat, not Iran's internet cut
+            sev = max(sev, CABLE_THREAT_SEV)
+        else:
+            flags = set(flags) | {"cable", "cable_cut"} | ({"maritime_incident"} if cb == "attack" else set())
+            sev = max(sev, CABLE_ATTACK_SEV if cb == "attack" else CABLE_CUT_SEV)
     if "exercise" in flags and _civil_drill(lang, fa_t or en_t, fa_s or en_s):
         # a medical, relief or fire-brigade drill (free clinics, earthquake or chemical-spill rescue): not military
         flags = (set(flags) - {"exercise"}) | {"civil_drill"}
