@@ -205,6 +205,10 @@ _TAIL = re.compile(r"^(?P<body>.{12,}?\S)\s+(?:[—–]|-{1,2})\s+(?P<who>[^—�
 _SECTIONS = {"politics", "economy", "general", "sports", "health", "culture", "security", "local", "gulf",
              "international", "arab", "world", "business", "live", "analysis", "opinion", "explainer", "video",
              "watch", "update", "updates", "breaking", "سیاست", "اقتصاد", "بین الملل", "بین‌الملل", "ویدیو"}
+_ROLE = re.compile(r"^(?:(?:Iran|Iranian|Russian|US|Israeli|Saudi|Qatari|Iraqi)\s+)?(?:deputy\s+|vice\s+|former\s+)?"
+                   r"(?:prime\s+minister|pm|president|foreign\s+minister|defen[cs]e\s+minister|minister|spokes(?:man|woman|person)"
+                   r"|(?:parliament\s+)?speaker|supreme\s+leader|leader|envoy|ambassador|commander|army\s+chief|official|officials"
+                   r"|sources?|ministry|foreign\s+ministry|kremlin|pentagon)(?:\s+[A-Z][\w'.-]+){0,2}$", re.I)
 _STOP = {"but", "and", "or", "also", "is", "are", "was", "of", "in", "on", "at", "to", "for", "with", "as", "not",
          "from", "by", "after", "before", "over", "into", "than", "be", "will", "says", "said"}
 
@@ -220,7 +224,11 @@ def speaker_first(title):
     if who.lower() in _SECTIONS or fa_norm(who) in _SECTIONS:
         return body
     words = who.split()
-    if not 1 <= len(words) <= 3 or ":" in body[:40] or ":" in who:
+    if ":" in body[:40] or ":" in who:
+        return t
+    if not has_fa(who) and _ROLE.match(who):
+        return f"{who[0].upper() + who[1:]}: {body}"      # "— Deputy PM Novak", "— supreme leader"
+    if not 1 <= len(words) <= 3:
         return t
     if has_fa(who):
         if not _fa_speaker(who):
