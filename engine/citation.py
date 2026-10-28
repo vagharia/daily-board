@@ -7,7 +7,7 @@ import re
 
 from .cluster import channel, refresh, tokens
 from .sources import SOURCES
-from .util import fa_norm
+from .util import fa_norm, speaker_first
 
 WINDOW = 36 * 3600
 # other names the channels use for some outlets
@@ -50,7 +50,7 @@ CITE = re.compile(r"^\W*(" + _ALT + r")\s*[:：]"
 
 def cited(m):
     """The outlets a channel post says it relays."""
-    t = fa_norm(m.get("ti") or "")
+    t = fa_norm(speaker_first(m.get("ti") or ""))   # "… - فارس" names the outlet last
     out = set()
     for mt in CITE.finditer(t):
         for g in mt.groups():

@@ -1,7 +1,7 @@
 /* Offline shell + last-known data. */
-var SHELL = 'shell-v19';
+var SHELL = 'shell-v20';
 var DATA = 'data-v1';
-var ASSETS = ['./', 'index.html', 'app.css?v=19', 'app.js?v=19', 'icons.js?v=19', 'manifest.webmanifest',
+var ASSETS = ['./', 'index.html', 'app.css?v=20', 'app.js?v=20', 'icons.js?v=20', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(SHELL).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));
@@ -24,6 +24,7 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (/release\.json$/.test(url.pathname)) return;      // always from the network: it announces updates
   // same-origin: stale-while-revalidate for the shell, fonts and map
   e.respondWith(caches.open(SHELL).then(function (c) {
     return c.match(e.request).then(function (hit) {

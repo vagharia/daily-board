@@ -15,6 +15,9 @@ EN_PRE = [
     (re.compile(r"\bGulf (states|countries|nations|Arab states|monarchies|allies|neighbou?rs|region|Cooperation Council)\b"),
      r"Persian Gulf \1"),
     (re.compile(r"\bGulf Arab\b"), "Persian Gulf Arab"),
+    # "Putin to meet Iran's Pezeshkian, Qatar's emir" came out as "the emir of Qatar of Iran"
+    (re.compile(r"\bIran's (?:President )?Pezeshkian\b"), "Iranian President Pezeshkian"),
+    (re.compile(r"\bQatar's [Ee]mir\b"), "the Emir of Qatar"),
 ]
 
 FA_POST = [
@@ -56,7 +59,7 @@ _LABOUR_SRC = re.compile(r"\b(workers?|unions?|labou?r|wages?|teachers|drivers|t
 _PICKAXE_SRC = re.compile(r"pick-?\s?axe", re.I)
 _PICKAXE_FA = re.compile(r"پیک\s*[\u200c]?\s*اکس|پیککس|پیکاکس|پیکس(?=\s|$)")
 # Persian names that are fixed regardless of the source (also applied to stored translations)
-FA_ALWAYS = [("خلیج عمان", "دریای عمان")]
+FA_ALWAYS = [("خلیج عمان", "دریای عمان"), ("امیر قطر ایران", "امیر قطر")]
 _LINEBREAKS = re.compile(r"[\r\n  \u0085\v\f]+")
 
 
@@ -68,8 +71,13 @@ def _pre(text, sl):
     return text
 
 
+_DOCTORS_EN = re.compile(r"\b(the )?[Dd]octors\b")
+
+
 def fix_terms(src, out, tl):
     """Corrections that depend on the source text."""
+    if tl == "en" and out and "پزشکیان" in (src or "") and "پزشکان" not in src:
+        return _DOCTORS_EN.sub("Pezeshkian", out)      # the president's name read as "doctors"
     if tl != "fa" or not out:
         return out
     src = src or ""

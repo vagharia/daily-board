@@ -13,7 +13,7 @@ from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
 from .sources import BY_ID, GROUPS, SOURCES
 from .translate import Translator, fix_terms
-from .util import data_path, fa_norm, first_sentences, load_json, log, now, save_json, truncate
+from .util import data_path, fa_norm, first_sentences, load_json, log, now, save_json, speaker_first, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
                "sev", "topics", "flags", "ppl", "geo", "ctry")
@@ -121,16 +121,16 @@ def ensure_texts(clusters, tr):
         byk = {m["k"]: m for m in c["m"]}
         en_m = byk.get(c.get("en_from")) or c["m"][0]
         if en_m.get("lang") == "en":
-            c["en"] = {"ti": en_m["ti"], "su": en_m.get("su", "")}
+            c["en"] = {"ti": speaker_first(en_m["ti"]), "su": en_m.get("su", "")}
         elif en_m.get("en_ti"):
             c["en"] = {"ti": en_m["en_ti"], "su": en_m.get("en_su") or "", "mt": 1}
         else:
             c["en"] = {"ti": en_m["ti"], "su": en_m.get("su") or "", "fallback": 1}
         fa_m = byk.get(c.get("fa_from")) if c.get("fa_from") else None
         if fa_m and fa_m.get("lang") == "fa":
-            c["fa"] = {"ti": fa_m["ti"], "su": fa_m.get("su", "")}
+            c["fa"] = {"ti": speaker_first(fa_m["ti"]), "su": fa_m.get("su", "")}
         elif c["en"].get("fallback"):
-            c["fa"] = {"ti": en_m["ti"], "su": en_m.get("su") or ""}          # Persian original, untranslated
+            c["fa"] = {"ti": speaker_first(en_m["ti"]), "su": en_m.get("su") or ""}   # Persian original, untranslated
         else:
             c["_fa_src"] = (c["en"]["ti"], first_sentences(c["en"]["su"], 330))
             need += [x for x in c["_fa_src"] if x]
@@ -296,11 +296,17 @@ def news_round(full=True):
         log(f"live-page reports retimed: {fix_live_pages(clusters, seen)}")
         misc["live_fix"] = 1
         misc["recluster"] = 0                 # so their stories are rebuilt just below
-    if misc.get("recluster") != 7:
+    if misc.get("recluster") != 8:
         # once after a clustering change: rebuild the last two days' stories from their reports
+        for c in clusters:                    # Pezeshkian's name was translated as "doctors"
+            for m in c["m"]:
+                if m.get("lang") == "fa" and m.get("en_ti"):
+                    m["en_ti"] = fix_terms(m["ti"], m["en_ti"], "en")
+                    if m.get("en_su"):
+                        m["en_su"] = fix_terms(m.get("su") or "", m["en_su"], "en")
         n0 = len(clusters)
         clusters = recluster(clusters, T)
-        misc["recluster"] = 7
+        misc["recluster"] = 8
         # re-formed stories must not trigger alerts again; new reports in this round still can
         sent = alerts_state.setdefault("sent", [])
         sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
@@ -511,7 +517,7 @@ def news_round(full=True):
         av = av_state.get("data") or {"status": "fail", "countries": []}
     sea_out = sea.run(sea_state)
     ticker = load_json(data_path("ticker.json"), {}) or {}
-    idx, idx_hist = compute_index(clusters, av, sea_out, idx_hist)
+    idx, idx_hist = compute_index(clusters, av, sea_out, idx_hist, ticker)
     lights = compute_lights(clusters, av, sea_out, ticker)
     log(f"index={idx['value']} news={idx['news']} signals={idx['signals']} lights="
         f"{[l['id'] for l in lights if l['state'] == 'on']}")

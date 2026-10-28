@@ -1,11 +1,23 @@
 """Escalation index (0-100), warning lights and map hotspots.
 
-News component: a severity-weighted average over the last 24h in which serious events weigh
-exponentially more (so one missile strike is not drowned out by thirty routine statements),
-recent events weigh more (6h half-life), and each story counts once however many outlets
-report it. Signals component: Hormuz traffic and maritime incidents, and the airspace risk picture
-(Safe Airspace risk levels and fresh official warnings for the core countries).
-Index = 70% news + 30% signals.
+The index measures one thing above all: how close Iran, America and Israel are to war, or how deep in it they are.
+Four parts, each 0-100, over the last 24 hours (newer stories weigh more, 6h half-life; each story counts once):
+
+  acts (40%)       military action that happened: strikes, attacks at sea, Hormuz closed. A sum that saturates, so
+                   two strikes count for more than one but thirty don't run off the scale.
+  threats (20%)    what points towards war: ultimatums, threats, carriers and bombers sent, embassies evacuated,
+                   talks breaking down.
+  spread (15%)     how many fronts are hot at once (Iran, Israel, the Persian Gulf and Hormuz, Lebanon, Iraq, Yemen
+                   and Saudi Arabia, Syria).
+  signals (25%)    what can be measured: Hormuz traffic and incidents, airspace risk and fresh official warnings,
+                   a jump in Brent.
+
+Who is involved sets the weight: Iran against America or Israel counts in full, Iran and the Persian Gulf states
+at 70%, the other fronts (the Houthis and Saudi Arabia, Hezbollah, Iraq's militias) at 35%. Those fronts matter
+because they are fought for Iran, but on their own they can take the index to "high tension", never to "critical":
+above 75 only Iran, America and Israel count.
+
+Not counted: one Telegram channel's unconfirmed report, denials, analysis and opinion, past events, Putin on trade.
 """
 import math
 
@@ -97,29 +109,167 @@ def signals_component(av, sea, clusters, t):
     return round(val, 1), {k: round(v, 1) for k, _, v in parts}
 
 
-def compute_index(clusters, av, sea, hist):
+W_ACTS, W_THREATS, W_SPREAD, W_SIGNALS = 0.35, 0.25, 0.15, 0.25
+HALF = 6 * 3600
+ACT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
+THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "talks_fail", "retaliation", "alert"}
+SKIP_FLAGS = {"denial", "past", "opinion", "analysis", "powers_soft", "sport"}
+IR_LAND = {"tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas", "kharg", "tabriz", "shiraz", "chabahar"}
+IR_SEA = {"hormuz", "persian_gulf", "gulf_oman"}
+PROXY = {"yemen", "lebanon", "iraq", "syria"}
+PROXY_GEO = {"baghdad", "erbil", "ain_asad", "sanaa", "hodeidah", "red_sea", "bab", "lebanon", "riyadh", "east_sa"}
+FRONTS = {"ir": "iran", "il": "israel", "gulf": "gulf", "lebanon": "lebanon", "iraq": "iraq", "yemen": "yemen",
+          "syria": "syria"}
+CRITICAL = 75
+K_ACTS, K_THREATS, K_SPREAD = 4.0, 3.0, 3.0
+HIGH = 50
+
+
+def theatre(c):
+    """How much a story is about the Iran-America-Israel war: 1 (Iran against America or Israel), 0.7 (Iran alone, Iran
+    and the Persian Gulf states, or America and Israel in the region with no other front named), 0.5 (Iran's name
+    next to another front: "US strikes Iran-backed militia in Iraq"), 0.35 (another front)."""
+    ctry, geo = set(c.get("ctry", [])), set(c.get("geo", []))
+    iran = "ir" in ctry or bool(geo & (IR_LAND | IR_SEA))
+    us_il = bool(ctry & {"us", "il"})
+    proxy = bool(ctry & PROXY or geo & PROXY_GEO) and not geo & IR_LAND
+    if iran:
+        if proxy:
+            return 0.5
+        return 1.0 if us_il else 0.7
+    if us_il and not proxy:
+        return 0.7
+    return 0.35
+
+
+def _counted(c, t):
+    age = t - c["u"]
+    if age > 24 * 3600 or age < -3600 or c.get("unconf") or not c.get("core", True):
+        return None
+    fl = set(c.get("flags", []))
+    if fl & SKIP_FLAGS:
+        return None
+    return fl, 0.5 ** (max(0, age) / HALF)
+
+
+def _saturate(x, k):
+    return 100.0 * (1 - math.exp(-x / k))
+
+
+def pillars(clusters, av, sea, markets, t, direct_only=False):
+    """The four parts of the index; direct_only leaves out everything that isn't Iran against America or Israel."""
+    acts = threats = 0.0
+    fronts = {}
+    for c in clusters:
+        got = _counted(c, t)
+        if not got:
+            continue
+        fl, decay = got
+        w = theatre(c)
+        if direct_only and w < 1:
+            continue
+        s = c["sev"]
+        # serious events count far more than borderline ones: ((sev - floor) / 30)^2
+        if fl & ACT_FLAGS and s >= 60:
+            acts += ((s - 55) / 30) ** 2 * decay * w * w * (0.5 if "secondary" in fl else 1.0)
+        elif fl & THREAT_FLAGS and s >= 50:
+            threats += ((s - 45) / 30) ** 2 * decay * w * w
+        if s >= 60 and fl & (ACT_FLAGS | THREAT_FLAGS):
+            for k in set(c.get("ctry", [])) & set(FRONTS):
+                if not direct_only or k in ("ir", "il"):
+                    fronts[FRONTS[k]] = max(fronts.get(FRONTS[k], 0), decay * (1.0 if s >= 70 else 0.5) * (1.0 if w >= 0.7 else 0.5))
+    raw = {"acts": round(acts, 2), "threats": round(threats, 2), "spread": round(sum(fronts.values()), 2)}
+    a = _saturate(acts, K_ACTS)
+    th = _saturate(threats, K_THREATS)
+    sp = _saturate(sum(fronts.values()), K_SPREAD)
+    sig, parts = signals_component(av, sea, clusters, t)
+    b = (markets or {}).get("brent") or {}
+    oil = b.get("chg24Pct")
+    if sig is not None and oil is not None and oil > 2:
+        sig = min(100.0, sig + min(15.0, (oil - 2) * 3))           # a jump in Brent
+    if direct_only:
+        sig = None
+    return {"acts": round(a, 1), "threats": round(th, 1), "spread": round(sp, 1),
+            "signals": None if sig is None else round(sig, 1), "raw": raw}, parts
+
+
+def combine(p):
+    ws = [(W_ACTS, p["acts"]), (W_THREATS, p["threats"]), (W_SPREAD, p["spread"])]
+    if p.get("signals") is not None:
+        ws.append((W_SIGNALS, p["signals"]))
+    return sum(w * v for w, v in ws) / sum(w for w, _ in ws)
+
+
+def direct_strikes(clusters, t, hours=12):
+    """Confirmed military action between Iran and America or Israel (serious, reported by at least two outlets) in
+    the last `hours` hours."""
+    out = []
+    for c in clusters:
+        got = _counted(c, t)
+        if not got or t - c["u"] > hours * 3600:
+            continue
+        fl, _ = got
+        if fl & ACT_FLAGS and "secondary" not in fl and c["sev"] >= 80 and c.get("ns", 1) >= 2 \
+                and not c.get("single") and theatre(c) >= 1:
+            out.append(c)
+    return out
+
+
+def proxy_attacks(clusters, t, hours=12):
+    """A serious attack on another front of the region (the Houthis on Saudi Arabia, Hezbollah, Iraq's militias),
+    confirmed by two outlets, in the last `hours` hours."""
+    for c in clusters:
+        got = _counted(c, t)
+        if got and t - c["u"] <= hours * 3600 and got[0] & ACT_FLAGS and "secondary" not in got[0] \
+                and c["sev"] >= 80 and c.get("ns", 1) >= 2 and not c.get("single"):
+            return True
+    return False
+
+
+def index_value(clusters, av, sea, markets, t):
+    p, parts = pillars(clusters, av, sea, markets, t)
+    v = combine(p)
+    if v >= CRITICAL:
+        # the other fronts can make it "high tension", only Iran, America and Israel "critical"
+        d, _ = pillars(clusters, av, sea, markets, t, direct_only=True)
+        direct = (W_ACTS * d["acts"] + W_THREATS * d["threats"] + W_SPREAD * d["spread"]
+                  + W_SIGNALS * (p["signals"] or 0)) / (W_ACTS + W_THREATS + W_SPREAD + W_SIGNALS)
+        v = max(CRITICAL - 1, min(v, direct))
+    # anything that is war between Iran and America or Israel lifts the index however quiet the rest is: one confirmed
+    # strike to "high tension", two separate ones (or one very large) to "critical"
+    ds = direct_strikes(clusters, t)
+    if len(ds) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 for c in ds):
+        v = max(v, CRITICAL + min(15, 4 * (len(ds) - 1)))
+    elif ds:
+        v = max(v, 65)
+    elif proxy_attacks(clusters, t):
+        v = max(v, HIGH)                       # a serious attack on another front: "high tension" at least
+    p["direct"] = len(ds)
+    return int(max(0, min(100, round(v)))), p, parts
+
+
+def compute_index(clusters, av, sea, hist, markets=None):
     t = now()
-    n = news_component(clusters, t)
-    s, parts = signals_component(av, sea, clusters, t)
-    v = round(0.7 * n + 0.3 * s) if s is not None else round(n)
-    v = int(max(0, min(100, v)))
+    v, p, parts = index_value(clusters, av, sea, markets, t)
+    n = news_component(clusters, t)          # the old measure, kept alongside for comparison
     zi, zfa, zen = zone(v)
-    hist = [h for h in hist if h[0] >= t - 30 * 86400]
+    # points of the earlier formula (no version mark) aren't comparable: the history restarts with this one
+    hist = [h for h in hist if h[0] >= t - 30 * 86400 and len(h) > 4 and h[4] == 2]
     if hist and int(hist[-1][0] // 600) == int(t // 600):
-        hist[-1] = [t, v, n, s]          # rounds run every 5 minutes; keep one point per 10-minute slot
+        hist[-1] = [t, v, n, p["signals"], 2]   # rounds run every 5 minutes; keep one point per 10-minute slot
     else:
-        hist.append([t, v, n, s])
+        hist.append([t, v, n, p["signals"], 2])
     past = [h for h in hist if h[0] <= t - 23.5 * 3600]
     delta = v - past[-1][1] if past else None
     week = [[h[0], h[1]] for h in hist if h[0] >= t - 7 * 86400]
     # thin the weekly series to <= 1 point per hour for the sparkline
     thin, last = [], 0
-    for p in week:
-        if p[0] - last >= 3500 or p is week[-1]:
-            thin.append(p)
-            last = p[0]
-    return {"value": v, "zone": zi, "label_fa": zfa, "label_en": zen, "news": n, "signals": s,
-            "parts": parts, "delta24": delta, "history": thin}, hist
+    for q in week:
+        if q[0] - last >= 3500 or q is week[-1]:
+            thin.append(q)
+            last = q[0]
+    return {"value": v, "zone": zi, "label_fa": zfa, "label_en": zen, "pillars": p, "news": n,
+            "signals": p["signals"], "parts": parts, "delta24": delta, "history": thin}, hist
 
 
 def _ev_cluster(c):

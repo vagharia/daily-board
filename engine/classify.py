@@ -13,7 +13,7 @@ from .classify_fa import score_fa
 from .fronts import saudi_houthi
 from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
-from .util import to_latin_digits
+from .util import fa_norm, first_sentences, to_latin_digits
 
 I = re.I
 
@@ -178,6 +178,30 @@ PATTERNS = [
 ]
 
 KINETIC_BASE = 70
+
+POWERS_SOFT_CAP = 40.0
+_TENSION_EN = re.compile(
+    r"\b(wars?|warfare|strik\w*|attack\w*|military|missiles?|nuclear|enrich\w*|uranium|weapons?|arms|drones?|fighter"
+    r"|s-400|su-35|air defen[cs]e|aggression|threat\w*|conflicts?|tensions?|escalat\w*|ceasefire|truce|peace|crisis"
+    r"|security|blockade|sanction\w*|hormuz|persian gulf|gulf|middle east|region\w*|israel\w*|netanyahu|zionist"
+    r"|gaza|lebanon|hezbollah|yemen|houthis?|syria|iraq|oil|opec\+?|crude|mediat\w*"
+    r"|america\w*|washington|trump|pentagon|white house|diplomatic solution\w*|security council|united nations|iaea"
+    r"|iran(ian)? (issue|question|file|crisis|situation|conflict|programme|program))\b"
+    r"|(?<![A-Za-z])(U\.?S\.?A?|UN|UNSC)(?![A-Za-z])", re.I)
+_TENSION_FA = re.compile(
+    r"جنگ|حمله|حملات|نظامی|موشک|هسته|غنی\s*سازی|اورانیوم|سلاح|تسلیحات|پهپاد|جنگنده|سوخو|اس\s*-?\s*[۴4]۰۰|پدافند"
+    r"|تجاوز|تهدید|درگیری|تنش|آتش\s*بس|صلح|بحران|امنیت|محاصره|تحریم|هرمز|خلیج\s*فارس|خاورمیانه|منطقه"
+    r"|اسرائیل|اسراییل|نتانیاهو|صهیونیست|غزه|لبنان|حزب\s*الله|یمن|حوثی|سوریه|عراق|نفت|اوپک|میانجی"
+    r"|آمریکا|امریکا|واشنگتن|ترامپ|پنتاگون|کاخ\s*سفید|سازمان\s*ملل|آژانس|راه\s*حل\s*دیپلماتیک|راهکار\s*دیپلماتیک"
+    r"|(?:موضوع|مسئله|مساله|پرونده)\s*(?:هسته\s*ای\s*)?ایران")
+
+
+def _tension(lang, t, s):
+    """Does a report touch the war, America, Israel, the region's conflicts or oil? (title and first sentence)"""
+    text = (t or "") + " " + first_sentences(s or "", 220)
+    if lang == "fa":
+        return bool(_TENSION_FA.search(fa_norm(text)))
+    return bool(_TENSION_EN.search(text))
 
 DENIAL = re.compile(r"\b(den(y|ies|ied|ying)(?! (access|entry|permission|visas?|requests?|them|it access))|rejects? (the )?(report|claim)s?|no plans?|rules? out|not (planning|seeking|interested)"
                     r"|false|fake|dismiss\w*|baseless|rumou?rs?|hoax|debunk\w*)\b", I)
@@ -368,6 +392,11 @@ def classify(item):
         # a match called off or a team that won't travel for fear of the war is a yellow story, not a strike
         flags = (set(flags) - HARD_EVENTS) | {"sport"}
         sev = min(sev, sport.CAP)
+    if "powers" in flags and sev < 56 and not _tension(lang, fa_t or en_t, fa_s or en_s):
+        # Putin or the Kremlin with Iran but nothing about the war, America, Israel, the region or oil (trade figures,
+        # a gas exporters' summit, students, a courtesy call): a yellow story
+        flags = set(flags) | {"powers_soft"}
+        sev = min(sev, POWERS_SOFT_CAP)
     item["sev"] = round(sev, 1)
     item["topics"] = sorted(topics)
     item["flags"] = sorted(flags)

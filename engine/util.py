@@ -197,3 +197,55 @@ def save_json(path, obj, pretty=False):
 
 def data_path(*parts):
     return os.path.join(config.DATA_DIR, *parts)
+
+# "Iran, Russia can solve regional issues without US — Pezeshkian" (TASS, KUNA, wire style): the speaker or the outlet
+# goes last after a dash, and machine translation then drops the name into the middle of the Persian sentence.
+# Put it first, the way Persian headlines quote people: "Pezeshkian: Iran, Russia can solve ..."
+_TAIL = re.compile(r"^(?P<body>.{12,}?\S)\s+(?:[—–]|-{1,2})\s+(?P<who>[^—–\-\s][^—–]{0,34}?)\s*[.!]?$")
+_SECTIONS = {"politics", "economy", "general", "sports", "health", "culture", "security", "local", "gulf",
+             "international", "arab", "world", "business", "live", "analysis", "opinion", "explainer", "video",
+             "watch", "update", "updates", "breaking", "سیاست", "اقتصاد", "بین الملل", "بین‌الملل", "ویدیو"}
+_STOP = {"but", "and", "or", "also", "is", "are", "was", "of", "in", "on", "at", "to", "for", "with", "as", "not",
+         "from", "by", "after", "before", "over", "into", "than", "be", "will", "says", "said"}
+
+
+def speaker_first(title):
+    """'Quote — Speaker' -> 'Speaker: Quote'; a trailing section name ('- Politics') is dropped. `is_name` decides
+    for Persian titles, where capitals can't tell a name from the rest of a sentence."""
+    t = (title or "").strip()
+    m = _TAIL.match(t)
+    if not m:
+        return t
+    body, who = m.group("body").rstrip(" ,،:"), m.group("who").strip()
+    if who.lower() in _SECTIONS or fa_norm(who) in _SECTIONS:
+        return body
+    words = who.split()
+    if not 1 <= len(words) <= 3 or ":" in body[:40] or ":" in who:
+        return t
+    if has_fa(who):
+        if not _fa_speaker(who):
+            return t
+    else:
+        if has_fa(body):
+            return t
+        for i, w in enumerate(words):
+            if w.lower() in _STOP or not (w[0].isupper() or w[0].isdigit()) or (w == "The" and i):
+                return t
+    return f"{who}: {body}"
+
+
+_FA_WHO = None
+FA_SPEAKERS = ["پزشکیان", "عراقچی", "قالیباف", "لاریجانی", "بقائی", "مهاجرانی", "ترامپ", "پوتین", "نتانیاهو", "ونس",
+               "روبیو", "کاتز", "هگست", "ویتکاف", "کوشنر", "زلنسکی", "اردوغان", "بن سلمان", "کرملین", "پنتاگون",
+               "کاخ سفید", "سنتکام", "سپاه", "ارتش", "وزارت خارجه", "سخنگوی دولت", "شبکه ۱۲", "صدا و سیما", "صداوسیما"]
+
+
+def _fa_speaker(who):
+    """A Persian name after the dash that is a person, a body or a news outlet we know."""
+    global _FA_WHO
+    if _FA_WHO is None:
+        from .sources import SOURCES
+        names = {fa_norm(x) for x in FA_SPEAKERS} | {fa_norm(x["fa"]) for x in SOURCES if x.get("kind") != "tg"}
+        _FA_WHO = {n for n in names if len(n) >= 3}
+    w = fa_norm(who).replace("خبرگزاری ", "").strip()
+    return w in _FA_WHO or fa_norm(who) in _FA_WHO

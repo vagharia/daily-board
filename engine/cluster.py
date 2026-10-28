@@ -360,9 +360,43 @@ def _other_speaker(sa, sb):
     return bool(sa[2] and sb[2] and not sa[2] & sb[2])
 
 
+# two named people meeting or talking, or one arriving somewhere: told in many ways ("Putin held talks with Iranian
+# president in Kremlin", "Pezeshkian and Putin meet in Moscow"), so headlines alone rarely match
+_MEET = re.compile(r"\b(meets?|met|meeting|talks|discuss(es|ed)?|negotiat\w+|receives|received|hosts|hosted|welcomes"
+                   r"|welcomed|greets|greeted|sits? down with)\b", re.I)
+_CALL = re.compile(r"\b(phone|call|calls|called|telephone|video ?link|virtual\w*)\b", re.I)
+_ARRIVE = re.compile(r"\b(arriv\w+|lands?|landed|lands in|entered|enters)\b", re.I)
+_VISIT_NOT = re.compile(r"\b(will|to meet|to visit|next|plans?|expected|set to|schedul\w+|tomorrow|ahead of|before"
+                        r"|after|left|leaves|departs?|departed)\b", re.I)
+
+
+def visit(title):
+    """'meet' / 'call' / 'arrive' for a headline about a meeting, a call or an arrival as it happens; None otherwise
+    (an announced visit, a departure, anything else)."""
+    t = title or ""
+    if _VISIT_NOT.search(t):
+        return None
+    if _ARRIVE.search(t):
+        return "arrive"
+    if _MEET.search(t):
+        return "call" if _CALL.search(t) else "meet"
+    return None
+
+
+def same_visit(a, b):
+    """The same two (or more) people meeting or speaking by phone, or the same one person arriving in the same place:
+    the people named must be exactly the same."""
+    va, vb = a.get("visit"), b.get("visit")
+    if not va or va != vb or a["ppl"] != b["ppl"] or a["chan"] != b["chan"]:
+        return False
+    if va == "arrive":
+        return len(a["ppl"]) == 1 and bool((a["geo"] & b["geo"]) or (a["ctry"] & b["ctry"] - {"ir"}))
+    return len(a["ppl"]) >= 2
+
+
 def features(m):
     title = m.get("en_ti") or ""
-    return {"vars": variants(title), "cls": event_class(m), "geo": set(m.get("geo") or []),
+    return {"vars": variants(title), "cls": event_class(m), "geo": set(m.get("geo") or []), "visit": visit(title),
             "ctry": set(m.get("ctry") or []), "ppl": set(m.get("ppl") or []), "spk": speaker(title),
             "nums": _numbers(title), "days": frozenset(d.lower() for d in _DAYS.findall(title)),
             "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title)),
@@ -404,6 +438,8 @@ def same_story(a, b, dt=0, rare=frozenset()):
         return False
     if same_spot(a, b):
         return 0.5                                  # the same incident at the same spot, in other words
+    if same_visit(a, b):
+        return 0.5                                  # the same leaders meeting, or the same leader arriving somewhere
     physical = a["cls"] in PHYSICAL or b["cls"] in PHYSICAL
     jac, anchored = 0.0, False
     for x in a["vars"]:
@@ -659,6 +695,11 @@ def refresh(c):
     if all("sport" in m.get("flags", []) for m in ms):
         c["sev"] = min(c["sev"], SPORT_CAP)          # several outlets on a called-off match keep it yellow
         claim = min(claim, SPORT_CAP)
+    if any("powers_soft" in m.get("flags", []) for m in ms) and \
+            all("powers_soft" in m.get("flags", []) or m.get("sev", 20) < 45 for m in ms):
+        # Putin and Iran on trade or gas: many outlets covering a visit don't make it an important story
+        c["sev"] = min(c["sev"], UNCONFIRMED_CAP)
+        claim = min(claim, UNCONFIRMED_CAP)
     ch_strike = any(channel(m) and strike(m) for m in ms)
     if not news and len(chans) < CONFIRM_CHANNELS and not c.get("verified"):
         # one Telegram channel alone: an unconfirmed report, red when it tells of a strike, yellow otherwise (a post

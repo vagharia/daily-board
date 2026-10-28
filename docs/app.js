@@ -21,6 +21,12 @@
     get: function (k, d) { try { var v = localStorage.getItem('db.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set: function (k, v) { try { localStorage.setItem('db.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   };
+  // the version of the app in this file; release.json says which is the newest (see checkRelease)
+  var APP_REL = 20;
+  var FIRST_RUN = (function () {
+    try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
+    return true;
+  })();
 
   // ------------------------------------------------------------------ strings
   var T = {
@@ -47,11 +53,11 @@
       lightsOff: 'همه چراغ‌ها خاموش‌اند', on: 'روشن', watch: 'زیر نظر', off: 'خاموش',
       lightsNote: 'روشن یعنی رویداد در ۲۴ ساعت گذشته؛ زیر نظر یعنی ۲۴ تا ۷۲ ساعت پیش.',
       noEvidence: 'شاهدی در سه روز اخیر نیست.',
-      d24: 'نسبت به ۲۴ ساعت قبل', idxH: 'شاخص تنش', idxNews: 'اخبار', idxSig: 'سیگنال‌های هوایی و دریایی',
+      d24: 'نسبت به ۲۴ ساعت قبل', idxH: 'شاخص تنش', idxNews: 'اخبار', idxSig: 'سیگنال‌های عینی', idxActs: 'اقدام نظامی', idxThreats: 'تهدید و نشانه‌های جنگ', idxSpread: 'گستردگی جبهه‌ها',
       idxWeek: 'هفت روز اخیر', idxMethod: 'چطور محاسبه می‌شود',
       method1: 'هر خبر بر اساس نوع رویداد امتیاز ۰ تا ۱۰۰ می‌گیرد: اقدام نظامی مستقیم، حادثه در هرمز، اولتیماتوم، بسته شدن حریم هوایی و اعزام ناو و بمب‌افکن قرمز؛ جابه‌جایی هواپیماهای نظامی و سوخت‌رسان، تهدید، تحریم، رزمایش، گزارش آژانس و قطع یا اختلال اینترنت ایران نارنجی؛ بیانیه، مذاکره، تحلیل و خبرهای ورزشی‌ای که به جنگ گره خورده‌اند (مثل لغو یک مسابقه) زرد. خبری که فقط یک کانال تلگرامی گزارش کرده با برچسب «گزارش تأییدنشده» می‌آید: اگر از انفجار، پرتاب موشک، صدای جنگنده یا پدافند و مانند آن خبر بدهد قرمز است و هشدارش به تلگرام هم فرستاده می‌شود، وگرنه زرد. وقتی یک رسانهٔ خبری یا کانال دومی همان خبر را بدهد، رنگش بر اساس گزارش تازه تعیین می‌شود. پستی که از رسانهٔ مشخصی نقل می‌کند (مثلاً «نیویورک تایمز: …»)، اگر گزارش خود آن رسانه پیدا شود، تأییدشده است. انفجارهای ایران که علتشان نشت گاز اعلام می‌شود قرمز می‌مانند. خبرهای بیرون از میدان اصلی (مثل کرانه باختری یا سیاست داخلی اسرائیل) هم می‌آیند، ولی امتیاز و وزنشان کمتر است. هر خبر به زبان خودش خوانده می‌شود: خبرهای فارسی با قواعد فارسی روی متن اصلی، و خبرهای خارجی با قواعد انگلیسی؛ ترجمه فقط برای نمایش و برای تطبیق خبرهای فارسی و خارجی با هم است.',
-      method2: 'میانگین ساده نیست: رویدادهای جدی‌تر وزن نمایی بیشتری دارند تا یک حمله زیر سی خبر روتین گم نشود، خبرهای تازه سنگین‌ترند (نیمه‌عمر ۶ ساعت)، و هر رویداد فقط یک بار شمرده می‌شود هر چند رسانه گزارشش کنند. اعتبار منبع هم اثر دارد.',
-      method3: 'شاخص نهایی ۷۰٪ اخبار و ۳۰٪ سیگنال‌های عینی است: تردد و حوادث تنگه هرمز، و سطح ریسک و هشدارهای رسمی تازه برای حریم هوایی کشورهای منطقه. این یک نشانگر است، نه پیش‌بینی.',
+      method2: 'شاخص چهار بخش دارد و هر بخش ۰ تا ۱۰۰ است: «اقدام نظامی» (۳۵٪): حمله‌ها، حمله به کشتی‌ها، بسته شدن هرمز؛ «تهدید و نشانه‌های جنگ» (۲۵٪): اولتیماتوم، تهدید، اعزام ناو و بمب‌افکن، تخلیه سفارت، شکست مذاکره؛ «گستردگی جبهه‌ها» (۱۵٪): چند جبهه هم‌زمان داغ است؛ و «سیگنال‌های عینی» (۲۵٪): تردد و حوادث هرمز، ریسک و هشدارهای رسمی حریم هوایی، و جهش نفت برنت. رویدادهای جدی‌تر خیلی بیشتر وزن دارند، خبرهای تازه سنگین‌ترند (نیمه‌عمر ۶ ساعت) و هر رویداد یک بار شمرده می‌شود.',
+      method3: 'وزن اصلی برای جنگ ایران با آمریکا و اسرائیل است: درگیری مستقیم آن‌ها کامل حساب می‌شود و جبهه‌های دیگر (حوثی‌ها و عربستان، حزب‌الله، گروه‌های عراقی) خیلی کمتر. حمله‌ی جدی در آن جبهه‌ها شاخص را حداقل به «تنش بالا» می‌برد ولی هیچ‌وقت به «بحرانی» نمی‌رساند. یک حمله‌ی تأییدشده بین ایران و آمریکا یا اسرائیل شاخص را حداقل به «تنش بالا» و دو حمله‌ی جدا (یا یک حمله‌ی خیلی بزرگ) به «بحرانی» می‌برد. گزارش تأییدنشده‌ی کانال‌ها، تکذیب‌ها، تحلیل‌ها و خبرهای کم‌اهمیت حساب نمی‌شوند. این یک نشانگر است، نه پیش‌بینی.',
       method4: 'گزارش‌های چند رسانه فقط وقتی زیر یک تیتر می‌آیند که تیترهایشان خیلی شبیه باشد و در نوع رویداد، مکان، زمان (حداکثر ۴ ساعت بعد از اولین گزارش برای رویدادها و ۱۰ ساعت برای اظهارات)، گوینده، رسانه‌ی نقل‌شده و عددها هم یکی باشند. زمان هر خبر، زمان اولین گزارش آن است.',
       mkH: 'بازار', lastTrade: 'آخرین معامله', vsPrev: 'نسبت به معامله قبل', vsDay: 'نسبت به دیروز',
       dayHL: 'بیشترین و کمترین امروز', trades: 'تعداد معامله امروز', toman: 'تومان', stale: 'داده قدیمی است',
@@ -104,11 +110,11 @@
       lightsOff: 'All lights are off', on: 'On', watch: 'Watch', off: 'Off',
       lightsNote: 'On means an event in the last 24 hours; watch means 24–72 hours ago.',
       noEvidence: 'Nothing in the last three days.',
-      d24: 'vs 24h ago', idxH: 'Escalation index', idxNews: 'News', idxSig: 'Air & sea signals',
+      d24: 'vs 24h ago', idxH: 'Escalation index', idxNews: 'News', idxSig: 'Objective signals', idxActs: 'Military action', idxThreats: 'Threats and signs of war', idxSpread: 'Fronts involved',
       idxWeek: 'Last seven days', idxMethod: 'How it is calculated',
       method1: 'Each story scores 0–100 by event type: direct military action, Hormuz incidents, ultimatums, airspace closures and carrier or bomber deployments are red; military aircraft and tanker movements, threats, sanctions, exercises, IAEA findings and cuts or disruptions to Iran\'s internet orange; statements, talks, analysis and sports news touched by the war (a match called off, say) yellow. A story only one Telegram channel has reported carries an unconfirmed-report label: red, with a Telegram alert, when it tells of an explosion, a missile launch, fighter jets or air defence heard and the like, yellow otherwise. Once a news outlet or a second channel reports it, its colour follows the new report. A post relaying a named outlet ("New York Times: …") counts as confirmed when that outlet\'s own report is found. Explosions in Iran put down to gas leaks stay red. Stories outside the main theatre (such as the West Bank or Israeli domestic politics) still appear, with lower scores and less weight. Each report is read in its own language: Persian reports by Persian rules on the original text, foreign ones by English rules; translations are only for display and for matching Persian and foreign reports.',
-      method2: 'It is not a plain average: serious events weigh exponentially more so one strike is not drowned out by thirty routine stories, recent events weigh more (6-hour half-life), and each event counts once however many outlets report it. Source reliability also counts.',
-      method3: 'The index is 70% news and 30% objective signals: Hormuz traffic and incidents, and the risk level and fresh official warnings for the region\'s airspace. It is an indicator, not a forecast.',
+      method2: 'The index has four parts, each 0-100: military action (35%): strikes, attacks on ships, Hormuz closed; threats and signs of war (25%): ultimatums, threats, carriers and bombers sent, embassies evacuated, talks breaking down; spread (15%): how many fronts are hot at once; and objective signals (25%): Hormuz traffic and incidents, airspace risk and official warnings, a jump in Brent. Serious events weigh far more, newer stories more (6-hour half-life), and each event counts once.',
+      method3: 'War between Iran and America or Israel carries the weight: their direct clashes count in full, the other fronts (the Houthis and Saudi Arabia, Hezbollah, Iraqi militias) much less. A serious attack there lifts the index to high tension at least but never to critical. One confirmed strike between Iran and America or Israel lifts it to high tension, two separate ones (or one very large) to critical. Unconfirmed channel reports, denials, analysis and minor news do not count. It is an indicator, not a forecast.',
       method4: 'Reports from several outlets share a headline only when the headlines are very close and they also agree on the kind of event, the place, the time (within 4 hours of the first report for events, 10 hours for statements), the speaker, the outlet being cited and the figures. Each story is timed by its first report.',
       mkH: 'Markets', lastTrade: 'Last trade', vsPrev: 'vs previous trade', vsDay: 'vs yesterday',
       dayHL: 'Today high / low', trades: 'Trades today', toman: 'toman', stale: 'Data is stale',
@@ -653,6 +659,9 @@
       stepStory((rtl ? e.clientX > w - edge : e.clientX < edge) ? -1 : 1);
     });
     el.addEventListener('pointercancel', function () { clearTimeout(holdT); active = false; if (held) resumeStory(); });
+    // a long press is "hold to read", not the browser's copy / download image menu
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    el.addEventListener('dragstart', function (e) { e.preventDefault(); });
     el.addEventListener('click', function (e) {
       var b = e.target.closest('[data-sv]');
       if (!b || !SV) return;
@@ -836,12 +845,18 @@
     if (!idx) return;
     var h = '<h2>' + esc(t('idxH')) + ': ' + nfmt(idx.value) + '</h2>';
     h += '<div class="hrows hrows--wide">';
-    if (idx.news != null) h += '<div class="hrow"><span class="l">' + esc(t('idxNews')) + '</span><span class="htrack"><i style="--w:' + idx.news + '%;background:' + rgba(heat(idx.news), 1) + '"></i></span><span class="v">' + nfmt(Math.round(idx.news)) + '</span></div>';
-    if (idx.signals != null) h += '<div class="hrow"><span class="l">' + esc(t('idxSig')) + '</span><span class="htrack"><i style="--w:' + idx.signals + '%;background:' + rgba(heat(idx.signals), 1) + '"></i></span><span class="v">' + nfmt(Math.round(idx.signals)) + '</span></div>';
+    var row = function (label, v) {
+      return v == null ? '' : '<div class="hrow"><span class="l">' + esc(label) + '</span><span class="htrack"><i style="--w:' + v + '%;background:' + rgba(heat(v), 1) + '"></i></span><span class="v">' + nfmt(Math.round(v)) + '</span></div>';
+    };
+    var pl = idx.pillars;
+    if (pl) h += row(t('idxActs'), pl.acts) + row(t('idxThreats'), pl.threats) + row(t('idxSpread'), pl.spread) + row(t('idxSig'), pl.signals);
+    else h += row(t('idxNews'), idx.news) + row(t('idxSig'), idx.signals);
     h += '</div>';
-    h += '<h4>' + esc(t('idxWeek')) + '</h4><div class="chart" id="idxChart"></div>';
+    var hasHist = (idx.history || []).length > 1;
+    if (hasHist) h += '<h4>' + esc(t('idxWeek')) + '</h4><div class="chart" id="idxChart"></div>';
     h += '<h4>' + esc(t('idxMethod')) + '</h4><div class="method"><p>' + esc(t('method1')) + '</p><p>' + esc(t('method2')) + '</p><p>' + esc(t('method3')) + '</p><p>' + esc(t('method4')) + '</p></div>';
     openSheet(h, function (root) {
+      if (!hasHist) return;
       chart($('#idxChart', root), {
         data: idx.history || [], height: 150, min: 0, max: 100, heat: true,
         fmt: function (v) { return nfmt(Math.round(v)); }, xfmt: function (ts) { return dtime(ts); }, ticks: [25, 50, 75]
@@ -1565,6 +1580,37 @@
   setInterval(function () { if (!document.hidden) tickNews(); }, 150 * 1000);
   setInterval(function () { if (!document.hidden) renderHeader(); }, 30 * 1000);
 
+  // ------------------------------------------------------------------ what's new
+  // After a big update, a one-time note of what changed with an "Update" button that loads the new version: it
+  // clears the cached app so the next load fetches it fresh. Shown once per release; never on a first visit.
+  function checkRelease() {
+    fetch('release.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (rel) {
+      if (!rel || !rel.v) return;
+      var seen = store.get('rel', 0);
+      if (FIRST_RUN && !seen) { store.set('rel', rel.v); return; }
+      if (rel.v <= seen || document.getElementById('relBox')) return;
+      var x = rel[L()] || rel.fa;
+      var el = document.createElement('div');
+      el.className = 'rel-layer';
+      el.id = 'relBox';
+      el.innerHTML = '<div class="rel" role="dialog" aria-modal="true" aria-labelledby="relH"><h2 id="relH">' + esc(x.title) + '</h2>' +
+        '<ul>' + x.items.map(function (i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>' +
+        (x.note ? '<p class="rel-note">' + esc(x.note) + '</p>' : '') +
+        '<button class="rel-btn" id="relGo">' + esc(x.button) + '</button></div>';
+      document.body.appendChild(el);
+      $('#relGo', el).addEventListener('click', function () {
+        store.set('rel', rel.v);
+        $('#relGo', el).disabled = true;
+        var done = function () { location.reload(); };
+        var jobs = [];
+        if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return /^shell-/.test(k); }).map(function (k) { return caches.delete(k); })); }));
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) jobs.push(navigator.serviceWorker.getRegistration().then(function (g) { return g && g.update(); }));
+        Promise.all(jobs).then(done, done);
+        setTimeout(done, 4000);
+      });
+    }).catch(function () { /* offline: next time */ });
+  }
+
   // ------------------------------------------------------------------ boot
   applyTheme();
   applyLang();
@@ -1575,5 +1621,7 @@
   S.firstDone = !!S.d.news24;
   refreshAll(false).then(function () { S.firstDone = true; });
   checkLock();
+  setTimeout(checkRelease, 1500);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkRelease(); });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { /* optional */ });
 })();
