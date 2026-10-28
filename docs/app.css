@@ -648,7 +648,7 @@ html[lang=en] .rel ul{line-height:1.55}
 .ef-bar i{display:block;height:100%}
 .sty-elec .sty-t{position:static;inset:auto;text-align:center;text-shadow:none;-webkit-line-clamp:2}
 
-.ev{position:fixed;inset:0;z-index:56;overflow-y:auto;overscroll-behavior:contain;color:#fff;animation:svIn .22s ease;
+.elx{position:fixed;inset:0;z-index:56;overflow-y:auto;overscroll-behavior:contain;color:#fff;animation:svIn .22s ease;
   background:radial-gradient(110% 45% at 85% 0,rgba(77,141,255,.22),transparent 60%),radial-gradient(110% 45% at 15% 0,rgba(244,166,42,.16),transparent 60%),#050e20;
   -webkit-user-select:none;user-select:none}
 .ev-in{max-width:520px;margin:0 auto;padding:calc(var(--safe-t) + 10px) 16px calc(var(--safe-b) + 28px)}

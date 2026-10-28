@@ -26,7 +26,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 21;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 23;
+  var APP_BUILD = 24;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -610,7 +610,7 @@
   function openElection() {
     if (ELEC.el || !elecLive()) return;
     var el = document.createElement('div');
-    el.className = 'ev';
+    el.className = 'elx';             // not 'ev': that is the lamps' evidence rows
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-label', t('elecH'));
