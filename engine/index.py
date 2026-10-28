@@ -18,6 +18,11 @@ because they are fought for Iran, but on their own they can take the index to "h
 above 75 only Iran, America and Israel count.
 
 Not counted: one Telegram channel's unconfirmed report, denials, analysis and opinion, past events, Putin on trade.
+
+Good news lowers it only when it is real and between the warring parties (peace_state): a ceasefire in force that has
+held 6 hours (what came before it then counts at a quarter), or formal talks that took place (threats at 70% for a
+day). A proposal, a mediator's visit, a phone call or "a deal is close" changes nothing. A confirmed direct strike
+after either ends the effect.
 """
 import math
 
@@ -143,26 +148,31 @@ def theatre(c):
     return 0.35
 
 
-def _counted(c, t):
+def _counted(c, t, pre=None):
+    """(flags, weight) of a story the index counts, or None. pre = (time, factor): a story that began before that
+    time (a ceasefire that has held) counts at that factor."""
     age = t - c["u"]
     if age > 24 * 3600 or age < -3600 or c.get("unconf") or not c.get("core", True):
         return None
     fl = set(c.get("flags", []))
     if fl & SKIP_FLAGS:
         return None
-    return fl, 0.5 ** (max(0, age) / HALF)
+    w = 0.5 ** (max(0, age) / HALF)
+    if pre and c.get("t", c["u"]) < pre[0]:
+        w *= pre[1]
+    return fl, w
 
 
 def _saturate(x, k):
     return 100.0 * (1 - math.exp(-x / k))
 
 
-def pillars(clusters, av, sea, markets, t, direct_only=False):
+def pillars(clusters, av, sea, markets, t, direct_only=False, pre=None):
     """The four parts of the index; direct_only leaves out everything that isn't Iran against America or Israel."""
     acts = threats = 0.0
     fronts = {}
     for c in clusters:
-        got = _counted(c, t)
+        got = _counted(c, t, pre)
         if not got:
             continue
         fl, decay = got
@@ -201,13 +211,13 @@ def combine(p):
     return sum(w * v for w, v in ws) / sum(w for w, _ in ws)
 
 
-def direct_strikes(clusters, t, hours=12):
+def direct_strikes(clusters, t, hours=12, since=None):
     """Confirmed military action between Iran and America or Israel (serious, reported by at least two outlets) in
     the last `hours` hours."""
     out = []
     for c in clusters:
         got = _counted(c, t)
-        if not got or t - c["u"] > hours * 3600:
+        if not got or t - c["u"] > hours * 3600 or (since and c.get("t", c["u"]) < since):
             continue
         fl, _ = got
         if fl & ACT_FLAGS and "secondary" not in fl and c["sev"] >= 80 and c.get("ns", 1) >= 2 \
@@ -231,7 +241,7 @@ def _confirmed(c):
     return c.get("ns", 1) >= 2 and not c.get("single")
 
 
-def pressure(clusters, t):
+def pressure(clusters, t, pre=None):
     """How much is going on, counted: separate confirmed serious attacks of the last day (missiles, drones, ships,
     border clashes; those on Iran's side, in Hormuz or by Iran count 1.5, the rest 1; attacks on the same place
     within six hours count once), threats and hostile statements about
@@ -248,18 +258,19 @@ def pressure(clusters, t):
         if fl & SKIP_FLAGS:
             continue
         w, s = theatre(c), c["sev"]
+        k = pre[1] if pre and c.get("t", c["u"]) < pre[0] else 1.0
         near = bool(set(c.get("geo", [])) & NEAR_IRAN or "ir" in c.get("ctry", []))
         if age <= 24 * 3600 and fl & ACT_FLAGS and s >= 70 and "secondary" not in fl and _confirmed(c):
             where = frozenset(c.get("geo", [])) or frozenset(c.get("ctry", []))
             if not any(abs(c["u"] - u) <= 6 * 3600 and where & pl for u, pl in seen_acts):
                 seen_acts.append((c["u"], where))
-                acts += 1.5 if iran_side(c) else 1.0
+                acts += (1.5 if iran_side(c) else 1.0) * k
         elif age <= 24 * 3600 and fl & (THREAT_FLAGS - {"deploy"}) and s >= 55 and w >= 0.7:
-            threats += 1.5 if w >= 1 else 1.0
+            threats += (1.5 if w >= 1 else 1.0) * k
         elif age <= 24 * 3600 and "statement" in c.get("topics", []) and s >= 55 and w >= 0.7:
-            threats += 0.5
+            threats += 0.5 * k
         if "deploy" in fl and s >= 50:
-            build += 1.5 if near else 1.0
+            build += (1.5 if near else 1.0) * k
     return {"acts": acts, "threats": threats, "build": build}
 
 
@@ -281,26 +292,60 @@ def pressure_floor(pr):
     return min(f, CRITICAL - 1)
 
 
+CEASEFIRE_PROBATION = 6 * 3600
+CEASEFIRE_PRE = 0.25
+TALKS_WINDOW = 24 * 3600
+TALKS_THREATS = 0.7
+
+
+def peace_state(clusters, t):
+    """What lowers the index, and nothing else does (deesc.py sets the flags, cluster.py the times):
+    - a ceasefire between Iran and America or Israel in force, confirmed by one of their senior officials, not denied,
+      that has held 6 hours: everything from before it counts at a quarter;
+    - formal talks between their senior people that took place in the last 24 hours: threats count at 70%.
+    The first confirmed direct strike after either ends it."""
+    out = {}
+    cease = max((c["cease_t"] for c in clusters if c.get("cease_t") and t - c["cease_t"] <= 7 * 86400), default=None)
+    if cease:
+        broken = any(c.get("t", c["u"]) > cease + 600 for c in direct_strikes(clusters, t, hours=24 * 7))
+        denied = any(c.get("deny_t") and c["deny_t"] >= cease - 3600 for c in clusters)
+        if not broken and not denied:
+            out["ceasefire"] = {"since": cease, "active": t - cease >= CEASEFIRE_PROBATION}
+    talks = max((c["talks_t"] for c in clusters if c.get("talks_t") and 0 <= t - c["talks_t"] <= TALKS_WINDOW),
+                default=None)
+    if talks and not any(c.get("t", c["u"]) > talks + 600 for c in direct_strikes(clusters, t, hours=24)):
+        out["talks"] = talks
+    return out
+
+
 def index_value(clusters, av, sea, markets, t):
-    p, parts = pillars(clusters, av, sea, markets, t)
+    peace = peace_state(clusters, t)
+    cf = peace.get("ceasefire")
+    pre = (cf["since"], CEASEFIRE_PRE) if cf and cf["active"] else None
+    p, parts = pillars(clusters, av, sea, markets, t, pre=pre)
+    if peace.get("talks"):
+        p["threats"] = round(p["threats"] * TALKS_THREATS, 1)
     v = combine(p)
     if v >= CRITICAL:
         # the other fronts can make it "high tension", only Iran, America and Israel "critical"
-        d, _ = pillars(clusters, av, sea, markets, t, direct_only=True)
+        d, _ = pillars(clusters, av, sea, markets, t, direct_only=True, pre=pre)
         direct = (W_ACTS * d["acts"] + W_THREATS * d["threats"] + W_SPREAD * d["spread"]
                   + W_SIGNALS * (p["signals"] or 0)) / (W_ACTS + W_THREATS + W_SPREAD + W_SIGNALS)
         v = max(CRITICAL - 1, min(v, direct))
     # anything that is war between Iran and America or Israel lifts the index however quiet the rest is: one confirmed
     # strike to "high tension", two separate ones (or one very large) to "critical"
-    ds = direct_strikes(clusters, t)
+    ds = direct_strikes(clusters, t, since=pre[0] if pre else None)
     if len(ds) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 for c in ds):
         v = max(v, CRITICAL + min(15, 4 * (len(ds) - 1)))
     elif ds:
         v = max(v, 65)
     # more attacks, more threats, a bigger build-up: a higher level (one attack alone is moderate tension)
-    pr = pressure(clusters, t)
+    pr = pressure(clusters, t, pre=pre)
     v = max(v, pressure_floor(pr))
     p["direct"] = len(ds)
+    if peace:
+        p["peace"] = {"ceasefire": bool(pre), "ceasefire_probation": bool(cf and not cf["active"]),
+                      "talks": bool(peace.get("talks"))}
     p["counts"] = {k: round(x, 1) for k, x in pr.items()}
     return int(max(0, min(100, round(v)))), p, parts
 

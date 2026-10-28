@@ -1,7 +1,7 @@
 /* Offline shell + last-known data. */
-var SHELL = 'shell-v22';
+var SHELL = 'shell-v23';
 var DATA = 'data-v1';
-var ASSETS = ['./', 'index.html', 'app.css?v=22', 'app.js?v=22', 'icons.js?v=22', 'manifest.webmanifest',
+var ASSETS = ['./', 'index.html', 'app.css?v=23', 'app.js?v=23', 'icons.js?v=23', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(SHELL).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));

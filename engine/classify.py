@@ -8,7 +8,7 @@ called off, a team that won't travel).
 import math
 import re
 
-from . import config, sport
+from . import config, deesc, sport
 from .classify_fa import score_fa
 from .fronts import saudi_houthi
 from .internet import internet, severity as net_severity
@@ -242,6 +242,17 @@ _ME_EN = re.compile(r"\b(iran\w*|tehran|israel\w*|middle east|mideast|persian gu
                     r"|yemen\w*|houthis?|syria\w*|iraq\w*|saudi\w*|riyadh|qatar\w*|doha|emirat\w*|uae|oman\w*|bahrain\w*"
                     r"|kuwait\w*|jordan\w*|red sea|oil|crude|opec\+?|brent|tankers?|araghchi|pezeshkian|irgc|netanyahu)\b",
                     re.I)
+
+
+_TG = None
+
+
+def _is_channel(item):
+    global _TG
+    if _TG is None:
+        from .sources import SOURCES
+        _TG = {x["id"] for x in SOURCES if x.get("kind") == "tg" or x.get("group") == "tg"}
+    return item.get("s") in _TG
 
 
 def _anchor(lang, t, s):
@@ -518,6 +529,17 @@ def classify(item):
         # a gas exporters' summit, students, a courtesy call): a yellow story
         flags = set(flags) | {"powers_soft"}
         sev = min(sev, POWERS_SOFT_CAP)
+    g = deesc.grade(lang, fa_t or en_t, fa_s or en_s, rel=item.get("rel", 0.6), channel=_is_channel(item))
+    if g:
+        # de-escalation: graded by how far it has got and who confirms it (deesc.py)
+        topics = set(topics) | {"diplomacy"}
+        flags = set(flags) | g["flags"]
+        if g["stage"] >= 5 and g["core"]:
+            flags -= {"sanctions"}                   # sanctions lifted are not new sanctions
+        if g["stage"] >= 2 or "talks_fail" in g["flags"]:
+            escal = flags & {"kinetic", "threat", "ultimatum", "deploy", "maritime_incident", "evac", "kinetic_threat",
+                             "retaliation", "nuclear_red", "internet", "talks_fail"}
+            sev = max(sev, g["sev"]) if escal else g["sev"]
     item["sev"] = round(sev, 1)
     item["topics"] = sorted(topics)
     item["flags"] = sorted(flags)

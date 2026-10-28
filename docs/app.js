@@ -26,7 +26,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 21;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 22;
+  var APP_BUILD = 23;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -50,7 +50,7 @@
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
-      live: 'زنده', elecH: 'نتایج زنده‌ی انتخابات کنست', elecShort: 'انتخابات اسرائیل', elecFinal: 'نتایج نهایی',
+      deesc: 'کاهش تنش', live: 'زنده', elecH: 'نتایج زنده‌ی انتخابات کنست', elecShort: 'انتخابات اسرائیل', elecFinal: 'نتایج نهایی',
       elecCount: 'آرای شمرده‌شده:', mVotes: 'میلیون', vs: 'در برابر', blocBibi: 'ائتلاف نتانیاهو', blocArab: 'احزاب عربی',
       blocChange: 'جبهه‌ی آیزنکوت', elecMaj: '{n} کرسی برای اکثریت', seatsW: 'کرسی', votesW: 'رأی',
       elecBelow: 'زیر حد نصاب {p}٪:',
@@ -111,7 +111,7 @@
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
-      live: 'Live', elecH: 'Knesset election live results', elecShort: 'Israel election', elecFinal: 'Final results',
+      deesc: 'De-escalation', live: 'Live', elecH: 'Knesset election live results', elecShort: 'Israel election', elecFinal: 'Final results',
       elecCount: 'Counted:', mVotes: 'm votes', vs: 'vs', blocBibi: "Netanyahu's bloc", blocArab: 'Arab parties',
       blocChange: "Eisenkot's bloc", elecMaj: '{n} seats for a majority', seatsW: 'Seats', votesW: 'Votes',
       elecBelow: 'Below the {p}% threshold:',
@@ -443,7 +443,8 @@
     var more = c.ns > 1 ? '<span class="more">' + ic('users') + nfmt(c.ns) + '</span>' : '';
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
     var unc = c.unconf ? '<span class="unc">' + esc(uncText(c, '')) + '</span>' : '';
-    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + unc + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
+    var green = c.green && !c.unconf ? '<span class="deesc">' + esc(t('deesc')) + '</span>' : '';
+    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + green + unc + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
   }
   // a broken image collapses its frame instead of leaving an empty box
   window.imgFail = function (img) {
@@ -927,7 +928,7 @@
       var isMT = !!primary.mt;
       var shown = showOrig && other && other.ti ? other : primary;
       var h = storyMedia(c);
-      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc">' + esc(uncText(c, '')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
+      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc">' + esc(uncText(c, '')) + '</span>' : '') + (c.green && !c.unconf ? '<span class="pill pill--deesc">' + esc(t('deesc')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
       h += '<h2 class="st-title" dir="auto">' + esc(shown.ti) + '</h2>';
       if (shown.su) h += '<p class="st-sum" dir="auto">' + esc(shown.su) + '</p>';
       if (c.unconf) h += '<p class="subnote st-unc">' + esc(uncText(c, 'Note')) + '</p>';
@@ -1550,7 +1551,7 @@
       var tx = { ti: r[5], su: '' };
       return { id: r[0], tier: r[1], sev: r[2], t: r[3], u: r[3], ns: r[4], fa: tx, en: tx, lang: L(), img: null, vid: null,
         src: r[6] ? [{ id: '', n: r[6], nf: r[6], u: '', t: r[3] }] : [], topics: [], geo: [], ctry: [], ppl: [], flags: [],
-        unconf: r[7] || undefined, lite: true };
+        unconf: r[7] || undefined, green: !!r[8], lite: true };
     }) };
   }
   function loadLite(fresh) {

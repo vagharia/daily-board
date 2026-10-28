@@ -225,11 +225,11 @@ def lite(T, day, idx, lights, lang):
                    "gold": pick(tk.get("gold") or {}, ("price", "chgPct", "status"))},
         "index": pick(idx, ("value", "zone", "label_fa", "label_en", "delta24")),
         "lights": [pick(l, ("id", "state", "fa", "en")) for l in lights],
-        # id, tier, severity, time, number of sources, headline, first source, unconfirmed label
+        # id, tier, severity, time, number of sources, headline, first source, unconfirmed label, de-escalation tag
         "news": [[c["id"], c["tier"], round(c["sev"]), c["t"], c["ns"],
                   (c[lang] or {}).get("ti") or (c[other] or {}).get("ti", ""),
                   (c["src"][0].get("nf" if lang == "fa" else "n") or c["src"][0].get("n") or "") if c["src"] else "",
-                  c.get("unconf") or ""] for c in day],
+                  c.get("unconf") or "", 1 if c.get("green") else 0] for c in day],
     }
 
 
@@ -252,6 +252,7 @@ def public_cluster(c, short=False):
         "topics": c.get("topics", []), "geo": c.get("geo", [])[:4], "ctry": c.get("ctry", [])[:5],
         "ppl": c.get("ppl", [])[:5], "flags": [f for f in c.get("flags", []) if f in PUBLIC_FLAGS],
         **({"unconf": c["unconf"] if isinstance(c["unconf"], str) else "event"} if c.get("unconf") else {}),
+        **({"green": 1} if c.get("green") else {}),
     }
 
 

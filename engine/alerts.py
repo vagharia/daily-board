@@ -156,7 +156,7 @@ def _story(c):
     src = "، ".join(html.escape(n) for n in names[:3])
     more = f" و {_fa_num(len(names) - 3)} منبع دیگر" if len(names) > 3 else ""
     label = "منبع" if len(names) == 1 else "منابع"
-    body = f"🔴 <b>{title}</b>"
+    body = (f"✅ <b>{title}</b>\n🟢 کاهش تنش" if c.get("green") and not c.get("unconf") else f"🔴 <b>{title}</b>")
     if c.get("unconf"):
         body += "\n⚠️ " + {"cited": "در انتظار تأیید منبع", "quote": "منبع ذکر نشده"}.get(c["unconf"], "گزارش تأییدنشده") \
             + "؛ فعلاً فقط یک کانال تلگرامی گزارشش کرده"

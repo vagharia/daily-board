@@ -103,7 +103,7 @@ _ABROAD_EN = re.compile(r"\b(syria\w*|damascus|homs|aleppo|leban\w*|beirut|iraq\
 _IRAN_EN = re.compile(r"\b(iran\w*|tehran|isfahan|esfahan|tabriz|shiraz|mashhad|karaj|qom|ahvaz|ahwaz|kermanshah"
                       r"|bandar abbas|bushehr|urmia|kerman|yazd|rasht|zahedan|hamedan|arak|sanandaj|ilam|khorramabad"
                       r"|abadan|khorramshahr|chabahar|kish|qeshm)\b", re.I)
-EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
+EVENT_FLAGS = {"deesc_event", "kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
                "alert", "kinetic_threat"}
 
 
@@ -724,6 +724,17 @@ def refresh(c):
                     acc.append(x)
         c[f] = acc[:8]
     c["core"] = is_core(c)
+    # de-escalation (deesc.py): the green tag, and when a ceasefire or formal talks began, for the index
+    for key, flag in (("cease_t", "ceasefire_on"), ("talks_t", "talks_held"), ("deny_t", "deesc_denial")):
+        ts = [m["t"] for m in ms if flag in m.get("flags", []) and not channel(m)]
+        if ts:
+            c[key] = min(ts)
+        else:
+            c.pop(key, None)
+    if any("deesc_sure" in m.get("flags", []) and not channel(m) for m in ms):
+        c["green"] = True
+    else:
+        c.pop("green", None)
     en_rep = _pick(ms, "en")
     fa_native = [m for m in ms if m.get("lang") == "fa" and m.get("rel", 0) >= 0.8]
     fa_rep = _pick(fa_native, "fa") if fa_native else None
