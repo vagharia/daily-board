@@ -1,65 +1,61 @@
 """Connectivity probe run inside GitHub Actions (the dev sandbox has no internet).
 Writes _probe/probe.json, which the workflow pushes to the `probe` branch.
 
-This round: a search of the Telegram channel sources' public pages for one post, and two single posts."""
+This round: the Central Elections Committee's live results site for the 2026 Knesset election (votes26), its
+scripts, and any JSON data paths they reference."""
 import json
 import os
+import re
 import sys
 import time
+from urllib.parse import urljoin
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from bs4 import BeautifulSoup  # noqa: E402
-
 from engine import http  # noqa: E402
 
-CHANNELS = ["fundamental_View", "SBoxxx", "VahidOnline", "tsepress", "mazene"]
-res = {"t": int(time.time()), "search": {}, "single": {}}
+res = {"t": int(time.time()), "pages": {}, "scripts": {}, "paths": [], "tries": {}}
+BASES = ["https://votes26.bechirot.gov.il/", "https://bechirot.gov.il/", "https://www.bechirot.gov.il/"]
 
 
-def messages(html):
-    out = []
-    for div in BeautifulSoup(html, "lxml").select("div.tgme_widget_message[data-post]"):
-        tx = div.select_one(".tgme_widget_message_text")
-        tm = div.select_one("time[datetime]")
-        rp = div.select_one(".tgme_widget_message_reply")
-        out.append({"post": div["data-post"], "time": tm["datetime"] if tm else None,
-                    "text": tx.get_text(" ", strip=True)[:500] if tx else None,
-                    "reply": rp.get_text(" ", strip=True)[:200] if rp else None,
-                    "classes": " ".join(div.get("class", []))[:120],
-                    "media": bool(div.select_one(".tgme_widget_message_photo_wrap, .tgme_widget_message_video_player,"
-                                                 " .tgme_widget_message_document, .message_media_not_supported"))})
-    return out
-
-
-for ch in CHANNELS:
-    for q in ("کرمانشاه", "اهواز"):
-        try:
-            r = http.get(f"https://t.me/s/{ch}", params={"q": q}, timeout=20, retries=1)
-            res["search"][f"{ch}:{q}"] = messages(r.content)[-8:]
-        except Exception as e:  # noqa: BLE001
-            res["search"][f"{ch}:{q}"] = {"err": str(e)[:200]}
-        time.sleep(1)
-for post in ("fundamental_View/66578", "fundamental_View/66560", "fundamental_View/66582", "fundamental_View/66583"):
+def get(url, n=4000):
     try:
-        r = http.get(f"https://t.me/{post}", params={"embed": "1", "mode": "tme"}, timeout=20, retries=1)
-        soup = BeautifulSoup(r.content, "lxml")
-        tx = soup.select_one(".tgme_widget_message_text")
-        err = soup.select_one(".tgme_widget_message_error")
-        res["single"][post] = {"text": tx.get_text(" ", strip=True)[:500] if tx else None,
-                               "error": err.get_text(" ", strip=True)[:200] if err else None,
-                               "media": bool(soup.select_one(".tgme_widget_message_photo_wrap, .tgme_widget_message_video_player,"
-                                                             " .message_media_not_supported"))}
+        r = http.get(url, timeout=25, retries=1)
+        return {"status": r.status_code, "type": r.headers.get("content-type"), "len": len(r.content),
+                "final": r.url, "head": r.text[:n]}, r.text
     except Exception as e:  # noqa: BLE001
-        res["single"][post] = {"err": str(e)[:200]}
+        return {"err": str(e)[:300]}, ""
+
+
+scripts = set()
+for b in BASES:
+    info, txt = get(b, 6000)
+    res["pages"][b] = info
+    for src in re.findall(r"""<script[^>]+src=["']([^"']+)""", txt):
+        scripts.add(urljoin(info.get("final") or b, src))
+    for href in re.findall(r"""href=["']([^"']*(?:results|votes|tozaot|nationalresults)[^"']*)""", txt, re.I)[:20]:
+        res["paths"].append(urljoin(info.get("final") or b, href))
     time.sleep(1)
-try:
-    r = http.get("https://t.me/s/fundamental_View", timeout=20, retries=1)
-    res["latest"] = messages(r.content)[-25:]
-except Exception as e:  # noqa: BLE001
-    res["latest"] = {"err": str(e)[:200]}
+
+found = set()
+for s in list(scripts)[:12]:
+    info, txt = get(s, 300)
+    res["scripts"][s] = {k: info.get(k) for k in ("status", "len", "err")}
+    for m in re.findall(r"""["'`]((?:https?://[^"'`\s]+)?/?[A-Za-z0-9_\-/{}.]*(?:api|json|results|Results|ballot|Ballot)"""
+                        r"""[A-Za-z0-9_\-/{}.?=&]*)["'`]""", txt):
+        if 4 < len(m) < 160:
+            found.add(m)
+    time.sleep(0.5)
+res["paths"] += sorted(found)[:200]
+
+for path in ["nationalresults", "api/nationalresults", "api/national", "api/results", "results.json",
+             "data/results.json", "api/Results/GetNationalResults", "NationalResults", "assets/data/results.json"]:
+    for b in BASES[:1]:
+        info, _ = get(urljoin(b, path), 1500)
+        res["tries"][urljoin(b, path)] = info
+        time.sleep(0.5)
 
 os.makedirs("_probe", exist_ok=True)
-with open("_probe/probe.json", "w", encoding="utf-8") as f:
-    json.dump(res, f, ensure_ascii=False, indent=1)
-print("probe done")
+json.dump(res, open("_probe/probe.json", "w"), ensure_ascii=False, indent=1)
+print(json.dumps({k: (v if k != "pages" else {u: {x: p.get(x) for x in ("status", "len", "final", "err")} for u, p in v.items()})
+                  for k, v in res.items() if k in ("pages", "tries")}, ensure_ascii=False, indent=1)[:6000])
