@@ -55,7 +55,8 @@ dubai baghdad beirut damascus jerusalem hebron aramco opec brent oil embassy san
 CORE_CTRY = {"ir", "gulf", "yemen", "iraq", "lebanon"}
 CORE_GEO = {"hormuz", "persian_gulf", "gulf_oman", "tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas",
             "kharg", "tabriz", "shiraz", "chabahar", "baghdad", "erbil", "ain_asad", "sanaa", "hodeidah", "red_sea",
-            "bab", "riyadh", "east_sa", "doha", "bahrain", "uae", "fujairah", "oman", "kuwait", "lebanon"}
+            "bab", "riyadh", "east_sa", "doha", "bahrain", "uae", "fujairah", "oman", "kuwait", "lebanon", "baluchestan",
+            "w_border", "arabian_sea"}
 CORE_FLAGS = {"oil_spike", "maritime_incident", "hormuz_closure", "airspace", "nuclear_red", "internet"}
 CORE_PPL = {"ir_leader", "ir_pres", "ir_fm", "ir_snsc", "irgc_cmd", "ir_army", "ghalibaf", "ir_spox", "houthi_l",
             "hzb_l", "grossi", "mbs", "sa_fm", "qa", "om", "uae"}

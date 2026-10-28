@@ -114,15 +114,16 @@ HALF = 6 * 3600
 ACT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
 THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "talks_fail", "retaliation", "alert"}
 SKIP_FLAGS = {"denial", "past", "opinion", "analysis", "powers_soft", "sport"}
-IR_LAND = {"tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas", "kharg", "tabriz", "shiraz", "chabahar"}
+IR_LAND = {"tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas", "kharg", "tabriz", "shiraz", "chabahar",
+           "baluchestan", "w_border"}
 IR_SEA = {"hormuz", "persian_gulf", "gulf_oman"}
+NEAR_IRAN = IR_LAND | IR_SEA | {"arabian_sea"}
 PROXY = {"yemen", "lebanon", "iraq", "syria"}
 PROXY_GEO = {"baghdad", "erbil", "ain_asad", "sanaa", "hodeidah", "red_sea", "bab", "lebanon", "riyadh", "east_sa"}
 FRONTS = {"ir": "iran", "il": "israel", "gulf": "gulf", "lebanon": "lebanon", "iraq": "iraq", "yemen": "yemen",
           "syria": "syria"}
 CRITICAL = 75
 K_ACTS, K_THREATS, K_SPREAD = 4.0, 3.0, 3.0
-HIGH = 50
 
 
 def theatre(c):
@@ -215,15 +216,69 @@ def direct_strikes(clusters, t, hours=12):
     return out
 
 
-def proxy_attacks(clusters, t, hours=12):
-    """A serious attack on another front of the region (the Houthis on Saudi Arabia, Hezbollah, Iraq's militias),
-    confirmed by two outlets, in the last `hours` hours."""
-    for c in clusters:
-        got = _counted(c, t)
-        if got and t - c["u"] <= hours * 3600 and got[0] & ACT_FLAGS and "secondary" not in got[0] \
-                and c["sev"] >= 80 and c.get("ns", 1) >= 2 and not c.get("single"):
-            return True
-    return False
+def iran_side(c):
+    """An attack in Hormuz or the Persian Gulf, or on Iran's soil (its border regions included), named by place;
+    a story that only mentions Tehran next to places abroad isn't one."""
+    g, ctry = set(c.get("geo", [])), set(c.get("ctry", []))
+    if g & IR_SEA:
+        return True
+    if g & IR_LAND:
+        return not (g - IR_LAND - {"arabian_sea"})
+    return not g and "ir" in ctry and not ctry & PROXY
+
+
+def _confirmed(c):
+    return c.get("ns", 1) >= 2 and not c.get("single")
+
+
+def pressure(clusters, t):
+    """How much is going on, counted: separate confirmed serious attacks of the last day (missiles, drones, ships,
+    border clashes; those on Iran's side, in Hormuz or by Iran count 1.5, the rest 1; attacks on the same place
+    within six hours count once), threats and hostile statements about
+    Iran of the last day, and military build-ups of the last three days (carriers, bombers, tankers; 1.5 when they
+    are near Iran). Each story counts once however many outlets carry it."""
+    acts = threats = build = 0.0
+    seen_acts = []                              # (time, place) of attacks counted, so one attack told in several
+    for c in sorted(clusters, key=lambda c: c["u"]):          # stories counts once
+
+        age = t - c["u"]
+        if age > 72 * 3600 or age < -3600 or c.get("unconf") or not c.get("core", True):
+            continue
+        fl = set(c.get("flags", []))
+        if fl & SKIP_FLAGS:
+            continue
+        w, s = theatre(c), c["sev"]
+        near = bool(set(c.get("geo", [])) & NEAR_IRAN or "ir" in c.get("ctry", []))
+        if age <= 24 * 3600 and fl & ACT_FLAGS and s >= 70 and "secondary" not in fl and _confirmed(c):
+            where = frozenset(c.get("geo", [])) or frozenset(c.get("ctry", []))
+            if not any(abs(c["u"] - u) <= 6 * 3600 and where & pl for u, pl in seen_acts):
+                seen_acts.append((c["u"], where))
+                acts += 1.5 if iran_side(c) else 1.0
+        elif age <= 24 * 3600 and fl & (THREAT_FLAGS - {"deploy"}) and s >= 55 and w >= 0.7:
+            threats += 1.5 if w >= 1 else 1.0
+        elif age <= 24 * 3600 and "statement" in c.get("topics", []) and s >= 55 and w >= 0.7:
+            threats += 0.5
+        if "deploy" in fl and s >= 50:
+            build += 1.5 if near else 1.0
+    return {"acts": acts, "threats": threats, "build": build}
+
+
+def floor_for(n, start, base, top, k):
+    """A level that rises with each extra event, by less each time: base at `start` events, approaching top."""
+    if n < start:
+        return 0.0
+    return base + (top - base) * (1 - math.exp(-(n - start + 1) / k))
+
+
+def pressure_floor(pr):
+    """The least the counts say, never above high tension (only Iran against America or Israel is critical):
+    attacks: 1 -> 35 (40 on Iran's side), 2 -> 55, 3 -> 59, 5 -> 64, 10 -> 71, 20 -> 74; threats: 3 -> 33, 10 -> 47, 20 -> 54, 35 -> 58;
+    build-ups: 2 -> 42, 4 -> 51, 6 -> 55, 10 -> 59."""
+    one = 0.0 if pr["acts"] < 1 else 35.0 if pr["acts"] < 1.5 else 40.0     # a single attack: moderate tension
+    f = max(floor_for(pr["acts"], 2, 50, CRITICAL - 1, 4.3) if pr["acts"] >= 2 else one,
+            floor_for(pr["threats"], 3, 30, 60, 12),
+            floor_for(pr["build"], 2, 35, 60, 3))
+    return min(f, CRITICAL - 1)
 
 
 def index_value(clusters, av, sea, markets, t):
@@ -242,9 +297,11 @@ def index_value(clusters, av, sea, markets, t):
         v = max(v, CRITICAL + min(15, 4 * (len(ds) - 1)))
     elif ds:
         v = max(v, 65)
-    elif proxy_attacks(clusters, t):
-        v = max(v, HIGH)                       # a serious attack on another front: "high tension" at least
+    # more attacks, more threats, a bigger build-up: a higher level (one attack alone is moderate tension)
+    pr = pressure(clusters, t)
+    v = max(v, pressure_floor(pr))
     p["direct"] = len(ds)
+    p["counts"] = {k: round(x, 1) for k, x in pr.items()}
     return int(max(0, min(100, round(v)))), p, parts
 
 
