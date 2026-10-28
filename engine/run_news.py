@@ -436,7 +436,14 @@ def news_round(full=True):
         if "en_from" not in c:
             refresh(c)
     retry.sort(key=lambda c: ("en" in c and "fa" in c, -c["u"]))
-    ensure_texts(list(changed.values()) + retry[:150], tr)
+    if misc.get("speaker_fix") != 1:
+        # once: "Quote — Speaker" headlines of the last two days, put the other way round and translated again
+        again = [c for c in clusters if T - c["u"] <= 2 * 86400 and c["id"] not in changed]
+        retry = [c for c in retry if c not in again] + again
+        misc["speaker_fix"] = 1
+        ensure_texts(list(changed.values()) + retry, tr)
+    else:
+        ensure_texts(list(changed.values()) + retry[:150], tr)
     for c in clusters:                      # source-dependent corrections, for earlier translations too
         if (c.get("fa") or {}).get("mt") and c.get("en"):
             for f in ("ti", "su"):
