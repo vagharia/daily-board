@@ -25,6 +25,8 @@
   };
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 21;
+  // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
+  var APP_BUILD = 22;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -1658,6 +1660,7 @@
       y0 = null;
       if (dy > 90) {
         busy = true; el.classList.add('spin');
+        checkRelease();                      // a pull also brings a new version of the app, not just new data
         refreshAll(true).then(function () { busy = false; el.classList.remove('spin'); el.style.opacity = 0; toast(esc(t('refreshed'))); });
       } else el.style.opacity = 0;
     });
@@ -1721,6 +1724,18 @@
   function checkRelease() {
     fetch('release.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (rel) {
       if (!rel || !rel.v) return;
+      if (rel.build && rel.build > APP_BUILD && !FIRST_RUN) {
+        // this copy of the app is out of date (a home-screen app on an iPhone can keep one for days): load the new
+        // one, once per build so a slow deployment can't make it reload over and over
+        var tried = null;
+        try { tried = sessionStorage.getItem('db.build'); } catch (e) { /* ignore */ }
+        if (String(rel.build) !== tried) {
+          try { sessionStorage.setItem('db.build', String(rel.build)); } catch (e) { /* ignore */ }
+          var go = function () { location.reload(); };
+          (window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return /^shell-/.test(k); }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve()).then(go, go);
+          return;
+        }
+      }
       var seen = store.get('rel', 0);
       if (FIRST_RUN && !seen) { store.set('rel', rel.v); return; }
       if (rel.v <= seen || document.getElementById('relBox')) return;
@@ -1758,5 +1773,10 @@
   checkLock();
   setTimeout(checkRelease, 1500);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) checkRelease(); });
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { /* optional */ });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      // look for a new service worker whenever the app comes back to the front, not only on a fresh start
+      document.addEventListener('visibilitychange', function () { if (!document.hidden && reg.update) reg.update().catch(function () { /* offline */ }); });
+    }).catch(function () { /* optional */ });
+  }
 })();

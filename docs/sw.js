@@ -1,7 +1,7 @@
 /* Offline shell + last-known data. */
-var SHELL = 'shell-v21';
+var SHELL = 'shell-v22';
 var DATA = 'data-v1';
-var ASSETS = ['./', 'index.html', 'app.css?v=21', 'app.js?v=21', 'icons.js?v=21', 'manifest.webmanifest',
+var ASSETS = ['./', 'index.html', 'app.css?v=22', 'app.js?v=22', 'icons.js?v=22', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(SHELL).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));
@@ -25,7 +25,23 @@ self.addEventListener('fetch', function (e) {
   }
   if (url.origin !== location.origin) return;
   if (/release\.json$/.test(url.pathname)) return;      // always from the network: it announces updates
-  // same-origin: stale-while-revalidate for the shell, fonts and map
+  // the page itself: from the network first, so a new version shows the next time the app opens (iPhone home-screen
+  // apps are resumed, not restarted, and kept the old page for days); the saved copy after 3 seconds or offline.
+  // The request revalidates: an unchanged page costs a few hundred bytes ("not modified")
+  if (e.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname)) {
+    var page = url.origin + url.pathname.replace(/index\.html$/, '');     // one saved copy, whatever the query
+    e.respondWith(caches.open(SHELL).then(function (c) {
+      var net = fetch(e.request, { cache: 'no-cache' }).then(function (r) {
+        if (r.ok) c.put(page, r.clone());
+        return r;
+      });
+      var saved = c.match(page).then(function (hit) { return hit || c.match('index.html'); });
+      var late = new Promise(function (res) { setTimeout(function () { saved.then(function (h) { if (h) res(h); }); }, 3000); });
+      return Promise.race([net.catch(function () { return saved; }), late]).then(function (r) { return r || net; });
+    }));
+    return;
+  }
+  // same-origin: stale-while-revalidate for the scripts, styles, fonts and map (their addresses carry the version)
   e.respondWith(caches.open(SHELL).then(function (c) {
     return c.match(e.request).then(function (hit) {
       var net = fetch(e.request).then(function (r) { if (r.ok) c.put(e.request, r.clone()); return r; }).catch(function () { return hit; });
