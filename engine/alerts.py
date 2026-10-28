@@ -1,9 +1,9 @@
 """Telegram alerts: new red stories, warning lights switching on, index moving up a zone.
 
 Setup for the user: create a bot with @BotFather, save its token as the repository secret
-TELEGRAM_BOT_TOKEN, then send /start to the bot. The first chat that sends /start is locked in.
-Its chat id is stored encrypted (key derived from the token), so it never appears in the
-public repository or logs.
+TELEGRAM_BOT_TOKEN, then send /start to the bot. Anyone who sends /start gets the alerts (the bot answers within a
+round, about five minutes) and /stop ends them; the first chat is the owner's and also gets the technical reports.
+Chat ids are stored encrypted (key derived from the token), so they never appear in the public repository or logs.
 """
 import base64
 import hashlib
@@ -50,33 +50,98 @@ def _call(token, method, **payload):
     return d.get("result")
 
 
-def _chat_id(state, token):
+WELCOME = ("✅ <b>هشدارها فعال شد.</b>\nاز این به بعد خبرهای خیلی مهم و چراغ‌های هشدار اینجا ارسال می‌شن.\n"
+           "برای قطع هشدارها /stop بفرست.")
+AGAIN = "✅ هشدارها برای شما فعال است. برای قطعشان /stop بفرست."
+BYE = "هشدارها قطع شد. هر وقت خواستی دوباره /start بفرست."
+
+
+def _subs(state, token):
+    """The chat ids that get the alerts (stored sealed)."""
+    out = []
+    for blob in state.get("subs", []):
+        cid = unseal(blob, token)
+        if cid and cid not in out:
+            out.append(cid)
+    return out
+
+
+def _set_subs(state, token, ids):
+    state["subs"] = [seal(c, token) for c in ids]
+
+
+def poll(state, token):
+    """Read the messages sent to the bot since the last round: /start subscribes a chat (the first one is the
+    owner, who also gets the technical reports), /stop unsubscribes it. Each gets a reply."""
+    owner = _owner(state, token)
+    subs = _subs(state, token)
+    if owner and owner not in subs:
+        subs.insert(0, owner)
+    try:
+        updates = _call(token, "getUpdates", offset=state.get("upd", 0) + 1, timeout=0, allowed_updates=["message"])
+    except Exception as e:  # noqa: BLE001
+        log("telegram getUpdates failed:", str(e)[:80])
+        return subs
+    for u in updates or []:
+        state["upd"] = max(state.get("upd", 0), u.get("update_id", 0))
+        msg = u.get("message") or {}
+        chat = msg.get("chat") or {}
+        text = (msg.get("text") or "").strip()
+        if chat.get("type") != "private" or not text.startswith("/"):
+            continue
+        cid = str(chat.get("id"))
+        reply = None
+        if text.startswith("/start"):
+            reply = AGAIN if cid in subs else WELCOME
+            if cid not in subs:
+                subs.append(cid)
+            if not owner:
+                owner = cid
+                state["chat"] = seal(cid, token)
+        elif text.startswith("/stop"):
+            if cid in subs:
+                subs.remove(cid)
+            reply = BYE
+        if reply:
+            try:
+                _call(token, "sendMessage", chat_id=cid, text=reply, parse_mode="HTML",
+                      link_preview_options={"is_disabled": True})
+            except Exception as e:  # noqa: BLE001
+                log("telegram reply failed:", str(e)[:80])
+    _set_subs(state, token, subs)
+    return subs
+
+
+def _owner(state, token):
     env = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if env:
         return env
-    if state.get("chat"):
-        cid = unseal(state["chat"], token)
-        if cid:
-            return cid
-    try:
-        updates = _call(token, "getUpdates", timeout=0, allowed_updates=["message"])
-    except Exception as e:  # noqa: BLE001
-        log("telegram getUpdates failed:", str(e)[:80])
-        return None
-    for u in updates or []:
-        msg = u.get("message") or {}
-        chat = msg.get("chat") or {}
-        if chat.get("type") == "private" and (msg.get("text") or "").strip().startswith("/start"):
-            cid = str(chat.get("id"))
-            state["chat"] = seal(cid, token)
+    return unseal(state["chat"], token) if state.get("chat") else None
+
+
+def _chat_id(state, token):
+    """The owner's chat (technical reports go only there)."""
+    return _owner(state, token)
+
+
+def send_all(state, token, subs, messages):
+    """Send each message to every subscriber; a chat that blocked the bot is dropped. Returns messages sent."""
+    ok, gone = 0, []
+    for cid in subs:
+        for msg in messages:
             try:
-                _call(token, "sendMessage", chat_id=cid, parse_mode="HTML",
-                      text="✅ <b>هشدارها فعال شد.</b>\nاز این به بعد خبرهای خیلی مهم و چراغ‌های هشدار اینجا ارسال می‌شن.",
+                _call(token, "sendMessage", chat_id=cid, text=msg, parse_mode="HTML",
                       link_preview_options={"is_disabled": True})
+                ok += 1
             except Exception as e:  # noqa: BLE001
-                log("telegram welcome failed:", str(e)[:80])
-            return cid
-    return None
+                err = str(e)
+                log("telegram send failed:", err[:80])
+                if "blocked" in err or "chat not found" in err or "deactivated" in err:
+                    gone.append(cid)
+                    break
+    if gone:
+        _set_subs(state, token, [c for c in subs if c not in gone])
+    return ok
 
 
 def _story(c):
@@ -137,18 +202,11 @@ def run(state, clusters, lights, index, first_run=False):
         state["zone"] = index["zone"]
     if not token:
         return {"enabled": False, "queued": len(messages)}
-    cid = _chat_id(state, token)
-    if not cid:
+    subs = poll(state, token)
+    if not subs:
         return {"enabled": True, "chat": False, "queued": len(messages)}
-    ok = 0
-    for msg in messages[:7]:
-        try:
-            _call(token, "sendMessage", chat_id=cid, text=msg, parse_mode="HTML",
-                  link_preview_options={"is_disabled": True})
-            ok += 1
-        except Exception as e:  # noqa: BLE001
-            log("telegram send failed:", str(e)[:80])
-    return {"enabled": True, "chat": True, "sent": ok}
+    ok = send_all(state, token, subs, messages[:7]) if messages else 0
+    return {"enabled": True, "chat": True, "subscribers": len(subs), "sent": ok}
 
 
 # ------------------------------------------------------------------ engine self-check
