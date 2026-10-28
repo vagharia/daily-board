@@ -180,6 +180,24 @@ PATTERNS = [
 KINETIC_BASE = 70
 
 POWERS_SOFT_CAP = 40.0
+CIVIL_DRILL_CAP = 35.0
+_CIVIL_FA = re.compile(r"خدمت\s*فاطمی|درمان|پزشک|دندان|سلامت|بهداشت|امداد|هلال\s*احمر|آتش\s*نشان|اطفا|زلزله|سیل|"
+                       r"مدیریت\s*بحران|اورژانس|بیمارستان|جهادی|محرومیت|کمک\s*مومنانه|خدمت\s*رسانی|دانش\s*آموز|مدارس")
+_MIL_FA = re.compile(r"نیروی\s*(?:زمینی|دریایی|هوایی|هوافضا)|ارتش|موشک|پهپاد|ناو|جنگنده|توپخانه|تانک|زرهی|تکاور|رزمی"
+                     r"|پدافند\s*هوایی|اقتدار|ذوالفقار|پیامبر\s*اعظم|سپاه\s*پاسداران|قرارگاه|نظامی")
+_CIVIL_EN = re.compile(r"\b(medical|health|clinic\w*|dental|emergency services|fire\s?fighters?|fire brigade|earthquake|"
+                       r"disaster|rescue|red crescent|hospital\w*|relief)\b", re.I)
+_MIL_EN = re.compile(r"\b(military|naval|navy|army|air force|missiles?|drones?|warships?|irgc|troops|combat|war ?games|"
+                     r"live[- ]fire|fighter|tanks?|artillery)\b", re.I)
+
+
+def _civil_drill(lang, t, s):
+    """A drill of doctors, rescuers or firefighters, with nothing military in the title or first sentence."""
+    text = (t or "") + " " + first_sentences(s or "", 220)
+    if lang == "fa":
+        text = fa_norm(text)
+        return bool(_CIVIL_FA.search(text)) and not _MIL_FA.search(text)
+    return bool(_CIVIL_EN.search(text)) and not _MIL_EN.search(text)
 _TENSION_EN = re.compile(
     r"\b(wars?|warfare|strik\w*|attack\w*|military|missiles?|nuclear|enrich\w*|uranium|weapons?|arms|drones?|fighter"
     r"|s-400|su-35|air defen[cs]e|aggression|threat\w*|conflicts?|tensions?|escalat\w*|ceasefire|truce|peace|crisis"
@@ -392,6 +410,11 @@ def classify(item):
         # a match called off or a team that won't travel for fear of the war is a yellow story, not a strike
         flags = (set(flags) - HARD_EVENTS) | {"sport"}
         sev = min(sev, sport.CAP)
+    if "exercise" in flags and _civil_drill(lang, fa_t or en_t, fa_s or en_s):
+        # a medical, relief or fire-brigade drill (free clinics, earthquake or chemical-spill rescue): not military
+        flags = (set(flags) - {"exercise"}) | {"civil_drill"}
+        topics = set(topics) - {"military"}
+        sev = min(sev, CIVIL_DRILL_CAP)
     if "powers" in flags and sev < 56 and not _tension(lang, fa_t or en_t, fa_s or en_s):
         # Putin or the Kremlin with Iran but nothing about the war, America, Israel, the region or oil (trade figures,
         # a gas exporters' summit, students, a courtesy call): a yellow story
