@@ -228,7 +228,7 @@ class Translator:
             else:
                 self.stats["failed"] += 1
 
-    def prune(self, max_age=9 * 24 * 3600, max_entries=24000):
+    def prune(self, max_age=7 * 24 * 3600, max_entries=24000):
         cut = now() - max_age
         for k in [k for k, v in self.cache.items() if v[1] < cut]:
             del self.cache[k]

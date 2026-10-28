@@ -701,7 +701,21 @@ def refresh(c):
 
 
 def prune(clusters, now):
-    keep = [c for c in clusters if now - c["u"] <= config.KEEP]
-    for c in keep:
-        c["m"].sort(key=lambda m: m["t"])
+    """Nothing older than a week is kept: stories last updated before that go, and so do the week-old reports of a
+    story that is still running."""
+    keep = []
+    for c in clusters:
+        if now - c["u"] > config.KEEP:
+            continue
+        ms = [m for m in c["m"] if now - m["t"] <= config.KEEP]
+        if not ms:
+            continue
+        ms.sort(key=lambda m: m["t"])
+        if len(ms) != len(c["m"]):
+            c["m"] = ms
+            c["t"] = ms[0]["t"]
+            refresh(c)
+        else:
+            c["m"] = ms
+        keep.append(c)
     return keep

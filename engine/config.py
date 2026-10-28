@@ -20,7 +20,7 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 H24 = 24 * 3600
 WEEK = 7 * 24 * 3600
-KEEP = 7 * 24 * 3600 + 6 * 3600   # clusters are kept a little longer than a week
+KEEP = 7 * 24 * 3600              # news history: one week, nothing older
 
 # Pre-crisis baseline for Hormuz transits = the year before this date.
 CRISIS_START = "2026-02-28"

@@ -329,7 +329,7 @@ def news_round(full=True):
         log(f"items timed when they appeared (live page or re-headlined article): {retimed}")
     for it in raw:
         seen.setdefault(it["k"], T)
-    seen = {k: v for k, v in seen.items() if T - v <= 9 * 86400}
+    seen = {k: v for k, v in seen.items() if T - v <= config.WEEK + 3600}   # older items aren't collected anyway
     log(f"items: {len(raw)} fetched, {len(new)} new")
 
     # ---------------------------------------------------------------- 2. relevance
