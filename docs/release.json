@@ -1,8 +1,9 @@
 {
-  "v": 20,
+  "v": 21,
   "fa": {
     "title": "نسخه‌ی جدید بولتن روزانه",
     "items": [
+      "استوری ثابت نتایج زنده‌ی انتخابات اسرائیل، اول ردیف استوری‌ها: کرسی هر حزب و ائتلاف، و رقابت نتانیاهو و آیزنکوت",
       "شاخص تنش جدید: چهار بخش (اقدام نظامی، تهدید و نشانه‌های جنگ، گستردگی جبهه‌ها، سیگنال‌های عینی) با تمرکز اصلی روی جنگ ایران با آمریکا و اسرائیل؛ با بیشتر شدن حمله‌ها، تهدیدها و اعزام نیروهای نظامی بالاتر می‌رود",
       "تم روشن، کنار تم تیره (از تنظیمات)",
       "حالت کم‌مصرف برای اینترنت ضعیف: آیکون بالای صفحه؛ فقط تیتر خبرها، بدون عکس و ویدیو",
@@ -19,6 +20,7 @@
   "en": {
     "title": "What's new in Daily Brief",
     "items": [
+      "A pinned live story for Israel's election results, first in the stories row: seats per party and bloc, and Netanyahu against Eisenkot",
       "A new escalation index in four parts (military action, threats and signs of war, fronts involved, objective signals), centred on war between Iran and America or Israel; it rises as attacks, threats and military build-ups multiply",
       "A light theme next to the dark one (in Settings)",
       "Data saver for weak connections: the icon at the top; headlines only, no pictures or video",

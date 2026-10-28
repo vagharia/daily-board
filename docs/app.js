@@ -15,6 +15,8 @@
     return 'data/';
   }
   var BASE = dataBase();
+  // the election results live on a branch of their own (engine/election.py)
+  var ELEC_URL = /^https:\/\/raw\.githubusercontent\.com\//.test(BASE) ? BASE.replace(/\/data\/$/, '/election/') + 'election.json' : BASE + 'election.json';
 
   // ------------------------------------------------------------------ storage
   var store = {
@@ -22,7 +24,7 @@
     set: function (k, v) { try { localStorage.setItem('db.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   };
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
-  var APP_REL = 20;
+  var APP_REL = 21;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -46,6 +48,10 @@
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
+      live: 'زنده', elecH: 'نتایج زنده‌ی انتخابات کنست', elecShort: 'انتخابات اسرائیل', elecFinal: 'نتایج نهایی',
+      elecCount: 'آرای شمرده‌شده:', mVotes: 'میلیون', vs: 'در برابر', blocBibi: 'ائتلاف نتانیاهو', blocArab: 'احزاب عربی',
+      blocChange: 'جبهه‌ی آیزنکوت', elecMaj: '{n} کرسی برای اکثریت', seatsW: 'کرسی', votesW: 'رأی',
+      elecBelow: 'زیر حد نصاب {p}٪:',
       storiesH: 'استوری خبرها', fullStory: 'خبر کامل', close: 'بستن', srcLabel: 'منبع:', prev: 'قبلی', next: 'بعدی',
       noData: 'هنوز داده‌ای ساخته نشده. موتور هر چند دقیقه اجرا می‌شود؛ کمی بعد دوباره سر بزن.',
       offline: 'اتصال برقرار نیست؛ آخرین داده ذخیره‌شده نمایش داده می‌شود.',
@@ -103,6 +109,10 @@
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
+      live: 'Live', elecH: 'Knesset election live results', elecShort: 'Israel election', elecFinal: 'Final results',
+      elecCount: 'Counted:', mVotes: 'm votes', vs: 'vs', blocBibi: "Netanyahu's bloc", blocArab: 'Arab parties',
+      blocChange: "Eisenkot's bloc", elecMaj: '{n} seats for a majority', seatsW: 'Seats', votesW: 'Votes',
+      elecBelow: 'Below the {p}% threshold:',
       storiesH: 'News stories', fullStory: 'Full story', close: 'Close', srcLabel: 'Source:', prev: 'Previous', next: 'Next',
       noData: 'No data yet. The engine runs every few minutes; check back shortly.',
       offline: 'You are offline; showing the last saved data.',
@@ -542,11 +552,11 @@
     if (f && !f.classList.contains('noimg')) { f.classList.add('noimg'); f.insertAdjacentHTML('afterbegin', ic('news', 'sty-ic')); }
   };
   function renderStories() {
-    var box = $('#stories'), list = S.lite ? [] : storyList();
-    if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var box = $('#stories'), list = S.lite ? [] : storyList(), el = S.lite ? null : elecLive();
+    if (!list.length && !el) { box.hidden = true; box.innerHTML = ''; return; }
     box.hidden = false;
     box.setAttribute('aria-label', t('storiesH'));
-    box.innerHTML = list.map(function (c, i) {
+    box.innerHTML = (el ? elecTile(el) : '') + list.map(function (c, i) {
       var x = txt(c), seen = S.storySeen.has(c.id);
       var pic = c.img ? '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="styFail(this)">'
         : ic('news', 'sty-ic');
@@ -555,6 +565,128 @@
         '<span class="sty-t" dir="auto">' + esc(x.ti) + '</span></span></button>';
     }).join('');
   }
+  // ------------------------------------------------------------------ Israel's election: a pinned live story
+  // Always first in the tray and always "unread"; it goes 24 hours after the final results (election.json "until").
+  var ELEC = { d: null, t: 0, el: null, sel: null, timer: null };
+  var ECOL = { bibi: '#4D8DFF', change: '#F4A62A', arab: '#2DBE8C' };
+  function elecLive() {
+    var d = ELEC.d;
+    if (!d || !d.lists || !d.lists.length) return null;
+    if (d.until && Date.now() / 1000 > d.until) return null;
+    return d;
+  }
+  function loadElection(force) {
+    if (S.lite) return Promise.resolve();
+    if (!force && Date.now() - ELEC.t < 90 * 1000) return Promise.resolve();
+    ELEC.t = Date.now();
+    return fetch(ELEC_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return;
+        var changed = !ELEC.d || ELEC.d.updated !== j.updated;
+        ELEC.d = j;
+        if (changed) { renderStories(); if (ELEC.el) drawElection(); }
+      }).catch(function () { /* keep the last copy */ });
+  }
+  function ename(r) { return L() === 'fa' ? (r.fa || r.he) : (r.en || r.he); }
+  function eshort(r) {
+    var fa = L() === 'fa';
+    var lead = fa ? r.lfa : r.len;
+    if (lead) return lead;
+    return { 'ודם': fa ? 'مشترک' : 'Joint List', 'ג': fa ? 'یهدوت' : 'UTJ', 'עם': fa ? 'رعام' : "Ra'am" }[r.let] || ename(r);
+  }
+  function elecTile(d) {
+    var b = d.blocs || {}, tot = d.seats_total || 120;
+    var seg = function (k) { return '<i style="width:' + (100 * (b[k] || 0) / tot).toFixed(2) + '%;background:' + ECOL[k] + '"></i>'; };
+    return '<button class="sty sty-elec" role="listitem" data-elec="1" aria-label="' + esc(t('elecH')) + '">' +
+      '<span class="sty-f ef"><span class="ef-live"><i></i>' + esc(t('live')) + '</span>' +
+      '<span class="ef-nums"><b style="color:' + ECOL.bibi + '">' + nfmt(b.bibi || 0) + '</b><b style="color:' + ECOL.change + '">' + nfmt(b.change || 0) + '</b></span>' +
+      '<span class="ef-bar">' + seg('bibi') + seg('arab') + seg('change') + '</span>' +
+      '<span class="sty-t">' + esc(t('elecShort')) + '</span></span></button>';
+  }
+  function openElection() {
+    if (ELEC.el || !elecLive()) return;
+    var el = document.createElement('div');
+    el.className = 'ev';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', t('elecH'));
+    document.body.appendChild(el);
+    document.body.classList.add('sv-on');
+    ELEC.el = el;
+    ELEC.sel = null;
+    try { history.pushState({ ev: 1 }, ''); } catch (e) { /* ignore */ }
+    var y0 = null;
+    el.addEventListener('pointerdown', function (e) { y0 = e.clientY; });
+    el.addEventListener('pointerup', function (e) { if (y0 != null && e.clientY - y0 > 90 && el.scrollTop <= 0) closeElection(); y0 = null; });
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-ev]');
+      if (!b) return;
+      if (b.dataset.ev === 'close') closeElection();
+      else { ELEC.sel = ELEC.sel === b.dataset.ev ? null : b.dataset.ev; drawElection(); }
+    });
+    drawElection();
+    loadElection(true);
+    ELEC.timer = setInterval(function () { if (!document.hidden) loadElection(true); }, 60 * 1000);
+  }
+  function closeElection(keepHistory) {
+    if (!ELEC.el) return;
+    clearInterval(ELEC.timer);
+    ELEC.el.remove();
+    ELEC.el = null;
+    document.body.classList.remove('sv-on');
+    if (!keepHistory && history.state && history.state.ev) { try { history.back(); } catch (e) { /* ignore */ } }
+  }
+  window.addEventListener('popstate', function () { if (ELEC.el) closeElection(true); });
+  document.addEventListener('keydown', function (e) { if (ELEC.el && e.key === 'Escape') closeElection(); });
+  function drawElection() {
+    var d = elecLive(), el = ELEC.el;
+    if (!el) return;
+    if (!d) { closeElection(); return; }
+    var b = d.blocs || {}, tot = d.seats_total || 120, maj = d.majority || 61;
+    var seated = d.lists.filter(function (r) { return r.seats > 0; });
+    var order = { bibi: 0, arab: 1, change: 2 };
+    seated.sort(function (a, c) { return (order[a.bloc] != null ? order[a.bloc] : 3) - (order[c.bloc] != null ? order[c.bloc] : 3) || c.seats - a.seats; });
+    var lik = d.lists.filter(function (r) { return r.let === 'מחל'; })[0] || { seats: 0, votes: 0 };
+    var yas = d.lists.filter(function (r) { return r.let === 'דרך'; })[0] || { seats: 0, votes: 0 };
+    var max = Math.max.apply(null, seated.map(function (r) { return r.seats; }).concat([1]));
+    var h = '<div class="ev-top"><span class="ev-live"><i></i>' + esc(d.final ? t('elecFinal') : t('live')) + '</span>' +
+      '<span class="ev-when">' + esc(t('elecCount')) + ' ' + nfmt((d.votes || 0) / 1e6, 2) + ' ' + esc(t('mVotes')) +
+      (d.asof ? ' | ' + esc(clock(d.asof)) : '') + '</span>' +
+      '<button class="sv-x" data-ev="close" aria-label="' + esc(t('close')) + '">' + ic('x') + '</button></div>';
+    // the duel: Netanyahu against Eisenkot
+    var sum = (lik.seats + yas.seats) || 1;
+    h += '<div class="ev-duel">' +
+      '<div class="ev-side"><span class="ev-av" style="--c:' + ECOL.bibi + '">' + esc(L() === 'fa' ? 'ن' : 'N') + '</span><b>' + nfmt(lik.seats) + '</b><span>' + esc(L() === 'fa' ? 'نتانیاهو' : 'Netanyahu') + '</span></div>' +
+      '<div class="ev-vs">' + esc(t('vs')) + '</div>' +
+      '<div class="ev-side"><span class="ev-av" style="--c:' + ECOL.change + '">' + esc(L() === 'fa' ? 'آ' : 'E') + '</span><b>' + nfmt(yas.seats) + '</b><span>' + esc(L() === 'fa' ? 'آیزنکوت' : 'Eisenkot') + '</span></div>' +
+      '</div><div class="ev-split"><i style="flex:' + lik.seats + ';background:' + ECOL.bibi + '"></i><i style="flex:' + yas.seats + ';background:' + ECOL.change + '"></i></div>';
+    // the blocs on the way to 61
+    var seg = function (k) { return '<i style="width:' + (100 * (b[k] || 0) / tot).toFixed(2) + '%;background:' + (ECOL[k] || '#7D8BA6') + '"></i>'; };
+    h += '<div class="ev-blocs"><div class="ev-tug">' + seg('bibi') + seg('arab') + '<i class="ev-gap" style="width:' + (100 * (b.other || 0) / tot).toFixed(2) + '%"></i>' + seg('change') +
+      '<em style="inset-inline-start:' + (100 * maj / tot).toFixed(2) + '%"></em><em style="inset-inline-end:' + (100 * maj / tot).toFixed(2) + '%"></em></div>' +
+      '<div class="ev-legend"><span><i style="background:' + ECOL.bibi + '"></i>' + esc(t('blocBibi')) + ' <b>' + nfmt(b.bibi || 0) + '</b></span>' +
+      '<span><i style="background:' + ECOL.arab + '"></i>' + esc(t('blocArab')) + ' <b>' + nfmt(b.arab || 0) + '</b></span>' +
+      '<span><i style="background:' + ECOL.change + '"></i>' + esc(t('blocChange')) + ' <b>' + nfmt(b.change || 0) + '</b></span></div>' +
+      '<div class="ev-maj">' + esc(t('elecMaj').replace('{n}', nfmt(maj))) + '</div></div>';
+    // seats per list: columns, grouped by bloc; a tap shows the list's numbers
+    h += '<div class="ev-cols" role="list">' + seated.map(function (r) {
+      var c = ECOL[r.bloc] || '#7D8BA6', on = ELEC.sel === r.let;
+      return '<button class="ev-col' + (on ? ' on' : '') + '" role="listitem" data-ev="' + esc(r.let) + '" aria-label="' + esc(ename(r) + ' ' + r.seats) + '">' +
+        '<span class="ev-bw"><span class="ev-c" style="height:' + (100 * r.seats / max).toFixed(1) + '%;background:' + c + '"><span class="ev-n">' + nfmt(r.seats) + '</span></span></span>' +
+        '<span class="ev-l">' + esc(eshort(r)) + '</span></button>';
+    }).join('') + '</div>';
+    var sel = d.lists.filter(function (r) { return r.let === ELEC.sel; })[0];
+    if (sel) {
+      h += '<div class="ev-card"><b>' + esc(ename(sel)) + '</b>' + (L() === 'fa' && sel.lfa ? '<span>' + esc(sel.lfa) + '</span>' : (sel.len ? '<span>' + esc(sel.len) + '</span>' : '')) +
+        '<div class="ev-kv"><span>' + esc(t('seatsW')) + ' <b>' + nfmt(sel.seats) + '</b></span><span>' + esc(t('votesW')) + ' <b>' + nfmt(sel.votes) + '</b></span><span><b>' + pctStr(sel.pct) + '</b></span></div></div>';
+    }
+    var below = d.lists.filter(function (r) { return !r.seats && r.pct >= 1; });
+    if (below.length) h += '<div class="ev-below">' + esc(t('elecBelow').replace('{p}', nfmt(d.threshold || 3.25, 2))) + ' ' +
+      below.map(function (r) { return esc(eshort(r)) + ' ' + pctStr(r.pct); }).join(L() === 'fa' ? '، ' : ', ') + '</div>';
+    el.innerHTML = '<div class="ev-in">' + h + '</div>';
+  }
+
   function openStories(i) {
     var list = storyList();
     if (!list.length || SV) return;
@@ -1460,6 +1592,7 @@
     unlockAudio();
     var el;
     if ((el = e.target.closest('[data-close]'))) { closeSheet(); return; }
+    if ((el = e.target.closest('[data-elec]'))) { openElection(); return; }
     if ((el = e.target.closest('[data-sty]'))) { openStories(+el.dataset.sty); return; }
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
@@ -1536,6 +1669,7 @@
     var keys = ['ticker', 'signals', 'news24', 'x', 'stories', 'econ'];
     if (S.range === 'week' || S.d.newsWeek) keys.push('newsWeek');
     S.econAt = nowS();
+    loadElection(fresh);
     return load(keys, fresh).then(function (ch) {
       S.loaded = true; S.econTried = true;
       if (ch.news24) trackNew(!!S.firstDone);
@@ -1548,6 +1682,7 @@
     load(['ticker']).then(function (ch) { if (ch.ticker) { renderMarkets(); renderHeader(); } });
   }
   function tickNews() {
+    loadElection();
     if (S.lite) {
       if (nowS() - (S.liteAt || 0) < 280) return;  // one small file every five minutes
       S.liteAt = nowS();
