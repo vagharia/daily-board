@@ -105,8 +105,8 @@ def compute_index(clusters, av, sea, hist):
     v = int(max(0, min(100, v)))
     zi, zfa, zen = zone(v)
     hist = [h for h in hist if h[0] >= t - 30 * 86400]
-    if hist and t - hist[-1][0] < 9 * 60:
-        hist[-1] = [t, v, n, s]          # rounds run every 5 minutes; keep one point per ~10 minutes
+    if hist and int(hist[-1][0] // 600) == int(t // 600):
+        hist[-1] = [t, v, n, s]          # rounds run every 5 minutes; keep one point per 10-minute slot
     else:
         hist.append([t, v, n, s])
     past = [h for h in hist if h[0] <= t - 23.5 * 3600]
