@@ -1,0 +1,43 @@
+name: election
+# Israel's Knesset election results from the Central Elections Committee, every 5 minutes, for the pinned story.
+# Like the live job, each run does several rounds and then queues the next; it stops for good a day after the
+# final results are published (engine/election.py).
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['engine/election.py', '.github/workflows/election.yml']
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: election
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - name: Results rounds
+        id: rounds
+        env:
+          ELECTION_ROUNDS: '6'
+          GIT_AUTHOR_NAME: board-bot
+          GIT_AUTHOR_EMAIL: board-bot@users.noreply.github.com
+          GIT_COMMITTER_NAME: board-bot
+          GIT_COMMITTER_EMAIL: board-bot@users.noreply.github.com
+        run: python -m engine.election
+      - name: Queue the next run
+        if: steps.rounds.outputs.done != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run election.yml --ref "$GITHUB_REF_NAME" || echo "could not queue the next run"
