@@ -13,7 +13,7 @@ from .classify_fa import score_fa
 from .fronts import saudi_houthi
 from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
-from .util import fa_norm, first_sentences, to_latin_digits
+from .util import fa_norm, first_sentences, strip_dateline, to_latin_digits
 
 I = re.I
 
@@ -180,6 +180,32 @@ PATTERNS = [
 KINETIC_BASE = 70
 
 POWERS_SOFT_CAP = 40.0
+FAR_CAP = 40.0
+_FA_L = "\u0600-\u06FF"
+_FAR_FA = re.compile(r"(?<![" + _FA_L + r"])(?:چین|چینی|پکن|هند|هندی|هندوستان|دهلی|هیمالیا|کوبا|هاوانا|ونزوئلا|کاراکاس|تایوان|ژاپن"
+                     r"|توکیو|کره|پیونگ\s*یانگ|سئول|فیلیپین|آمریکای\s*لاتین|آفریقا|روسیه|کرملین|مسکو|پوتین|اوکراین)"
+                     r"(?![" + _FA_L + r"])")
+_FAR_EN = re.compile(r"\b(china|chinese|beijing|india|indian|new delhi|himalaya\w*|cuba\w*|havana|venezuela\w*|taiwan\w*"
+                     r"|japan\w*|tokyo|korea\w*|pyongyang|seoul|philippin\w*|south china sea|latin america\w*|africa\w*"
+                     r"|russia\w*|kremlin|moscow|putin|ukrain\w*)\b", re.I)
+_ME_FA = re.compile(r"ایران|تهران|اسرائیل|اسراییل|صهیونیست|خاورمیانه|خلیج\s*فارس|هرمز|غزه|حماس(?![" + _FA_L + r"])|لبنان"
+                    r"|حزب\s*الله|یمن|حوثی|سوریه|عراق|عربستان|سعودی|ریاض|قطر|دوحه|امارات|عمان|بحرین|کویت|اردن|دریای\s*سرخ"
+                    r"|نفت|اوپک|برنت|عراقچی|پزشکیان|سپاه|نتانیاهو")
+_ME_EN = re.compile(r"\b(iran\w*|tehran|israel\w*|middle east|mideast|persian gulf|gulf|hormuz|gaza|hamas|lebanon|hezbollah"
+                    r"|yemen\w*|houthis?|syria\w*|iraq\w*|saudi\w*|riyadh|qatar\w*|doha|emirat\w*|uae|oman\w*|bahrain\w*"
+                    r"|kuwait\w*|jordan\w*|red sea|oil|crude|opec\+?|brent|tankers?|araghchi|pezeshkian|irgc|netanyahu)\b",
+                    re.I)
+
+
+def _anchor(lang, t, s):
+    """Does a report name the Middle East, Iran's war or oil (title and first sentence)?"""
+    text = (t or "") + " " + first_sentences(s or "", 220)
+    return bool(_ME_FA.search(fa_norm(text)) if lang == "fa" else _ME_EN.search(text))
+
+
+def _far(lang, t, s):
+    text = (t or "") + " " + first_sentences(s or "", 220)
+    return bool(_FAR_FA.search(fa_norm(text)) if lang == "fa" else _FAR_EN.search(text))
 CIVIL_DRILL_CAP = 35.0
 _CIVIL_FA = re.compile(r"خدمت\s*فاطمی|درمان|پزشک|دندان|سلامت|بهداشت|امداد|هلال\s*احمر|آتش\s*نشان|اطفا|زلزله|سیل|"
                        r"مدیریت\s*بحران|اورژانس|بیمارستان|جهادی|محرومیت|کمک\s*مومنانه|خدمت\s*رسانی|دانش\s*آموز|مدارس")
@@ -191,11 +217,20 @@ _MIL_EN = re.compile(r"\b(military|naval|navy|army|air force|missiles?|drones?|w
                      r"live[- ]fire|fighter|tanks?|artillery)\b", re.I)
 
 
+# a "drill" that is a rally: Basij or townspeople gathering to show support ("رزمایش جان‌فدایان", "اقتدار مردمی")
+_RALLY_FA = re.compile(r"جان\s*فدا|مردمی|بسیج|حماسی|حماسه|اجتماع|همایش|راهپیمایی|مردم\s")
+_HARD_MIL_FA = re.compile(r"نیروی\s*(?:زمینی|دریایی|هوایی|هوافضا)|ارتش|موشک|پهپاد|ناو|جنگنده|توپخانه|تانک|زرهی|تکاور"
+                          r"|پدافند|شلیک|تیراندازی|قرارگاه")
+
+
 def _civil_drill(lang, t, s):
-    """A drill of doctors, rescuers or firefighters, with nothing military in the title or first sentence."""
+    """A drill of doctors, rescuers or firefighters, or a rally called a drill, with nothing military in the title or
+    first sentence."""
     text = (t or "") + " " + first_sentences(s or "", 220)
     if lang == "fa":
         text = fa_norm(text)
+        if _RALLY_FA.search(text) and not _HARD_MIL_FA.search(text):
+            return True
         return bool(_CIVIL_FA.search(text)) and not _MIL_FA.search(text)
     return bool(_CIVIL_EN.search(text)) and not _MIL_EN.search(text)
 _TENSION_EN = re.compile(
@@ -384,12 +419,13 @@ def classify(item):
     language: a Persian report by the Persian rules and lexicon on its original text (its English translation is
     only for display and for matching it with foreign reports), anything else by the English rules."""
     if item.get("lang") == "fa":
-        t, s = _head(item.get("ti") or "", item.get("su") or "")
+        t, s = _head(item.get("ti") or "", strip_dateline(item.get("su") or ""))
         sev, topics, flags = score_fa(t, s)
         en_t = en_s = ""
         fa_t, fa_s = t, s
     else:
-        en_t, en_s = _head(item.get("en_ti") or item.get("ti") or "", item.get("en_su") or item.get("su") or "")
+        en_t, en_s = _head(item.get("en_ti") or item.get("ti") or "",
+                           strip_dateline(item.get("en_su") or item.get("su") or ""))
         sev, topics, flags = score_en(en_t, en_s)
         fa_t = fa_s = ""
     title_topics = match_keys(TOPICS_RX, en_t, fa_t)
@@ -415,7 +451,12 @@ def classify(item):
         flags = (set(flags) - {"exercise"}) | {"civil_drill"}
         topics = set(topics) - {"military"}
         sev = min(sev, CIVIL_DRILL_CAP)
-    if "powers" in flags and sev < 56 and not _tension(lang, fa_t or en_t, fa_s or en_s):
+    anchored = _anchor(lang, fa_t or en_t, fa_s or en_s)
+    if not anchored and _far(lang, fa_t or en_t, fa_s or en_s):
+        # China and India in the Himalayas, China and America over Cuba: nothing of the Middle East or of Iran's war
+        flags = set(flags) | {"far_off"}
+        sev = min(sev, FAR_CAP)
+    if "powers" in flags and sev < 56 and not (anchored and _tension(lang, fa_t or en_t, fa_s or en_s)):
         # Putin or the Kremlin with Iran but nothing about the war, America, Israel, the region or oil (trade figures,
         # a gas exporters' summit, students, a courtesy call): a yellow story
         flags = set(flags) | {"powers_soft"}

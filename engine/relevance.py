@@ -4,7 +4,7 @@ import re
 from . import sport
 from .internet import internet
 from .lexicon import en_rx, fa_rx
-from .util import fa_norm
+from .util import fa_norm, strip_dateline
 
 # ------------------------------------------------------------------ English
 EN_CORE = en_rx([
@@ -81,7 +81,7 @@ FA_CORE = fa_rx([
 FA_MID = fa_rx([
     "عربستان", "ریاض$", "امارات", "ابوظبی", "قطر$", "قطری", "دوحه", "عمان", "مسقط", "بحرین", "کویت", "عراق$",
     "عراقی", "بغداد",
-    "سوریه", "دمشق", "لبنان", "بیروت", "یمن", "صنعا", "دریای سرخ", "باب المندب", "غزه", "حماس",
+    "سوریه", "دمشق", "لبنان", "بیروت", "یمن", "صنعا", "دریای سرخ", "باب المندب", "غزه", "حماس$",
     "تروئیکا", "غنی سازی", "اورانیوم", "هسته ای", "نفتکش", "تحریم", "مذاکره",
     "مذاکرات", "عراقچی", "لاریجانی", "وحیدی", "بقائی", "بقایی", "قالیباف", "شورای عالی امنیت ملی", "سپاه$",
     "ارتش", "پدافند", "نیروی دریایی", "موشک", "پهپاد", "جنگنده", "آتش بس", "رزمایش", "اولتیماتوم", "شورای امنیت",
@@ -314,6 +314,7 @@ def roundup(item):
 
 
 def is_relevant(item):
+    item = dict(item, su=strip_dateline(item.get("su") or ""))   # "تهران- ایرنا- …" doesn't make a story Iran's
     if roundup(item):
         item = dict(item, su="")                       # a roundup counts by its headline only
     if item.get("lang") == "fa":

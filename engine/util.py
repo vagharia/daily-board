@@ -257,3 +257,17 @@ def _fa_speaker(who):
         _FA_WHO = {n for n in names if len(n) >= 3}
     w = fa_norm(who).replace("خبرگزاری ", "").strip()
     return w in _FA_WHO or fa_norm(who) in _FA_WHO
+
+
+# "تهران- ایرنا- …", "تهران (ایرنا) - …", "TEHRAN, Oct 27 (Reuters) - …": where the story was filed, not what it is
+# about (a story on Cuba filed in Tehran is not about Iran)
+_DATELINE_FA = re.compile(r"^\s*[^\s\-–—:،()]{2,15}(?:\s[^\s\-–—:،()]{2,15})?\s*(?:[-–—]\s*(?:خبرگزاری\s*)?"
+                          r"[^\-–—:،()\s]{2,15}(?:\s[^\-–—:،()\s]{2,15})?\s*[-–—]|\([^)]{2,30}\)\s*[-–—:])\s*")
+_DATELINE_EN = re.compile(r"^\s*[A-Z][A-Za-z0-9 .,'-]{1,40}\([A-Za-z .]{2,25}\)\s*[-–—:]\s*")
+
+
+def strip_dateline(s):
+    s = s or ""
+    if has_fa(s[:40]):
+        return _DATELINE_FA.sub("", s, count=1)
+    return _DATELINE_EN.sub("", s, count=1)
