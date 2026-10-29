@@ -25,10 +25,12 @@ day). A proposal, a mediator's visit, a phone call or "a deal is close" changes 
 after either ends the effect.
 """
 import math
+import re
 
 from .aviation import recent_warnings
 from .lexicon import PLACES
-from .util import now
+from .sources import BY_ID
+from .util import fa_norm, now
 
 ZONES = [(25, "آرام نسبی", "Relative calm"), (50, "تنش متوسط", "Moderate tension"),
          (75, "تنش بالا", "High tension"), (101, "بحرانی", "Critical")]
@@ -226,6 +228,41 @@ def direct_strikes(clusters, t, hours=12, since=None):
     return out
 
 
+# whose account a report is: Iran's own outlets, America's and Israel's, or neither (wires, the region, Persian
+# outlets abroad, maritime and defence trackers); Telegram channels are no one's confirmation
+_SIDE = {"iran": "ir", "us": "us_il", "il": "us_il", "official": "us_il", "tg": None}
+_CLAIM = re.compile(r"\b(says?|said|claims?|claimed|according to|reportedly|state (media|tv)|alleg\w+)\b|"
+                    + "|".join(fa_norm(x) for x in ("ادعا", "مدعی", "به گفته", "اعلام کرد", "اطلاعیه", "خبر داد",
+                                                     "می گوید", "گفته است")), re.I)
+_CONFIRM = re.compile(r"\b(ukmto|centcom|pentagon|ambrey|confirm\w*|satellite|witness\w*)\b|"
+                      + "|".join(fa_norm(x) for x in ("مرکز عملیات تجارت دریایی", "سنتکام", "پنتاگون", "تایید کرد",
+                                                       "تایید شد", "آمبری", "تصاویر ماهواره", "شاهدان")), re.I)
+
+
+def _side(m):
+    g = (BY_ID.get(m.get("s")) or {}).get("group")
+    return _SIDE.get(g, "neutral")
+
+
+def independent(c):
+    """A strike told by someone other than the side that announced it: an IRGC statement carried by every Iranian
+    outlet is still one account. A report counts if it comes from another side (or from neither) and doesn't only
+    relay the claim ("Iran says…", "ادعای سپاه…"), unless it names its own confirmation (UKMTO, CENTCOM…)."""
+    ms = sorted((m for m in c.get("m", []) if _side(m)), key=lambda m: m.get("t", 0))
+    if not ms:
+        return False
+    first = _side(ms[0])
+    claimant = first if first != "neutral" else None
+    for m in ms:
+        sd = _side(m)
+        if sd == claimant:
+            continue
+        ti, su = fa_norm(m.get("ti") or ""), fa_norm((m.get("su") or "")[:400])
+        if not _CLAIM.search(ti) or _CONFIRM.search(ti + " " + su):
+            return True
+    return False
+
+
 def iran_side(c):
     """An attack in Hormuz or the Persian Gulf, or on Iran's soil (its border regions included), named by place;
     a story that only mentions Tehran next to places abroad isn't one."""
@@ -334,15 +371,18 @@ def index_value(clusters, av, sea, markets, t):
         v = max(CRITICAL - 1, min(v, direct))
     # anything that is war between Iran and America or Israel lifts the index however quiet the rest is: one confirmed
     # strike to "high tension", two separate ones (or one very large) to "critical"
+    # "critical" counts only strikes told by someone other than the side that announced it
     ds = direct_strikes(clusters, t, since=pre[0] if pre else None)
-    if len(ds) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 for c in ds):
-        v = max(v, CRITICAL + min(15, 4 * (len(ds) - 1)))
+    ind = [c for c in ds if independent(c)]
+    if len(ind) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 for c in ind):
+        v = max(v, CRITICAL + min(15, 4 * (len(ind) - 1)))
     elif ds:
         v = max(v, 65)
     # more attacks, more threats, a bigger build-up: a higher level (one attack alone is moderate tension)
     pr = pressure(clusters, t, pre=pre)
     v = max(v, pressure_floor(pr))
     p["direct"] = len(ds)
+    p["direct_ind"] = len(ind)
     if peace:
         p["peace"] = {"ceasefire": bool(pre), "ceasefire_probation": bool(cf and not cf["active"]),
                       "talks": bool(peace.get("talks"))}
