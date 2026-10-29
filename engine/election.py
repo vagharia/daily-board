@@ -208,7 +208,8 @@ def main():
             parsed = parse(fetch_text())
             if parsed:
                 doc = build(parsed, prev)
-                key = lambda d: (d.get("asof"), d.get("votes"), d.get("final"))  # noqa: E731
+                # anything shown that changed (a new field too) is published at once
+                key = lambda d: {k: v for k, v in d.items() if k != "updated"}  # noqa: E731
                 if not prev or key(doc) != key(prev) or t0 - prev.get("updated", 0) > 1800:
                     publish(doc)
                     print(f"round {i + 1}: published asof={doc['asof']} votes={doc['votes']} blocs={doc['blocs']}")
