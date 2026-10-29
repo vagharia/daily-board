@@ -654,6 +654,8 @@ class Clusterer:
             # directly (not merely through this report), remembering its id so its alert isn't sent twice
             if len(other["m"]) > 8 or len(best["m"]) + len(other["m"]) > 60:
                 continue
+            if best.get("manual") or other.get("manual"):
+                continue                               # a story put together by hand is never folded either way
             tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
             fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
             if not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
@@ -686,8 +688,9 @@ class Clusterer:
 def recluster(clusters, now_t, window=48 * 3600):
     """Rebuild the stories of the last `window` seconds from their reports with the current rules.
     Cluster ids are kept where a new story is mostly made of an old one's reports."""
-    old = [c for c in clusters if now_t - c["u"] > window]
-    recent = [c for c in clusters if now_t - c["u"] <= window]
+    # stories put together by hand (c["manual"]) stay as they are; new reports can still join them
+    old = [c for c in clusters if now_t - c["u"] > window or c.get("manual")]
+    recent = [c for c in clusters if now_t - c["u"] <= window and not c.get("manual")]
     owner = {m["k"]: c["id"] for c in recent for m in c["m"]}
     extra = {c["id"]: {k: c[k] for k in ("img", "vid", "en", "fa", "alerted") if k in c} for c in recent}
     members = sorted((m for c in recent for m in c["m"]), key=lambda m: m["t"])

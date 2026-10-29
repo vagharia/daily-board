@@ -479,6 +479,10 @@ def news_round(full=True):
             for f in ("ti", "su"):
                 if c["fa"].get(f):
                     c["fa"][f] = fix_terms(c["en"].get(f, ""), c["fa"][f], "fa")
+    for c in clusters:                      # a headline or summary set by hand (c["fixed"]) is kept as it is
+        for lang, fx in (c.get("fixed") or {}).items():
+            if lang in ("en", "fa") and isinstance(fx, dict):
+                c.setdefault(lang, {}).update({f: v for f, v in fx.items() if f in ("ti", "su") and v})
     for c in clusters:                      # never publish a story without a headline
         if "en" not in c or "fa" not in c:
             m = c["m"][0]
