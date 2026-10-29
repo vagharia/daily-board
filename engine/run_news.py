@@ -323,7 +323,7 @@ def news_round(full=True):
         log(f"live-page reports retimed: {fix_live_pages(clusters, seen)}")
         misc["live_fix"] = 1
         misc["recluster"] = 0                 # so their stories are rebuilt just below
-    if misc.get("recluster") != 8:
+    if misc.get("recluster") != 9:
         # once after a clustering change: rebuild the last two days' stories from their reports
         for c in clusters:                    # Pezeshkian's name was translated as "doctors"
             for m in c["m"]:
@@ -333,7 +333,7 @@ def news_round(full=True):
                         m["en_su"] = fix_terms(m.get("su") or "", m["en_su"], "en")
         n0 = len(clusters)
         clusters = recluster(clusters, T)
-        misc["recluster"] = 8
+        misc["recluster"] = 9
         # re-formed stories must not trigger alerts again; new reports in this round still can
         sent = alerts_state.setdefault("sent", [])
         sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)

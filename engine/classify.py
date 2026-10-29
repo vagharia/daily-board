@@ -536,6 +536,22 @@ def _head(t, s, limit=170):
     return t[:limit], (t[limit:] + " " + s).strip()
 
 
+_DIGEST_SEP = re.compile(r"\s*/\s+")
+
+
+def _digest_part(t, s, lang):
+    """A summary that strings several items together ("A/ B/ C", as some Persian outlets write): only the item about
+    the headline counts, or none if no item is, so the other items' people, places and events don't join it."""
+    parts = [x for x in _DIGEST_SEP.split(s or "") if x.strip()]
+    if len(parts) < 2 or sum(len(x) >= 20 for x in parts) < 2:
+        return s
+    norm = fa_norm if lang == "fa" else str.lower
+    words = lambda x: {w for w in re.findall(r"\w{3,}", norm(x))}  # noqa: E731
+    tw = words(t)
+    best = max(parts, key=lambda x: len(words(x) & tw))
+    return best if len(words(best) & tw) >= 2 else ""
+
+
 def classify(item):
     """Fill severity, topics, flags, people, places, countries on an item. Each report is read in its own
     language: a Persian report by the Persian rules and lexicon on its original text (its English translation is
@@ -551,12 +567,14 @@ def classify(item):
         return item
     if item.get("lang") == "fa":
         t, s = _head(item.get("ti") or "", strip_dateline(item.get("su") or ""))
+        s = _digest_part(t, s, "fa")
         sev, topics, flags = score_fa(t, s)
         en_t = en_s = ""
         fa_t, fa_s = t, s
     else:
         en_t, en_s = _head(item.get("en_ti") or item.get("ti") or "",
                            strip_dateline(item.get("en_su") or item.get("su") or ""))
+        en_s = _digest_part(en_t, en_s, "en")
         sev, topics, flags = score_en(en_t, en_s)
         fa_t = fa_s = ""
     title_topics = match_keys(TOPICS_RX, en_t, fa_t)

@@ -45,6 +45,18 @@ SYN = {
     "ten": "10", "eleven": "11", "twelve": "12", "dozen": "12",
 }
 
+# the same thing named two ways, kept to sure equivalents (a seat of power and its country, one word's forms). They
+# can only make two very close headlines match (same_story): headlines that match only thanks to them must share
+# more than half their words, two of them more than a country's name or "war".
+SAME = {"america": "us", "kremlin": "russia", "russian": "russia", "russians": "russia",
+        "mediator": "mediate", "mediators": "mediate", "mediation": "mediate", "mediates": "mediate",
+        "mediated": "mediate", "mediating": "mediate", "readiness": "ready",
+        "offers": "offer", "offered": "offer", "proposal": "offer", "proposals": "offer", "propose": "offer",
+        "proposes": "offer", "proposed": "offer"}
+# words too common to make two headlines the same story by themselves
+_GENERIC = {"us", "iran", "israel", "russia", "uk", "france", "china", "war", "say", "new", "report"}
+_SAME_PHRASES = (("white house", "us"), ("downing street", "uk"), ("élysée", "france"), ("elysee", "france"))
+
 ENTITY = set("""iran israel us trump hormuz tanker hezbollah houthi saudi qatar oman uae iraq yemen lebanon syria
 gaza netanyahu khamenei irgc centcom pentagon nuclear iaea missile drone strike navy carrier bahrain kuwait
 rubio vance bessent hegseth witkoff araghchi pezeshkian russia china europe jordan egypt turkey riyadh doha
@@ -228,20 +240,27 @@ def _stem(w):
     return w
 
 
-def tokens(title: str):
+def tokens(title: str, same=False):
     t = LIVE_PREFIX.sub("", title or "").lower()
     t = re.sub(r"(\d),(\d{3})\b", r"\1\2", t)               # 1,500 -> 1500
     t = re.sub(r"[’'`]s\b", "", t)
     t = t.replace("u.s.", "us ").replace("u.k.", "uk ").replace("united states", "us").replace("united nations", "un")
+    if same:
+        for a, b in _SAME_PHRASES:
+            t = t.replace(a, b)
     t = re.sub(r"[^a-z0-9\s]", " ", t)
     out = set()
     for w in t.split():
         w = SYN.get(w, w)
+        if same:
+            w = SAME.get(w, w)
         if w in STOP or (len(w) < 3 and not w.isdigit() and w not in ("us", "uk", "un", "eu")):
             continue
         if len(w) > 4 and w.endswith("s") and not w.endswith("ss"):
             w = w[:-1]
         w = SYN.get(w, _stem(w))
+        if same:
+            w = SAME.get(w, w)
         if w in STOP:
             continue
         out.add(w)
@@ -333,6 +352,8 @@ def speaker(title):
     not used. None if no speaker is found."""
     title = LIVE_PREFIX.sub("", title or "")
     m, says = _PREFIX.match(title), False
+    if m and len(title[m.end():].split()) <= 2:
+        m = None                                    # "Russia offers to mediate between Iran and US: report"
     if not m:
         m, says = _SAYS.match(title), True
     if not m or _NOT_SPK.search(m.group(1)):
@@ -397,7 +418,7 @@ def same_visit(a, b):
 
 def features(m):
     title = m.get("en_ti") or ""
-    return {"vars": variants(title), "cls": event_class(m), "geo": set(m.get("geo") or []), "visit": visit(title),
+    return {"vars": variants(title), "svars": variants(title, True), "cls": event_class(m), "geo": set(m.get("geo") or []), "visit": visit(title),
             "ctry": set(m.get("ctry") or []), "ppl": set(m.get("ppl") or []), "spk": speaker(title),
             "nums": _numbers(title), "days": frozenset(d.lower() for d in _DAYS.findall(title)),
             "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title)),
@@ -514,6 +535,13 @@ def same_story(a, b, dt=0, rare=frozenset()):
                     j = 0.0
             jac = max(jac, j)
     if not jac:
+        # the same words in other forms ("Kremlin" / "Russia", "mediator" / "mediate"): only very close headlines
+        for x in a.get("svars", ()):
+            for y in b.get("svars", ()):
+                j = _text_close(x, y, physical)
+                if j > 0.5 and len(x & y) >= 3 and len((x & y) - _GENERIC) >= 2:
+                    jac = max(jac, j)
+    if not jac:
         return False
     if (ka is None) != (kb is None) and jac < 0.5:
         # one report's kind wasn't recognised: rare shared words are enough only if the other isn't an event,
@@ -545,12 +573,12 @@ def same_story(a, b, dt=0, rare=frozenset()):
 _SUB = re.compile(r"\s+/\s+|؛|\s+\|\s+")
 
 
-def variants(title):
+def variants(title, same=False):
     """Token sets used for matching: the whole headline and, for "A / B" headlines, its first part alone."""
-    full = tokens(title)
+    full = tokens(title, same)
     head = _SUB.split(title or "", 1)[0]
     if head != (title or ""):
-        h = tokens(head)
+        h = tokens(head, same)
         if len(h) >= 2 and h != full:
             return [full, h]
     return [full]
