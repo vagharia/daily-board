@@ -264,6 +264,36 @@ def _anchor(lang, t, s):
 def _far(lang, t, s):
     text = (t or "") + " " + first_sentences(s or "", 220)
     return bool(_FAR_FA.search(fa_norm(text)) if lang == "fa" else _FAR_EN.search(text))
+# casualty figures inside Yemen (the Saudi-Houthi war, a UN or WHO toll): a yellow story, unless America, Israel or
+# Iran is the one striking. Casualties of Houthi attacks in Saudi Arabia are not inside Yemen.
+YEMEN_TOLL_CAP = 40.0
+_YEM_EN = re.compile(r"\b(yemen\w*|houthis?|sanaa|sana'a|aden|hodeidah|hudaydah|taiz|marib|lahij|saada|abyan|shabwa"
+                     r"|hadramout|hadramawt|mokha|dhamar|ibb|amran)\b", re.I)
+_YEM_FA = re.compile(fa_norm("یمن|حوثی|انصارالله|صنعا|عدن|الحدیده|حدیده|تعز|مأرب|مارب|لحج|صعده|ابین|شبوه|حضرموت|مخا|ذمار|عمران"))
+_TOLL_EN = re.compile(r"\b(killed|kills|kill|dead|deaths?|died|wounded|injured|injuries|casualt\w+|toll|fatalit\w+)\b", re.I)
+_TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|کشتار|مصدوم"))
+_SAUDI_PLACE_EN = re.compile(r"\b(riyadh|jeddah|jizan|jazan|najran|abha|taif|mecca|makkah|medina|dammam|khamis|yanbu"
+                             r"|ras tanura|abqaiq|inside saudi|in saudi)\b"
+                             r"|\b(attacks?|strikes?|missiles?|drones?|fire\w*|launch\w*)\b[^.;]{0,25}\b(on|at|against|toward|"
+                             r"towards|targeting|into) (saudi|the kingdom)", re.I)
+_SAUDI_PLACE_FA = re.compile(fa_norm("ریاض|جده|جیزان|جازان|نجران|ابها|طائف|مکه|مدینه|دمام|خمیس|ینبع|راس تنوره|ابقیق|در عربستان|خاک عربستان")
+                             + "|" + fa_norm("(?:حمله|حملات|موشک|پهپاد|شلیک)[^.؛]{0,25}(?:به|علیه)\\s*(?:عربستان|خاک سعودی)"))
+_BIG_ACTOR_EN = re.compile(r"\b(u\.?s\.?|america\w*|pentagon|centcom|israel\w*|idf|iran(?!-(?:backed|aligned|allied))\w*)\b",
+                           re.I)
+_BIG_ACTOR_FA = re.compile(fa_norm("آمریکا|امریکا|اسرائیل|اسراییل|صهیونیست|سنتکام|پنتاگون|ایران"))
+
+
+def _yemen_toll(lang, t, s):
+    """Casualty figures in Yemen, not of a strike by America, Israel or Iran and not of an attack in Saudi Arabia."""
+    if lang == "fa":
+        t = fa_norm(t)
+        return bool(_YEM_FA.search(t) and _TOLL_FA.search(t) and re.search(r"[0-9۰-۹]|صدها|ده ها|هزاران", t)
+                    and not _SAUDI_PLACE_FA.search(t) and not _BIG_ACTOR_FA.search(t.replace(fa_norm("ایران ساخت"), "")))
+    t = re.sub(r"\biran[- ]backed\b", "", t or "", flags=re.I)
+    return bool(_YEM_EN.search(t) and _TOLL_EN.search(t) and re.search(r"\d|\b(dozens|hundreds|thousands|scores)\b", t, re.I)
+                and not _SAUDI_PLACE_EN.search(t) and not _BIG_ACTOR_EN.search(t))
+
+
 CIVIL_DRILL_CAP = 35.0
 _CIVIL_FA = re.compile(r"خدمت\s*فاطمی|درمان|پزشک|دندان|سلامت|بهداشت|امداد|هلال\s*احمر|آتش\s*نشان|اطفا|زلزله|سیل|"
                        r"مدیریت\s*بحران|اورژانس|بیمارستان|جهادی|محرومیت|کمک\s*مومنانه|خدمت\s*رسانی|دانش\s*آموز|مدارس")
@@ -519,6 +549,9 @@ def classify(item):
         flags = (set(flags) - {"exercise"}) | {"civil_drill"}
         topics = set(topics) - {"military"}
         sev = min(sev, CIVIL_DRILL_CAP)
+    if _yemen_toll(lang, fa_t or en_t, fa_s or en_s):
+        flags = (set(flags) - HARD_EVENTS) | {"yemen_toll"}
+        sev = min(sev, YEMEN_TOLL_CAP)
     anchored = _anchor(lang, fa_t or en_t, fa_s or en_s)
     if not anchored and _far(lang, fa_t or en_t, fa_s or en_s):
         # China and India in the Himalayas, China and America over Cuba: nothing of the Middle East or of Iran's war
