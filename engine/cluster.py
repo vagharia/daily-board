@@ -638,7 +638,7 @@ class Clusterer:
         ranked = []
         for cid, n in cand.items():
             c = self.byid.get(cid)
-            if c and abs(item["t"] - c["t"]) <= WINDOW["other"]:
+            if c and abs(item["t"] - _since(c)) <= WINDOW["other"]:
                 ranked.append((n, cid))
         matches = []
         for _, cid in sorted(ranked, reverse=True)[:40]:
@@ -649,7 +649,7 @@ class Clusterer:
                 return c, False
             feats = self.tok.get(cid, {})
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
-            if abs(item["t"] - c["t"]) > WINDOW["event" if physical else "other"]:
+            if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"]:
                 continue                                   # when: measured from the story's first report
             times = {m["k"]: m["t"] for m in c["m"]}
             score = max((same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()),
@@ -692,6 +692,13 @@ class Clusterer:
         best["u"] = max(best["u"], item["t"])
         self._index(best)
         return best, False
+
+
+def _since(c):
+    """When a story's time window starts: its first report, or for a story marked as ongoing by hand
+    (c["ongoing"]) its latest one, so later reports of a long-running story keep joining it. Where the story sits
+    in the feed and when it was first reported don't change: those go by its first report (c["t"])."""
+    return c["u"] if c.get("ongoing") else c["t"]
 
 
 def recluster(clusters, now_t, window=48 * 3600):
