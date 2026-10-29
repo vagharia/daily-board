@@ -13,7 +13,7 @@ from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
 from .sources import BY_ID, GROUPS, SOURCES
 from .translate import Translator, fix_terms
-from .util import data_path, fa_norm, first_sentences, load_json, log, now, save_json, speaker_first, truncate
+from .util import data_path, has_fa, fa_norm, first_sentences, load_json, log, now, save_json, speaker_first, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
                "sev", "topics", "flags", "ppl", "geo", "ctry", "wit")
@@ -182,6 +182,25 @@ def drop_reply_copies(clusters, seen, T):
     return n
 
 
+_FOLLOW = re.compile(r"^(?P<reply>.+?) \((?:در ادامهٔ|following): (?P<orig>.+?)\)$")
+
+
+def fix_follow_ups(clusters, T):
+    """Short replies on Telegram stored as "<reply> (در ادامهٔ: <the post it answers>)" that only comment on that
+    post ("ممکن هم هست ناشی از عوامل دیگری باشد…") leave their stories, as such comments are left out now
+    (collect._tg_parse); follow-ups with news of their own stay. Returns how many were dropped."""
+    n = 0
+    for c in clusters:
+        for m in list(c["m"]):
+            g = _FOLLOW.match(m.get("ti") or "") if m.get("via") == "tg" and T - m["t"] <= 3 * 86400 else None
+            if g and collect.follow_up_comment(g["reply"]):
+                c["m"].remove(m)
+                c.pop("en", None)
+                c.pop("fa", None)
+                n += 1
+    return n
+
+
 def reread_cut_posts(clusters, T):
     """Telegram posts of the last week whose headline was cut mid-sentence while their text lost the rest are
     read again, each from its own page, and get their whole text back. Returns (posts read again, posts found)."""
@@ -318,6 +337,9 @@ def news_round(full=True):
         # replies on Telegram pages were once read as the post they answer: such copies are dropped and read again
         log(f"telegram replies to read again: {drop_reply_copies(clusters, seen, T)}")
         misc["tg_replies"] = 1
+    if misc.get("tg_follow") != 1:
+        log(f"telegram replies that only comment, dropped: {fix_follow_ups(clusters, T)}")
+        misc["tg_follow"] = 1
     if misc.get("tg_cut") != 2:
         log("telegram posts cut mid-sentence, read again: %d of %d" % reread_cut_posts(clusters, T))
         misc["tg_cut"] = 2

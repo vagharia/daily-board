@@ -12,7 +12,7 @@ from . import config, http, media
 from .feeds import parse_feed
 from .sources import SOURCES, source_for_domain
 from . import witness
-from .util import clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha, norm_url, tg_text
+from .util import fa_norm, clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha, norm_url, tg_text
 
 KW_EN = '(Iran OR Iranian OR Israel OR Israeli OR Hormuz OR Tehran OR IRGC OR Hezbollah OR Houthi OR "Persian Gulf" OR Gulf OR CENTCOM)'
 KW_FA = "(آمریکا OR اسرائیل OR هرمز OR ترامپ OR سپاه OR حمله OR تحریم OR مذاکره OR موشک)"
@@ -187,9 +187,30 @@ def tg_entries(handle):
     return _tg_parse(BeautifulSoup(r.content, "lxml"))
 
 
+def follow_up_comment(text):
+    """A short reply that only comments ("ممکن هم هست…", "نگو که…", "البته باید صبر کرد"): no news of its own, no
+    denial, no place named, no one quoted."""
+    from .classify import score_en
+    from .classify_fa import DENIAL, score_fa
+    from .lexicon import PLACES_RX, match_keys
+    if has_fa(text):
+        sev, _, _ = score_fa(text, "")
+        if DENIAL.search(fa_norm(text)):
+            return False
+    else:
+        sev, _, fl = score_en(text, "")
+        if "denial" in fl:
+            return False
+    if sev >= 40 or witness.cities_in(text, "fa" if has_fa(text) else "en") or re.match(r"^[^:：]{2,45}[:：]\s", text):
+        return False                        # news of its own, a place, or someone quoted ("درخواست لرها: …")
+    return not (match_keys(PLACES_RX, "" if has_fa(text) else text, text if has_fa(text) else ""))
+
+
 def _tg_parse(soup):
-    out = []
+    posts = []
     for div in soup.select("div.tgme_widget_message[data-post]"):
+        rp = div.select_one("a.tgme_widget_message_reply")
+        reply_to = (rp.get("href") or "").split("t.me/", 1)[-1].split("?")[0] if rp is not None else ""
         tnode, quoted = tg_text(div)
         tm = div.select_one("time[datetime]")
         if not tnode or not tm:
@@ -205,27 +226,41 @@ def _tg_parse(soup):
         lines = [x for x in lines if len(x) >= 8]
         if not lines:
             continue
-        title, rest = lines[0], " ".join(lines[1:])
-        quoted = _clean_tg_line(quoted)
-        if quoted and len(title) <= 70 and len(rest) < 40:
-            # a short follow-up to an earlier post ("گزارش مشابه از کرمانشاه و اهواز") is read together with it
-            cut = quoted[:90]
-            cut = cut[: cut.rfind(" ")] + "…" if len(quoted) > 90 and " " in cut else cut
-            title = f"{title} (در ادامهٔ: {cut})" if has_fa(title + quoted) else f"{title} (following: {cut})"
-        title, rest = tg_head(title, rest)
-        extra = {}
-        if wit:
-            # citizen reports ("پیام‌های دریافتی: …"): one news sentence and a line of counts (witness.py)
-            title, rest, en_ti, en_su = witness.texts(wit)
-            extra = {"wit": wit, "en_ti": en_ti, "en_su": en_su}
         img = None
         ph = div.select_one(".tgme_widget_message_photo_wrap")
         if ph and ph.get("style"):
             m = _BG.search(ph["style"])
             if m:
                 img = norm_url(m.group(1))
-        out.append({"title": title, "link": f"https://t.me/{div['data-post']}", "summary": rest[:900], "content": "",
-                    "date": tm["datetime"], "media": [{"url": img, "type": "image/jpeg", "medium": "image", "w": 0}] if img else [],
+        posts.append({"post": div["data-post"], "lines": lines, "quoted": _clean_tg_line(quoted), "reply_to": reply_to,
+                      "wit": wit, "date": tm["datetime"], "img": img})
+    out = []
+    for p in posts:
+        lines, quoted, wit = p["lines"], p["quoted"], p["wit"]
+        title, rest = lines[0], " ".join(lines[1:])
+        if quoted and len(title) <= 70 and len(rest) < 40 and not wit:
+            # a short reply to an earlier post. A comment on it ("ممکن هم هست ناشی از عوامل دیگری باشد…") adds no news:
+            # a channel's comment on its own post is left out (the post itself is read on its own), a comment on
+            # another channel's post is headed by that post. A follow-up with news of its own ("ترامپ این خبر را
+            # تکذیب کرد", "گزارش مشابه از کرمانشاه و اهواز") is read together with the post it answers.
+            if follow_up_comment(title + " " + rest):
+                if p["reply_to"].split("/")[0].lower() == p["post"].split("/")[0].lower():
+                    continue
+                fa = has_fa(quoted + title)
+                title, rest = quoted, (("در ادامه: " if fa else "Followed by: ") + title + (" " + rest if rest else ""))
+            else:
+                cut = quoted[:90]
+                cut = cut[: cut.rfind(" ")] + "…" if len(quoted) > 90 and " " in cut else cut
+                title = f"{title} (در ادامهٔ: {cut})" if has_fa(title + quoted) else f"{title} (following: {cut})"
+        title, rest = tg_head(title, rest)
+        extra = {}
+        if wit:
+            # citizen reports ("پیام‌های دریافتی: …"): one news sentence and a line of counts (witness.py)
+            title, rest, en_ti, en_su = witness.texts(wit)
+            extra = {"wit": wit, "en_ti": en_ti, "en_su": en_su}
+        img = p["img"]
+        out.append({"title": title, "link": f"https://t.me/{p['post']}", "summary": rest[:900], "content": "",
+                    "date": p["date"], "media": [{"url": img, "type": "image/jpeg", "medium": "image", "w": 0}] if img else [],
                     "source_name": "", "source_url": "", **extra})
     return out
 
