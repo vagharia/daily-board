@@ -20,7 +20,22 @@ ALIASES = {"nyt": ["نیویورک‌تایمز", "نیویورک تایمز"], 
            "toi": ["تایمز اسرائیل", "تایمز اسراییل"], "irna": ["ایرنا"], "isna": ["ایسنا"],
            "mehr": ["خبرگزاری مهر"], "fars": ["خبرگزاری فارس", "فارس"], "bloomberg": ["بلومبرگ"],
            "wapo": ["واشنگتن پست"], "guardian": ["گاردین"], "ft": ["فایننشال تایمز"],
-           "iranintl": ["ایران اینترنشنال", "اینترنشنال"]}
+           "iranintl": ["ایران اینترنشنال", "اینترنشنال"],
+           "ukmto": ["مرکز عملیات تجارت دریایی بریتانیا", "مرکز عملیات تجاری دریایی بریتانیا",
+                     "سازمان عملیات تجارت دریایی بریتانیا", "مرکز عملیات تجارت دریایی انگلیس",
+                     "عملیات تجارت دریایی بریتانیا", "آژانس دریایی بریتانیا", "UKMTO"],
+           "cnbc": ["سی ان بی سی"], "abc": ["ای بی سی نیوز"], "nbc": ["ان بی سی"], "cbs": ["سی بی اس"],
+           "politico": ["پولیتیکو"], "economist": ["اکونومیست"], "haaretz": ["هاآرتص", "هاآرتز"],
+           "ynet": ["یدیعوت آحارونوت", "وای نت"], "almonitor": ["المانیتور"], "mee": ["میدل ایست آی"],
+           "tass": ["تاس"], "anadolu": ["آناتولی"], "centcom": ["سنتکام", "فرماندهی مرکزی آمریکا"],
+           "pentagon": ["پنتاگون"], "iaea": ["آژانس بین المللی انرژی اتمی"]}
+# outlets the channels relay that aren't among the sources: such a post is labelled as relaying an outlet, though
+# there is nothing here to check it against
+OTHER = {"x:semafor": ["سمافور", "Semafor"], "x:hadath": ["الحدث", "شبکه الحدث"],
+         "x:ch12": ["شبکه ۱۲", "شبکه 12", "کانال ۱۲", "کانال 12"], "x:ch13": ["شبکه ۱۳", "کانال ۱۳", "شبکه 13"],
+         "x:kan": ["شبکه کان", "رادیو ارتش اسرائیل"], "x:mayadeen": ["المیادین"], "x:tasnim": ["تسنیم"],
+         "x:jamaran": ["جماران"], "x:nyp": ["نیویورک پست"], "x:newsweek": ["نیوزویک"],
+         "x:atlantic": ["آتلانتیک"], "x:washex": ["واشنگتن اگزمینر"], "x:times": ["تایمز لندن"]}
 
 
 def _names():
@@ -33,28 +48,44 @@ def _names():
             n = fa_norm(n)
             if len(n) >= 3:
                 out[n] = s["id"]
+    for sid, names in OTHER.items():
+        for n in names:
+            out.setdefault(fa_norm(n), sid)
     return out
 
 
 NAMES = _names()
 _ALT = "|".join(sorted((re.escape(n).replace(r"\ ", r"\s*") for n in NAMES), key=len, reverse=True))
-# "X:" at the start, "به گزارش X", "به نقل از X", "X گزارش داد / نوشت / مدعی شد", "به X گفتند"
-CITE = re.compile(r"^\W*(" + _ALT + r")\s*[:：]"
-                  r"|(?:به\s*گزارش|به\s*نقل\s*از|بنا\s*بر\s*گزارش|طبق\s*گزارش|بر\s*اساس\s*گزارش)\s*(?:خبرگزاری\s*|شبکه\s*|روزنامه\s*)?(" + _ALT + r")"
-                  r"|^\W*(" + _ALT + r")\s+(?:گزارش\s*داد|گزارش\s*می\s*دهد|نوشت|مدعی\s*شد|اعلام\s*کرد|می\s*گوید|ادعا\s*کرد)"
+_PRE = r"(?:خبرگزاری\s*|شبکه\s*|روزنامه\s*|نشریه\s*|پایگاه\s*خبری\s*|وبسایت\s*|رادیو\s*)?"
+_SAID = (r"(?:گزارش\s*(?:داد|داده|کرد|کرده|می\s*دهد)|نوشت|نوشته|مدعی\s*شد|اعلام\s*(?:کرد|کرده)|می\s*گوید"
+         r"|ادعا\s*کرد|خبر\s*(?:داد|داده)|فاش\s*کرد|نشان\s*می\s*دهد|افشا\s*کرد|به\s*دست\s*آورده)")
+# "X:" or "X |" at the start, "به گزارش X", "به نقل از X", "X (…) … گزارش داد / نوشت / خبر داد", "به X گفتند",
+# "تحقیقات رویترز نشان می‌دهد", "در گفت‌وگو با شبکه X"
+_LAND = r"(?:\s*(?:اسرائیل|اسراییل|آمریکا|قطر|عربستان|ترکیه|انگلیس|بریتانیا|روسیه|چین|عربی|فارسی|انگلیسی))?"
+CITE = re.compile(r"^\W*" + _PRE + r"(" + _ALT + r")" + _LAND + r"\s*(?:[:：|]|$)"
+                  r"|خبرنگار\s*(?:ارشد\s*)?" + _PRE + r"(" + _ALT + r")"
+                  r"|(?:به\s*گزارش|به\s*نقل\s*از|بنا\s*بر\s*گزارش|طبق\s*گزارش|بر\s*اساس\s*گزارش|ادعای)\s*" + _PRE
+                  + r"(" + _ALT + r")"
+                  r"|^\W*" + _PRE + r"(" + _ALT + r")(?:\s*\([^)]{0,30}\))?[^.!؟?:\n]{0,70}?" + _SAID +
                   # "AFP, citing two judicial sources, has reported that ..."
-                  r"|^\W*(" + _ALT + r")\s+(?:به\s*نقل\s*از|با\s*استناد\s*به)[^.!?\n]{0,80}?(?:گزارش\s*(?:کرده|کرد|داده|داد)|نوشته|نوشت|اعلام\s*کرده)"
-                  r"|به\s*(" + _ALT + r")\s*(?:گفت|گفتند|گفته)",
+                  r"|^\W*" + _PRE + r"(" + _ALT + r")\s+(?:به\s*نقل\s*از|با\s*استناد\s*به)[^.!?\n]{0,80}?(?:گزارش\s*(?:کرده|کرد|داده|داد)|نوشته|نوشت|اعلام\s*کرده)"
+                  r"|(?:تحقیقات|تحقیق|بررسی|افشاگری|گزارش)\s*(?:جدید\s*|اختصاصی\s*|تازه\s*)?" + _PRE + r"(" + _ALT
+                  + r")\s*(?:نشان|حاکی|فاش|می\s*گوید|نیز)"
+                  r"|(?:گفت\s*و?\s*گو|مصاحبه)\s*(?:ای\s*)?(?:اختصاصی\s*)?با\s*" + _PRE + r"(" + _ALT + r")"
+                  r"|به\s*" + _PRE + r"(" + _ALT + r")\s*(?:گفت|گفتند|گفته)",
                   re.I)
+_GULF = re.compile(r"خلیج\s*$")
 
 
 def cited(m):
     """The outlets a channel post says it relays."""
     t = fa_norm(speaker_first(m.get("ti") or ""))   # "… - فارس" names the outlet last
+    # the start of the text too: "به گزارش X", "در گفت‌وگو با شبکه X"
+    s = fa_norm((m.get("su") or "")[:300])
     out = set()
-    for mt in CITE.finditer(t):
-        for g in mt.groups():
-            if g:
+    for mt in list(CITE.finditer(t)) + list(CITE.finditer(s)):
+        for i, g in enumerate(mt.groups(), 1):
+            if g and not _GULF.search((t if mt.string is t else s)[: mt.start(i)]):
                 sid = NAMES.get(fa_norm(re.sub(r"\s+", " ", g)))
                 if sid is None:
                     sid = next((v for k, v in NAMES.items() if re.sub(r"\s", "", k) == re.sub(r"\s", "", g)), None)
