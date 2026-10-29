@@ -26,6 +26,15 @@ strait but all any some such very much many both each other only even own its al
 LIVE_PREFIX = re.compile(r"^\s*(?:[^:|–—]{0,40}\b(?:live|updates?|crisis|war|conflict|latest)\b[^:|–—]{0,20})\s*[:|–—]\s+",
                          re.I)
 
+
+def strip_live(title):
+    """A live page's label taken off its headline ("Iran war latest: Trump says …"), but only when a whole headline
+    follows: "US fires top army general in latest ouster: media" is a headline, not a label."""
+    m = LIVE_PREFIX.match(title or "")
+    if m and len(title[m.end():].split()) >= 4:
+        return title[m.end():]
+    return title or ""
+
 SYN = {
     "u.s": "us", "american": "us", "americans": "us", "washington": "us",
     "israeli": "israel", "israelis": "israel", "iranian": "iran", "iranians": "iran", "tehran": "iran",
@@ -241,7 +250,7 @@ def _stem(w):
 
 
 def tokens(title: str, same=False):
-    t = LIVE_PREFIX.sub("", title or "").lower()
+    t = strip_live(title).lower()
     t = re.sub(r"(\d),(\d{3})\b", r"\1\2", t)               # 1,500 -> 1500
     t = re.sub(r"[’'`]s\b", "", t)
     t = t.replace("u.s.", "us ").replace("u.k.", "uk ").replace("united states", "us").replace("united nations", "un")
@@ -350,7 +359,7 @@ def speaker(title):
     words naming the speaker ("GCC chief", "ALECSO") when the headline reads "<speaker> says/condemns …".
     A bare "<name>:" prefix that is neither a person nor a country is often the outlet being cited, so it is
     not used. None if no speaker is found."""
-    title = LIVE_PREFIX.sub("", title or "")
+    title = strip_live(title)
     m, says = _PREFIX.match(title), False
     if m and len(title[m.end():].split()) <= 2:
         m = None                                    # "Russia offers to mediate between Iran and US: report"
