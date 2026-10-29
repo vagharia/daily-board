@@ -26,7 +26,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 21;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 25;
+  var APP_BUILD = 26;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -46,7 +46,7 @@
       unconfCited: 'در انتظار تأیید منبع', unconfCitedShort: 'در انتظار تأیید:', unconfCitedNote: 'کانال تلگرامی این خبر را از رسانه‌ای نقل کرده، ولی گزارش خود آن رسانه هنوز پیدا نشده است. وقتی پیدا شود، برچسب برداشته می‌شود.',
       lite: 'حالت کم‌مصرف', liteOn: 'حالت کم‌مصرف روشن شد: فقط تیتر خبرهای ۲۴ ساعت، بدون عکس و ویدیو.', liteOffMsg: 'حالت کم‌مصرف خاموش شد.', liteTab: 'در حالت کم‌مصرف فقط تب خبرها کار می‌کند.', liteWeek: 'در حالت کم‌مصرف فقط خبرهای ۲۴ ساعت می‌آید.', liteNote: 'حالت کم‌مصرف: فقط تیتر خبرها؛ متن کامل و منابع در حالت عادی.',
       theme: 'تم', themeDark: 'تیره', themeLight: 'روشن', liveAir: 'نقشه زنده پروازها', liveMil: 'پروازهای نظامی (ADS-B Exchange)',
-      firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
+      lastShort: 'آخرین {t}', firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
@@ -108,7 +108,7 @@
       unconfCited: 'Awaiting source check', unconfCitedShort: 'Awaiting check:', unconfCitedNote: 'A Telegram channel relays this from an outlet, but that outlet\'s own report hasn\'t been found yet. Once it is, the label goes.',
       lite: 'Data saver', liteOn: 'Data saver on: only the day\'s headlines, no pictures or video.', liteOffMsg: 'Data saver off.', liteTab: 'In data saver mode only the news tab works.', liteWeek: 'In data saver mode only the last 24 hours are loaded.', liteNote: 'Data saver: headlines only; full text and sources in normal mode.',
       theme: 'Theme', themeDark: 'Dark', themeLight: 'Light', liveAir: 'Live flight map', liveMil: 'Military flights (ADS-B Exchange)',
-      firstRep: 'First reported {t}', lastRep: 'Last update {t}',
+      lastShort: 'latest {t}', firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
@@ -446,7 +446,9 @@
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
     var unc = c.unconf ? '<span class="unc">' + esc(uncText(c, '')) + '</span>' : '';
     var green = c.green && !c.unconf ? '<span class="deesc">' + esc(t('deesc')) + '</span>' : '';
-    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + green + unc + fresh + '<span class="time">' + esc(ago(c.t)) + '</span></div>';
+    // a sign of war at the main front that is still being reported: its latest report too
+    var last = c.fl && c.u - c.t > 600 ? '<span class="last">' + esc(t('lastShort', { t: clock(c.u) })) + '</span>' : '';
+    return '<div class="s-meta"><span class="src">' + esc(srcName(first)) + '</span>' + more + green + unc + fresh + '<span class="time">' + esc(ago(c.t)) + '</span>' + last + '</div>';
   }
   // a broken image collapses its frame instead of leaving an empty box
   window.imgFail = function (img) {

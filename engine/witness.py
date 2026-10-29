@@ -55,15 +55,16 @@ _CITY_EN = [(k, re.compile(r"\b(?:" + "|".join(re.escape(x.lower()) for x in [v[
 # what was heard, strongest first
 KINDS = [
     ("blast", r"انفجار|منفجر|موج انفجار|لرزید|لرزش|لرزوند|بد\s*زد|صدای\s*(?:مهیب|وحشتناک|شدید|بلند|بم)|بمب|اصابت"),
+    ("launch", r"پرتاب\s*موشک|شلیک\s*موشک|موشک"),
     ("airdef", r"پدافند|ضد\s*هوایی|ضدهوایی|تیربار|شلیک|رهگیری|منور"),
     ("jet", r"جنگنده|جت|هواپیما|هواپیمای\s*نظامی|دیوار صوتی"),
     ("drone", r"پهپاد|ریزپرنده|کوادکوپتر|صدای\s*موتور"),
     ("siren", r"آژیر|اژیر"),
 ]
 _KIND_RX = [(k, re.compile(fa_norm(rx))) for k, rx in KINDS]
-KIND_FA = {"blast": "صدای انفجار", "airdef": "شلیک پدافند", "jet": "صدای جنگنده", "drone": "صدای پهپاد",
+KIND_FA = {"blast": "صدای انفجار", "launch": "پرتاب موشک", "airdef": "شلیک پدافند", "jet": "صدای جنگنده", "drone": "صدای پهپاد",
            "siren": "صدای آژیر"}
-KIND_EN = {"blast": "explosions", "airdef": "air defence fire", "jet": "jets", "drone": "drones", "siren": "sirens"}
+KIND_EN = {"blast": "explosions", "launch": "missile launches", "airdef": "air defence fire", "jet": "jets", "drone": "drones", "siren": "sirens"}
 SHAKE = re.compile(fa_norm(r"لرزید|لرزش|لرزوند|شیشه"))
 # an explanation in the post itself: an exercise, a test, a gas explosion, ordnance being destroyed
 OFFICIAL = re.compile(fa_norm(r"رزمایش|مانور|تست\s*پدافند|آزمایش|انفجار\s*گاز|نشت\s*گاز|کپسول|انهدام\s*مهمات|خنثی\s*سازی"
@@ -91,6 +92,7 @@ def parse(raw):
     # normalised block by block: fa_norm folds line breaks, which separate the messages
     blocks = [fa_norm(b) for b in re.split(r"\n\s*\n", body) if b.strip()]
     kinds, cities, times, n, shake, official = Counter(), Counter(), [], 0, False, False
+    ck = {}                                         # what was heard, city by city
     tag_city = set()
     for b in blocks:
         tags = set()
@@ -108,6 +110,7 @@ def parse(raw):
         kinds.update(ks)
         for c in (here or tag_city):
             cities[c] += 1
+            ck.setdefault(c, set()).update(ks)
         for h, m in _TIME.findall(to_latin_digits(b_plain)):
             times.append(f"{int(h):02d}:{m}")
         shake = shake or bool(SHAKE.search(b_plain))
@@ -117,7 +120,7 @@ def parse(raw):
     if any(x.startswith("00:") for x in times):
         times = ["00" + x[2:] if x.startswith("12:") else x for x in times]     # "12:25" on a 12-hour clock
     return {"n": n, "kinds": dict(kinds), "cities": dict(cities), "times": sorted(times), "shake": shake,
-            "official": official}
+            "official": official, "ck": {c: sorted(v) for c, v in ck.items()}}
 
 
 def _fa_digits(s):
@@ -168,12 +171,12 @@ def texts(w):
 
 
 def score(w):
-    """(severity, flags) of a post of citizen reports: red when explosions or air defence fire are reported by three
-    people in one city or from two cities or more, or jets, drones or sirens from two cities or more; orange
-    otherwise; yellow when the messages themselves name an exercise, a test or a non-military explosion."""
+    """(severity, flags) of a post of citizen reports: red when explosions, missile launches or air defence fire are
+    reported by three people in one city or from two cities or more, or jets, drones or sirens from two cities or
+    more; orange otherwise; yellow when the messages themselves name an exercise, a test or a non-military explosion."""
     if w.get("official"):
         return 35.0, {"witness", "controlled"}
-    strong = bool(set(w["kinds"]) & {"blast", "airdef"})
+    strong = bool(set(w["kinds"]) & {"blast", "launch", "airdef"})
     most = max(w["cities"].values(), default=0)
     many = len(w["cities"]) >= 2
     if (strong and (most >= 3 or many)) or (not strong and many):

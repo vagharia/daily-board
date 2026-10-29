@@ -4,7 +4,7 @@ import os
 import re
 import time
 
-from . import alerts, aviation, collect, config, magazine, media, sea, store, stories, util, xposts
+from . import alerts, aviation, collect, config, flash, magazine, media, sea, store, stories, util, xposts
 from .classify import classify
 from . import citation
 from .cluster import Clusterer, prune, recluster, refresh
@@ -276,6 +276,7 @@ def public_cluster(c, short=False):
         "ppl": c.get("ppl", [])[:5], "flags": [f for f in c.get("flags", []) if f in PUBLIC_FLAGS],
         **({"unconf": c["unconf"] if isinstance(c["unconf"], str) else "event"} if c.get("unconf") else {}),
         **({"green": 1} if c.get("green") else {}),
+        **({"fl": 1} if c.get("flash") else {}),
     }
 
 
@@ -479,6 +480,14 @@ def news_round(full=True):
             for f in ("ti", "su"):
                 if c["fa"].get(f):
                     c["fa"][f] = fix_terms(c["en"].get(f, ""), c["fa"][f], "fa")
+    for c in clusters:                      # main-front stories told only by Telegram channels (flash.py)
+        if T - c["u"] > 2 * 86400 or not any(flash.events(m) for m in c["m"]):
+            c.pop("flash", None)
+            continue
+        c["flash"] = 1                      # a sign of war at the main front: the card shows its latest report too
+        fx = flash.story_texts(c)           # told only by channels: a headline made of all their reports
+        if fx:
+            c["en"], c["fa"] = fx["en"], fx["fa"]
     for c in clusters:                      # a headline or summary set by hand (c["fixed"]) is kept as it is
         for lang, fx in (c.get("fixed") or {}).items():
             if lang in ("en", "fa") and isinstance(fx, dict):
@@ -564,7 +573,12 @@ def news_round(full=True):
         f"{[l['id'] for l in lights if l['state'] == 'on']}")
 
     # ---------------------------------------------------------------- 9. alerts
-    alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run)
+    # instant alerts from the main front, step by step (flash.py); their stories don't also get the red-story alert
+    fstate = alerts_state.setdefault("flash", {})
+    start = {m["k"]: c["t"] for c in clusters for m in c["m"]}
+    flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run)
+    alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run, flash_msgs=flash_msgs,
+                           flash_keys=set(fstate.get("keys", {})))
 
     # ---------------------------------------------------------------- 10. stories, chosen every two hours
     if T - (misc.get("stories_t") or 0) >= stories.EVERY - 300 or not os.path.exists(data_path("stories.json")):
@@ -596,6 +610,7 @@ def news_round(full=True):
         "schedule": {"news_min": 5, "ticker_min": 5, "full_min": 15},
     })
     save_json(data_path("x.json"), {"v": 1, "updated": T, "posts": posts[:120], "stats": xstats})
+    save_json(data_path("flash.json"), {"v": 1, "updated": T, "events": fstate.get("log", [])[-200:]})
     for lang in ("fa", "en"):
         save_json(data_path(f"lite_{lang}.json"), lite(T, day, idx, lights, lang))
     src_health = []

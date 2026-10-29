@@ -171,7 +171,9 @@ def _fa_num(n):
     return "یک" if n == 1 else str(n).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
 
 
-def run(state, clusters, lights, index, first_run=False):
+def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None):
+    """flash_msgs: the main front's instant alerts (flash.py), sent first; flash_keys: reports they cover, whose
+    stories don't also get the red-story alert."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     sent = state.setdefault("sent", [])
     prev_lights = state.setdefault("lights", {})
@@ -182,12 +184,14 @@ def run(state, clusters, lights, index, first_run=False):
     lights_on = [l for l in lights if l["state"] == "on" and prev_lights.get(l["id"]) != "on"]
     zone_up = index and state.get("zone") is not None and index["zone"] > state["zone"]
     messages = []
+    fk = flash_keys or set()
+    red_msg = [c for c in red_new if not any(m["k"] in fk for m in c["m"])]
     if not first_run:
-        red_new.sort(key=lambda c: -c["sev"])
-        for c in red_new[:4]:
+        red_msg.sort(key=lambda c: -c["sev"])
+        for c in red_msg[:4]:
             messages.append(_story(c))
-        if len(red_new) > 4:
-            messages.append(f"🔴 و {_fa_num(len(red_new) - 4)} خبر قرمز دیگر در بولتن.")
+        if len(red_msg) > 4:
+            messages.append(f"🔴 و {_fa_num(len(red_msg) - 4)} خبر قرمز دیگر در بولتن.")
         for l in lights_on:
             ev = l["evidence"][0] if l["evidence"] else None
             line = html.escape(ev.get("fa", "")) if ev else ""
@@ -202,11 +206,12 @@ def run(state, clusters, lights, index, first_run=False):
     if index:
         state["zone"] = index["zone"]
     if not token:
-        return {"enabled": False, "queued": len(messages)}
+        return {"enabled": False, "queued": len(messages) + len(flash_msgs or [])}
     subs = poll(state, token)
     if not subs:
         return {"enabled": True, "chat": False, "queued": len(messages)}
-    ok = send_all(state, token, subs, messages[:7]) if messages else 0
+    messages = list(flash_msgs or []) + messages[:7]
+    ok = send_all(state, token, subs, messages) if messages else 0
     return {"enabled": True, "chat": True, "subscribers": len(subs), "sent": ok}
 
 

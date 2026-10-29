@@ -180,6 +180,7 @@ html[lang=fa] .lang [data-l=fa],html[lang=en] .lang [data-l=en]{background:var(-
 .s-meta .more{padding:1px 7px;border-radius:6px;background:rgba(var(--mist),.1);color:var(--ink-2);white-space:nowrap;display:flex;align-items:center;gap:4px}
 .s-meta .more .ic{width:12px;height:12px}
 .s-meta .time{margin-inline-start:auto;white-space:nowrap}
+.s-meta .last{white-space:nowrap;color:var(--ink-2);font-weight:600}
 .s-meta .fresh{padding:1px 6px;border-radius:6px;background:var(--sonar-dim);color:var(--sonar);font-weight:700;font-size:11px}
 .s-meta .unc{padding:0 6px;border-radius:6px;border:1px dashed rgba(255,210,63,.5);color:var(--unc);font-size:11px;white-space:nowrap}
 .s-media{position:relative;aspect-ratio:16/9;background:var(--media) center/cover no-repeat}
