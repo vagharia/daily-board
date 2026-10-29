@@ -5,9 +5,11 @@ Every new report is read for signs of war at a place: (1) jets, drones or sirens
 something intercepted or shot down, (3) missiles launched, (4) an explosion or an impact. What happens at one place
 within half an hour is one incident, timed by the clock times citizen reports give, else by the report itself.
 An incident is announced on Telegram at once, and again each time it reaches a higher step; the same step somewhere
-else is a new incident and announced as well. A post of citizen reports counts when at least two messages come from
-the same city, or messages from two cities. When a report of the incident comes from a news outlet (not a Telegram
-channel) within half an hour of its first announcement, that confirmation is announced too, once.
+else is a new incident and announced as well. Only Telegram channels and citizen reports start an announced
+incident: a news outlet's report alone is seldom of this moment, and its story gets the usual red alert. A post of
+citizen reports counts when at least two messages come from the same city, or messages from two cities. When a
+report of the incident comes from a news outlet (not a Telegram channel) within half an hour of its first
+announcement, that confirmation is announced too, once.
 
 The announcements are also kept as a list (state["log"]) for the bulletin."""
 import html
@@ -490,8 +492,9 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
     """Read this round's new reports. story_start: report key -> when its story was first reported; a report that
     joins a story more than half an hour old tells of something already known (a later account, a recap) and is
     left out. fa_story: report key -> its story's Persian headline (the line under an alert from a foreign outlet).
-    Returns (Telegram messages, keys of the reports that are signs of war at the main front: their stories
-    don't also get the usual red-story alert)."""
+    Returns (Telegram messages, keys of the reports announced here: their stories don't also get the usual red-story
+    alert). A news outlet's report is announced here only within an incident a channel or citizen reports announced
+    (a higher step, the confirmation); otherwise its story gets the usual red alert."""
     story_start = story_start or {}
     fa_story = fa_story or {}
     inc = state.setdefault("inc", {})
@@ -510,17 +513,22 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
         evs = events(m)
         if not evs:
             continue
-        keys.add(m["k"])
-        seen[m["k"]] = now_t
         news = not channel(m)
+        live = False                        # part of an incident a channel or citizen reports announced
         for ev in evs:
             p, t = ev["place"], ev["t"]
             cur = inc.get(p)
             if cur and -INCIDENT <= t - cur["t1"] <= INCIDENT:
                 cur["t1"] = max(cur["t1"], t)
+                # an incident only news outlets have reported: their stories get the usual red alert, not these
+                say = not (news and not cur.get("ch", 1))
+                if not news:
+                    cur["ch"] = 1
+                live = live or say
                 if ev["step"] > cur["step"]:
                     cur["step"] = ev["step"]
-                    msgs.append(_message(ev, m, "up", fa_story.get(m["k"])))
+                    if say:
+                        msgs.append(_message(ev, m, "up", fa_story.get(m["k"])))
                     log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
                                  "conf": int(news or cur["conf"])})
                 if news and not cur["conf"]:
@@ -531,10 +539,17 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
                         if x["p"] == p and x["t"] >= cur["t0"]:
                             x["conf"] = 1
             else:
-                inc[p] = {"t0": t, "t1": t, "step": ev["step"], "conf": int(news), "a": now_t}
-                msgs.append(_message(ev, m, "new", fa_story.get(m["k"])))
+                # a news outlet's report is rarely of this moment (a tanker hit hours ago): it starts an incident for
+                # the list, but its story is announced by the usual red alert
+                inc[p] = {"t0": t, "t1": t, "step": ev["step"], "conf": int(news), "a": now_t, "ch": int(not news)}
+                if not news:
+                    msgs.append(_message(ev, m, "new", fa_story.get(m["k"])))
+                    live = True
                 log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
                              "conf": int(news)})
+        if live:
+            keys.add(m["k"])
+            seen[m["k"]] = now_t
     log_.sort(key=lambda x: x["t"])
     return ([] if quiet else msgs), keys
 
