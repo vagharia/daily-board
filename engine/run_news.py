@@ -601,7 +601,9 @@ def news_round(full=True):
     # instant alerts from the main front, step by step (flash.py); their stories don't also get the red-story alert
     fstate = alerts_state.setdefault("flash", {})
     start = {m["k"]: c["t"] for c in clusters for m in c["m"]}
-    flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run)
+    fa_head = {m["k"]: c["fa"]["ti"] for c in clusters if (c.get("fa") or {}).get("ti")
+               and not all(flash.channel(x) for x in c["m"]) for m in c["m"]}
+    flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run, fa_story=fa_head)
     alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run, flash_msgs=flash_msgs,
                            flash_keys=set(fstate.get("keys", {})))
 

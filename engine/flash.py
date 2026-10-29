@@ -15,7 +15,7 @@ import re
 
 from . import witness
 from .cluster import blast, channel
-from .util import fa_norm
+from .util import fa_norm, truncate
 
 INCIDENT = 30 * 60          # one incident: the same place within half an hour
 CONFIRM_WITHIN = 30 * 60    # a news outlet's report confirms it only this soon after the first announcement
@@ -430,30 +430,70 @@ def events(m):
     return out
 
 
-def _message(ev, m, kind_of_alert):
+DETAIL = 280                 # the line under the headline: at most this many characters
+
+
+def _detail(ev, m, fa_story=None):
+    """What the report itself says, for the line under the alert's headline: citizen reports, how many messages from
+    where; a Persian report (a channel's post, an Iranian outlet), its own words; a foreign outlet, its story's
+    Persian headline. Returns (its text, the earlier post it replies to); empty when it would only repeat the headline."""
+    if m.get("wit"):
+        txt = m.get("su") or ""
+    elif m.get("lang") == "fa":
+        ti, su = (m.get("ti") or "").strip(), (m.get("su") or "").strip()
+        if su and fa_norm(su).startswith(fa_norm(ti)[:40]):
+            txt = su                        # the text goes on from the headline
+        elif su and len(ti) < 160:
+            txt = ti.rstrip(" .") + ". " + su
+        else:
+            txt = ti
+    else:
+        txt = fa_story or ""
+    txt = re.sub(r"\s+", " ", txt).strip()
+    prev = ""
+    mm = _FOLLOWS.search(txt)               # a reply to an earlier post: "… (در ادامهٔ: the earlier post)"
+    if mm and not m.get("wit"):
+        txt, prev = txt[:mm.start()].strip(), mm.group(1).strip()
+    if fa_norm(txt).strip(" .،") in (fa_norm(ev["fa"]), ""):
+        txt = ""
+    if not txt and not prev:
+        return "", ""
+    return truncate(txt, DETAIL), truncate(prev, DETAIL // 2)
+
+
+_FOLLOWS = re.compile(r"\s*\((?:در ادامهٔ|following):\s*(.+)\)\s*$")
+
+
+def _message(ev, m, kind_of_alert, fa_story=None):
     """kind_of_alert: 'new', 'up' (a higher step) or 'ok' (confirmed by a news outlet)."""
     src = html.escape(m.get("sn_fa") or m.get("sn") or "")
     at = _fa_digits(_clock(ev["t"]))
     head = {"new": "🔴" if ev["step"] >= 3 else "🟠", "up": "⬆️", "ok": "✅"}[kind_of_alert]
     title = html.escape(ev["fa"])
+    txt, prev = (html.escape(x) for x in _detail(ev, m, fa_story))
+    quote = channel(m) and not m.get("wit")
+    det = (f"\n«{txt}»" if quote else f"\n{txt}") if txt else ""     # a channel's own words, in quotes
+    if prev:
+        det += f"\nدر ادامهٔ پیام قبلی: «{prev}»"
     if kind_of_alert == "ok":
-        return f"✅ <b>تأیید شد: {title}</b>، {at}\n<i>{src}</i>"
+        return f"✅ <b>تأیید شد: {title}</b>، {at}{det}\n<i>{src}</i>"
     if m.get("wit"):
-        n = sum((m["wit"].get("cities") or {}).values())
-        tail = f"گزارش‌های مردمی ({_fa_digits(str(n))} پیام)، {src}"
+        tail = f"گزارش‌های مردمی، {src}"
     elif channel(m):
         tail = f"{src} · ⚠️ تأییدنشده"
     else:
         tail = src
-    return f"{head} <b>{title}</b>، {at}\n<i>{tail}</i>"
+    return f"{head} <b>{title}</b>، {at}{det}\n<i>{tail}</i>"
 
 
-def process(state, items, now_t, story_start=None, quiet=False):
+def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
     """Read this round's new reports. story_start: report key -> when its story was first reported; a report that
     joins a story more than half an hour old tells of something already known (a later account, a recap) and is
-    left out. Returns (Telegram messages, keys of the reports that are signs of war at the main front: their stories
+    left out. fa_story: report key -> its story's Persian headline (the line under an alert from a foreign outlet).
+    Returns (Telegram messages, keys of the reports that are signs of war at the main front: their stories
     don't also get the usual red-story alert)."""
     story_start = story_start or {}
+    fa_story = fa_story or {}
     inc = state.setdefault("inc", {})
     log_ = state.setdefault("log", [])
     for p in list(inc):
@@ -480,19 +520,19 @@ def process(state, items, now_t, story_start=None, quiet=False):
                 cur["t1"] = max(cur["t1"], t)
                 if ev["step"] > cur["step"]:
                     cur["step"] = ev["step"]
-                    msgs.append(_message(ev, m, "up"))
+                    msgs.append(_message(ev, m, "up", fa_story.get(m["k"])))
                     log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
                                  "conf": int(news or cur["conf"])})
                 if news and not cur["conf"]:
                     cur["conf"] = 1
                     if now_t - cur["a"] <= CONFIRM_WITHIN:
-                        msgs.append(_message(ev, m, "ok"))
+                        msgs.append(_message(ev, m, "ok", fa_story.get(m["k"])))
                     for x in log_:
                         if x["p"] == p and x["t"] >= cur["t0"]:
                             x["conf"] = 1
             else:
                 inc[p] = {"t0": t, "t1": t, "step": ev["step"], "conf": int(news), "a": now_t}
-                msgs.append(_message(ev, m, "new"))
+                msgs.append(_message(ev, m, "new", fa_story.get(m["k"])))
                 log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
                              "conf": int(news)})
     log_.sort(key=lambda x: x["t"])
