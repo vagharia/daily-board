@@ -78,10 +78,18 @@ _FILM_SRC = re.compile(r"\b(?:film\w*|movie\w*|cinema\w*|screen\w*|oscar\w*|cann
 _DIRECTOR_SRC = re.compile(r"\bdirector\b", re.I)
 
 
+_HEGSETH_SRC = re.compile("ه[گك]س[تث]|ه[گك]ز[تث]")
+_HEGSETH_EN = re.compile(r"\bH[aeoiu]g{1,2}s?[aeiou]?[st]{1,2}t?h?\b")
+
+
 def fix_terms(src, out, tl):
     """Corrections that depend on the source text."""
-    if tl == "en" and out and "پزشکیان" in (src or "") and "پزشکان" not in src:
-        return _DOCTORS_EN.sub("Pezeshkian", out)      # the president's name read as "doctors"
+    if tl == "en" and out:
+        if "پزشکیان" in (src or "") and "پزشکان" not in src:
+            out = _DOCTORS_EN.sub("Pezeshkian", out)   # the president's name read as "doctors"
+        if _HEGSETH_SRC.search(src or ""):
+            out = _HEGSETH_EN.sub("Hegseth", out)      # "هگست" read as "Hegst", "Hogst", "Hegset"
+        return out
     if tl != "fa" or not out:
         return out
     src = src or ""
