@@ -109,9 +109,9 @@ def make_items(src, entries, via, T, gn_source=None):
         if T - ts > config.WEEK:
             continue
         su = "" if via == "gn" or post else clean_summary(e.get("summary") or e.get("content") or "")
-        if su and (su == title or su.startswith(title[:50])):
+        if su and (su == title or su.startswith(title[:50])) and not (via == "tg" and title.endswith("…")):
             su = su[len(title):].strip(" .-—") if su.startswith(title) else ""
-        title, rest = split_long_title(title)
+        title, rest = split_long_title(title, TG_WHOLE if via == "tg" else 160)
         if rest:
             su = (rest.rstrip(" .") + ". " + su).strip() if su else rest
         su = first_sentences(su, 400)
@@ -145,9 +145,47 @@ def _clean_tg_line(s):
     return s.strip(" -–—|•*")
 
 
+TG_TITLE = 220
+TG_WHOLE = 300
+_SENT_END = re.compile(r"[.!؟?](?=\s)")
+
+
+def tg_head(first, rest):
+    """A channel post's first paragraph as its headline. A long one is cut at the end of a sentence; if it is one
+    long sentence, the headline is cut at a word and the text keeps the whole sentence, so nothing reads half-said."""
+    if len(first) <= TG_TITLE:
+        return first, rest
+    ends = [m.end() for m in _SENT_END.finditer(first) if 40 <= m.end() <= TG_TITLE]
+    if ends:
+        return first[: ends[-1]].strip(), (first[ends[-1]:].strip() + " " + rest).strip()
+    if len(first) <= TG_WHOLE:
+        return first, rest                       # one sentence, a little long: kept whole rather than cut
+    cut = first[:TG_TITLE]
+    return cut[: cut.rfind(" ")].rstrip(" ,،:(") + "…", (first + " " + rest).strip()
+
+
+def tg_post(url):
+    """One channel post read again on its own (its embed page), as tg_entries reads it; None if not readable."""
+    url = url.split("?")[0]
+    post = url.split("t.me/", 1)[-1]
+    try:
+        out = _tg_parse(BeautifulSoup(http.get(url + "?embed=1", timeout=20, retries=1).content, "lxml"))
+    except Exception:  # noqa: BLE001 - the channel page around it is tried next
+        out = []
+    if not out:                                   # the channel page that ends with this post
+        handle, _, num = post.partition("/")
+        r = http.get(f"https://t.me/s/{handle}?before={int(num) + 1}", timeout=20, retries=1)
+        out = _tg_parse(BeautifulSoup(r.content, "lxml"))
+    out = [e for e in out if e["link"].endswith("/" + post)]
+    return out[0] if out else None
+
+
 def tg_entries(handle):
     r = http.get(f"https://t.me/s/{handle}", timeout=20, retries=1)
-    soup = BeautifulSoup(r.content, "lxml")
+    return _tg_parse(BeautifulSoup(r.content, "lxml"))
+
+
+def _tg_parse(soup):
     out = []
     for div in soup.select("div.tgme_widget_message[data-post]"):
         tnode, quoted = tg_text(div)
@@ -170,9 +208,7 @@ def tg_entries(handle):
             cut = quoted[:90]
             cut = cut[: cut.rfind(" ")] + "…" if len(quoted) > 90 and " " in cut else cut
             title = f"{title} (در ادامهٔ: {cut})" if has_fa(title + quoted) else f"{title} (following: {cut})"
-        if len(title) > 170:
-            cut = title[:170]
-            title, rest = cut[: cut.rfind(" ")] + "…", title + " " + rest
+        title, rest = tg_head(title, rest)
         img = None
         ph = div.select_one(".tgme_widget_message_photo_wrap")
         if ph and ph.get("style"):

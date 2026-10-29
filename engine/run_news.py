@@ -182,6 +182,28 @@ def drop_reply_copies(clusters, seen, T):
     return n
 
 
+def reread_cut_posts(clusters, T):
+    """Telegram posts of the last two days whose headline was cut mid-sentence while their text lost the rest are
+    read again, each from its own page, and get their whole text back. Returns (posts read again, posts found)."""
+    by_id = BY_ID
+    todo = [(m, c) for c in clusters for m in c["m"] if m.get("via") == "tg" and T - m["t"] <= 48 * 3600
+            and (m.get("ti") or "").endswith("…") and m.get("s") in by_id]
+    n = 0
+    for (m, c), e, err in parallel(lambda mc: collect.tg_post(mc[0]["u"]), todo, workers=8):
+        if err is not None or not e:
+            continue
+        its = collect.make_items(by_id[m["s"]], [e], "tg", T)
+        if not its:
+            continue
+        m["ti"], m["su"] = its[0]["ti"], its[0]["su"]
+        for k in ("en_ti", "en_su"):
+            m.pop(k, None)                    # translated again from the whole text
+        c.pop("en", None)
+        c.pop("fa", None)
+        n += 1
+    return n, len(todo)
+
+
 def rescore(clusters):
     out = []
     for c in clusters:
@@ -190,8 +212,9 @@ def rescore(clusters):
             if not is_relevant(m)[1]:
                 continue
             for tk, sk in (("ti", "su"), ("en_ti", "en_su")):
-                if len(m.get(tk) or "") > 160:          # stored before overlong headlines were split
-                    head, rest = collect.split_long_title(m[tk])
+                lim = collect.TG_WHOLE if m.get("via") == "tg" else 160
+                if len(m.get(tk) or "") > lim:          # stored before overlong headlines were split
+                    head, rest = collect.split_long_title(m[tk], lim)
                     m[tk], m[sk] = head, (rest + " " + (m.get(sk) or "")).strip()
                     c.pop("en", None)
                     c.pop("fa", None)
@@ -291,6 +314,9 @@ def news_round(full=True):
         # replies on Telegram pages were once read as the post they answer: such copies are dropped and read again
         log(f"telegram replies to read again: {drop_reply_copies(clusters, seen, T)}")
         misc["tg_replies"] = 1
+    if misc.get("tg_cut") != 1:
+        log("telegram posts cut mid-sentence, read again: %d of %d" % reread_cut_posts(clusters, T))
+        misc["tg_cut"] = 1
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
     if misc.get("live_fix") != 1:

@@ -302,9 +302,14 @@ def _quote(t):
     return bool(m) and not _NOT_SPEAKER.search(m.group(1))
 
 
+# "سایت‌های بمباران‌شده": the bombed sites as a description, not a report of a bombing ("بمباران شده است" still is)
+BOMBED_ADJ = re.compile(R(_B, "بمباران", "re:\\s*", "شده", _E, "re:(?!\\s*(?:است|اند|بود|ایم|اید))"))
+
+
 def score_fa(title: str, summary: str):
     """(severity, topics, flags) for a Persian headline and text."""
     t, s = fa_norm(to_latin_digits(title or "")), fa_norm(to_latin_digits(summary or ""))
+    t, s = BOMBED_ADJ.sub(" ", t), BOMBED_ADJ.sub(" ", s)
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
     for rx, base, tp, fl in PATTERNS:
         if rx.search(t):
