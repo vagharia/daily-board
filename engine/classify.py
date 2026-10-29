@@ -264,16 +264,16 @@ def _anchor(lang, t, s):
 def _far(lang, t, s):
     text = (t or "") + " " + first_sentences(s or "", 220)
     return bool(_FAR_FA.search(fa_norm(text)) if lang == "fa" else _FAR_EN.search(text))
-# casualty figures inside Yemen (the Saudi-Houthi war, a UN or WHO toll): a yellow story, unless America, Israel or
-# Iran is the one striking. Casualties of Houthi attacks in Saudi Arabia are not inside Yemen.
-YEMEN_TOLL_CAP = 40.0
+# casualty figures inside Yemen (the Saudi-Houthi war, a UN or WHO toll), Lebanon or Gaza: yellow stories (_local_toll)
+LOCAL_TOLL_CAP = 40.0
 _YEM_EN = re.compile(r"\b(yemen\w*|houthis?|sanaa|sana'a|aden|hodeidah|hudaydah|taiz|marib|lahij|saada|abyan|shabwa"
                      r"|hadramout|hadramawt|mokha|dhamar|ibb|amran)\b", re.I)
 _YEM_FA = re.compile(fa_norm("یمن|حوثی|انصارالله|صنعا|عدن|الحدیده|حدیده|تعز|مأرب|مارب|لحج|صعده|ابین|شبوه|حضرموت|مخا|ذمار|عمران"))
-_TOLL_EN = re.compile(r"\b(killed|kills|kill|dead|deaths?|died|wounded|injured|injuries|casualt\w+|toll|fatalit\w+)\b", re.I)
-_TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|کشتار|مصدوم"))
+_TOLL_EN = re.compile(r"\b(killed|kills|kill|dead|deaths?|died|wounded|injured|injures|injuries|casualt\w+|toll|fatalit\w+"
+                      r"|martyr\w*|murders?)\b", re.I)
+_TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|شهادت|شهدا|قربانی|کشتار|مصدوم"))
 _SAUDI_PLACE_EN = re.compile(r"\b(riyadh|jeddah|jizan|jazan|najran|abha|taif|mecca|makkah|medina|dammam|khamis|yanbu"
-                             r"|ras tanura|abqaiq|inside saudi|in saudi)\b"
+                             r"|ras tanura|abqaiq|inside saudi|in (?:the )?(?:\w+ )?saudi|in the kingdom)\b"
                              r"|\b(attacks?|strikes?|missiles?|drones?|fire\w*|launch\w*)\b[^.;]{0,25}\b(on|at|against|toward|"
                              r"towards|targeting|into) (saudi|the kingdom)", re.I)
 _SAUDI_PLACE_FA = re.compile(fa_norm("ریاض|جده|جیزان|جازان|نجران|ابها|طائف|مکه|مدینه|دمام|خمیس|ینبع|راس تنوره|ابقیق|در عربستان|خاک عربستان")
@@ -283,15 +283,49 @@ _BIG_ACTOR_EN = re.compile(r"\b(u\.?s\.?|america\w*|pentagon|centcom|israel\w*|i
 _BIG_ACTOR_FA = re.compile(fa_norm("آمریکا|امریکا|اسرائیل|اسراییل|صهیونیست|سنتکام|پنتاگون|ایران"))
 
 
-def _yemen_toll(lang, t, s):
-    """Casualty figures in Yemen, not of a strike by America, Israel or Iran and not of an attack in Saudi Arabia."""
-    if lang == "fa":
-        t = fa_norm(t)
-        return bool(_YEM_FA.search(t) and _TOLL_FA.search(t) and re.search(r"[0-9۰-۹]|صدها|ده ها|هزاران", t)
-                    and not _SAUDI_PLACE_FA.search(t) and not _BIG_ACTOR_FA.search(t.replace(fa_norm("ایران ساخت"), "")))
-    t = re.sub(r"\biran[- ]backed\b", "", t or "", flags=re.I)
-    return bool(_YEM_EN.search(t) and _TOLL_EN.search(t) and re.search(r"\d|\b(dozens|hundreds|thousands|scores)\b", t, re.I)
-                and not _SAUDI_PLACE_EN.search(t) and not _BIG_ACTOR_EN.search(t))
+_FB, _FE = r"(?<![\u0620-\u06FF])", r"(?![\u0620-\u06FF])"
+_LEB_EN = re.compile(r"\b(leban\w*|beirut|dahiyeh|dahieh|tyre|sidon|nabatieh|nabatiyeh|bekaa|baalbek|bint jbeil|marjayoun"
+                     r"|khiam|hezbollah)\b", re.I)
+_LEB_FA = re.compile(_FB + "(?:" + fa_norm("لبنان|بیروت|ضاحیه|صور|صیدا|نبطیه|بقاع|بعلبک|بنت جبیل|مرجعیون|خیام|حزب الله|حزب‌الله")
+                     + ")" + _FE)
+_GAZA_EN = re.compile(r"\b(gaza\w*|khan younis|khan yunis|rafah|jabalia|jabaliya|deir al-balah|deir el-balah|nuseirat|bureij"
+                      r"|maghazi|beit lahia|beit hanoun|hamas)\b", re.I)
+_GAZA_FA = re.compile(_FB + "(?:" + fa_norm("غزه|خان یونس|خانیونس|رفح|جبالیا|دیر البلح|نصیرات|بریج|مغازی|بیت لاهیا|بیت حانون|حماس")
+                      + ")" + _FE)
+# casualties on Israel's side of the border are not inside Lebanon or Gaza
+_ISR_PLACE_EN = re.compile(r"\b(tel aviv|haifa|jerusalem|northern israel|southern israel|in israel|israeli (civilians?|soldiers?"
+                           r"|troops)|kiryat|nahariya|metula|sderot|ashkelon|ashdod|galilee)\b"
+                           r"|\b(rockets?|missiles?|drones?|attacks?)\b[^.;]{0,25}\b(on|at|into|against|toward) israel", re.I)
+_ISR_PLACE_FA = re.compile(fa_norm("تل آویو|حیفا|قدس اشغالی|شمال اسرائیل|جنوب اسرائیل|سرزمین های اشغالی|نظامیان اسرائیلی|سربازان اسرائیلی"
+                                   "|نظامی صهیونیست|کریات|نهاریا|متولا|سدیروت|عسقلان|اسدود|الجلیل|شهرک نشین"))
+_LEADER_EN = re.compile(r"\b(commander|leader|chief|head of|official|spokesman|secretary[- ]general|top|senior)\b", re.I)
+_LEADER_FA = re.compile(fa_norm("فرمانده|رهبر|دبیرکل|مسئول|سخنگو|ارشد|عالی رتبه|مقام"))
+_US_IR_EN = re.compile(r"\b(u\.?s\.?|america\w*|pentagon|centcom|iran(?!-(?:backed|aligned|allied))\w*)\b", re.I)
+_US_IR_FA = re.compile(fa_norm("آمریکا|امریکا|سنتکام|پنتاگون|ایران"))
+_COUNT_FA = re.compile(r"[0-9۰-۹]|" + _FB + "(?:" + fa_norm("یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده|صدها|ده ها|هزاران|ده‌ها|ده ها تن|چندین") + ")" + _FE)
+_COUNT_EN = re.compile(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|dozens|hundreds|thousands|scores|several)\b", re.I)
+
+
+def _local_toll(lang, t, s):
+    """Casualty figures inside Yemen, Lebanon or Gaza: the region, or None. Not when America or Iran is involved
+    (nor Israel in Yemen), when the dead are on the other side of the border (Saudi Arabia, Israel), or when the one
+    killed is a commander or a leader."""
+    fa = lang == "fa"
+    t = fa_norm(t) if fa else re.sub(r"\biran[- ]backed\b", "", t or "", flags=re.I)
+    if fa:
+        t = t.replace(fa_norm("ایران ساخت"), "")
+    if not ((_TOLL_FA if fa else _TOLL_EN).search(t) and (_COUNT_FA if fa else _COUNT_EN).search(t)):
+        return None
+    if (_US_IR_FA if fa else _US_IR_EN).search(t) or (_LEADER_FA if fa else _LEADER_EN).search(t):
+        return None
+    if (_YEM_FA if fa else _YEM_EN).search(t):
+        if (_SAUDI_PLACE_FA if fa else _SAUDI_PLACE_EN).search(t) or (_BIG_ACTOR_FA if fa else _BIG_ACTOR_EN).search(t):
+            return None
+        return "yemen"
+    for region, rx in (("lebanon", _LEB_FA if fa else _LEB_EN), ("gaza", _GAZA_FA if fa else _GAZA_EN)):
+        if rx.search(t):
+            return None if (_ISR_PLACE_FA if fa else _ISR_PLACE_EN).search(t) else region
+    return None
 
 
 CIVIL_DRILL_CAP = 35.0
@@ -549,9 +583,10 @@ def classify(item):
         flags = (set(flags) - {"exercise"}) | {"civil_drill"}
         topics = set(topics) - {"military"}
         sev = min(sev, CIVIL_DRILL_CAP)
-    if _yemen_toll(lang, fa_t or en_t, fa_s or en_s):
-        flags = (set(flags) - HARD_EVENTS) | {"yemen_toll"}
-        sev = min(sev, YEMEN_TOLL_CAP)
+    if _local_toll(lang, fa_t or en_t, fa_s or en_s):
+        # casualty figures inside Yemen, Lebanon or Gaza: a yellow story
+        flags = (set(flags) - HARD_EVENTS) | {"local_toll"}
+        sev = min(sev, LOCAL_TOLL_CAP)
     anchored = _anchor(lang, fa_t or en_t, fa_s or en_s)
     if not anchored and _far(lang, fa_t or en_t, fa_s or en_s):
         # China and India in the Himalayas, China and America over Cuba: nothing of the Middle East or of Iran's war
