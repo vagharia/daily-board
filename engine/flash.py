@@ -22,6 +22,7 @@ from .util import fa_norm, truncate
 INCIDENT = 30 * 60          # one incident: the same place within half an hour
 CONFIRM_WITHIN = 30 * 60    # a news outlet's report confirms it only this soon after the first announcement
 KEEP = 48 * 3600            # incidents and the list are kept two days
+STALE = 30 * 60             # a sign of war older than this when it is read is not announced on Telegram
 TEHRAN = 12600
 
 STEP_FA = {1: "صدا", 2: "پدافند", 3: "پرتاب موشک", 4: "انفجار"}
@@ -517,6 +518,9 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
         live = False                        # part of an incident a channel or citizen reports announced
         for ev in evs:
             p, t = ev["place"], ev["t"]
+            # a report read long after the moment it tells of (a feed that brings it hours late) is not announced as
+            # happening now; it still goes on the bulletin's list as before
+            fresh = now_t - t <= STALE
             cur = inc.get(p)
             if cur and -INCIDENT <= t - cur["t1"] <= INCIDENT:
                 cur["t1"] = max(cur["t1"], t)
@@ -527,7 +531,7 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
                 live = live or say
                 if ev["step"] > cur["step"]:
                     cur["step"] = ev["step"]
-                    if say:
+                    if say and fresh:
                         msgs.append(_message(ev, m, "up", fa_story.get(m["k"])))
                     log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
                                  "conf": int(news or cur["conf"])})
@@ -542,7 +546,7 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
                 # a news outlet's report is rarely of this moment (a tanker hit hours ago): it starts an incident for
                 # the list, but its story is announced by the usual red alert
                 inc[p] = {"t0": t, "t1": t, "step": ev["step"], "conf": int(news), "a": now_t, "ch": int(not news)}
-                if not news:
+                if not news and fresh:
                     msgs.append(_message(ev, m, "new", fa_story.get(m["k"])))
                     live = True
                 log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
