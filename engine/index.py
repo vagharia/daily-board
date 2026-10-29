@@ -263,6 +263,19 @@ def independent(c):
     return False
 
 
+def distinct(cs):
+    """Strikes counted once per incident: stories of the same kind (ships, or anything else) at the same place within
+    six hours are one incident told twice ("UKMTO: a ship on fire in Hormuz" and "IRGC: three tankers exploded")."""
+    out = []
+    for c in sorted(cs, key=lambda c: c.get("t", c["u"])):
+        where = set(c.get("geo", [])) or set(c.get("ctry", []))
+        ship = "maritime_incident" in c.get("flags", [])
+        if not any(abs(c.get("t", c["u"]) - o.get("t", o["u"])) <= 6 * 3600 and ship == ("maritime_incident" in o.get("flags", []))
+                   and where & (set(o.get("geo", [])) or set(o.get("ctry", []))) for o in out):
+            out.append(c)
+    return out
+
+
 def iran_side(c):
     """An attack in Hormuz or the Persian Gulf, or on Iran's soil (its border regions included), named by place;
     a story that only mentions Tehran next to places abroad isn't one."""
@@ -372,9 +385,12 @@ def index_value(clusters, av, sea, markets, t):
     # anything that is war between Iran and America or Israel lifts the index however quiet the rest is: one confirmed
     # strike to "high tension", two separate ones (or one very large) to "critical"
     # "critical" counts only strikes told by someone other than the side that announced it
-    ds = direct_strikes(clusters, t, since=pre[0] if pre else None)
-    ind = [c for c in ds if independent(c)]
-    if len(ind) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 for c in ind):
+    allds = direct_strikes(clusters, t, since=pre[0] if pre else None)
+    ind = distinct([c for c in allds if independent(c)])
+    ds = distinct(ind + [c for c in allds if c not in ind])        # an incident confirmed somewhere counts as that
+    # (one very large strike counts like two; one ship hit or on fire never is one)
+    if len(ind) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 and "maritime_incident" not in c.get("flags", [])
+                            for c in ind):
         v = max(v, CRITICAL + min(15, 4 * (len(ind) - 1)))
     elif ds:
         v = max(v, 65)
