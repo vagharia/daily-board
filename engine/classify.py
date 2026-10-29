@@ -318,17 +318,10 @@ _COUNT_FA = re.compile(r"[0-9۰-۹]|" + _FB + "(?:" + fa_norm("یک|دو|سه|چ
 _COUNT_EN = re.compile(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|dozens|hundreds|thousands|scores|several)\b", re.I)
 
 
-def _local_toll(lang, t, s):
-    """Casualty figures inside Yemen, Lebanon, Gaza, Syria or Jordan: the region, or None. Not when America or Iran is involved
-    (nor Israel in Yemen), when the dead are on the other side of the border (Saudi Arabia, Israel), or when the one
-    killed is a commander or a leader."""
-    fa = lang == "fa"
-    t = fa_norm(t) if fa else re.sub(r"\biran[- ]backed\b", "", t or "", flags=re.I)
-    if fa:
-        t = t.replace(fa_norm("ایران ساخت"), "")
-    if not ((_TOLL_FA if fa else _TOLL_EN).search(t)
-            and ((_COUNT_FA if fa else _COUNT_EN).search(t) or (_VICTIM_FA if fa else _VICTIM_EN).search(t))):
-        return None
+def _local_region(fa, t):
+    """The region (Yemen, Lebanon, Gaza, Syria, Jordan) a headline is inside of, or None: not when America or Iran is
+    involved (nor Israel in Yemen), when it is about the other side of the border (Saudi Arabia, Israel), or when a
+    commander or a leader is named. t is the headline, normalised for Persian."""
     if (_US_IR_FA if fa else _US_IR_EN).search(t) or (_LEADER_FA if fa else _LEADER_EN).search(t):
         return None
     if (_YEM_FA if fa else _YEM_EN).search(t):
@@ -340,6 +333,84 @@ def _local_toll(lang, t, s):
         if rx.search(t):
             return None if (_ISR_PLACE_FA if fa else _ISR_PLACE_EN).search(t) else region
     return None
+
+
+def _local_headline(lang, t):
+    fa = lang == "fa"
+    t = fa_norm(t) if fa else re.sub(r"\biran[- ]backed\b", "", t or "", flags=re.I)
+    if fa:
+        t = t.replace(fa_norm("ایران ساخت"), "")
+    return fa, t
+
+
+def _local_toll(lang, t, s):
+    """Casualty figures inside Yemen, Lebanon, Gaza, Syria or Jordan: the region, or None (see _local_region)."""
+    fa, t = _local_headline(lang, t)
+    if not ((_TOLL_FA if fa else _TOLL_EN).search(t)
+            and ((_COUNT_FA if fa else _COUNT_EN).search(t) or (_VICTIM_FA if fa else _VICTIM_EN).search(t))):
+        return None
+    return _local_region(fa, t)
+
+
+# the humanitarian situation in those places: hospitals, aid, hunger, disease, people displaced
+_HUMAN_EN = re.compile(r"\b(hospitals?|humanitarian|aid (agenc\w+|workers?|groups?|convoys?|deliver\w*)|famine|hunger|starv\w+"
+                       r"|malnutrition|malnourished|cholera|outbreaks?|epidemic|displaced|displacement|refugees?"
+                       r"|shortages?|medicines?|food (crisis|insecurity|aid)|water (crisis|shortage)|unicef|wfp"
+                       r"|health (system|care|workers?)|clinics?)\b", re.I)
+_HUMAN_FA = re.compile(fa_norm("بیمارستان|بشردوستانه|کمک رسانی|کمک‌رسانی|امدادرسانی|قحطی|گرسنگی|سوءتغذیه|سوء تغذیه|وبا"
+                               "|شیوع|آوارگان|آواره|پناهجو|پناهنده|کمبود دارو|کمبود غذا|کمبود آب|بحران غذا|یونیسف"
+                               "|برنامه جهانی غذا|نظام سلامت|کادر درمان|درمانگاه"))
+# a headline that tells of an attack is about the attack, not the humanitarian situation
+_ATTACKED_EN = re.compile(r"\b(strikes?|struck|airstrikes?|attack\w*|bomb\w*|raids?|shell\w*|hits?|target\w*|shot|fired|"
+                          r"missiles?|drones?|storm\w*)\b", re.I)
+_ATTACKED_FA = re.compile(fa_norm("حمله|حملات|بمباران|اصابت|هدف|موشک|پهپاد|یورش|گلوله باران|شلیک|تهاجم"))
+
+
+def _local_humanitarian(lang, t, s):
+    """The humanitarian situation inside Yemen, Lebanon, Gaza, Syria or Jordan, told without an attack in the
+    headline: the region, or None (see _local_region)."""
+    fa, t = _local_headline(lang, t)
+    if not (_HUMAN_FA if fa else _HUMAN_EN).search(t) or (_ATTACKED_FA if fa else _ATTACKED_EN).search(t):
+        return None
+    return _local_region(fa, t)
+
+
+# a company's financial results ("Sinopec third-quarter profit jumps 64% as oil prices climb"): the oil price is the
+# reason, not the news. Not about Iran's own oil revenue or sanctions, and not with an attack or Hormuz in it.
+EARNINGS_CAP = 40.0
+_EARN_EN = re.compile(r"\b(first|second|third|fourth|q[1-4]|quarter\w*|half-year|first-half|full-year|annual|nine-month)\b"
+                      r"[^.;]{0,40}\b(profits?|earnings|revenues?|net income|results|loss(es)?|sales)\b"
+                      r"|\b(profits?|earnings|net income|revenues?)\b[^.;]{0,20}\b(jumps?|rises?|rose|falls?|fell|drops?"
+                      r"|dropped|surges?|surged|slumps?|slumped|climbs?|climbed|beats?|misses?|missed|doubles?|doubled|soars?"
+                      r"|soared|tumbles?|tumbled|plunges?|plunged|declines?|declined)\b|\bdividends?\b|\bearnings (call|report|estimates?|forecasts?)\b"
+                      r"|\b(beats?|miss(es)?|tops?|topped)\b[^.;]{0,25}\b(estimates|forecasts|expectations)\b",
+                      re.I)
+_EARN_FA = re.compile(fa_norm("سود خالص|سود فصلی|سود سه ماهه|سود سه‌ماهه|سود شش ماهه|سود سالانه|درآمد فصلی|درآمد سه ماهه"
+                              "|گزارش مالی|صورت های مالی|صورت‌های مالی|ترازنامه|سود سهام|سود هر سهم|زیان خالص"))
+_EARN_NOT_EN = re.compile(r"\b(iran\w*|irgc|nioc|sanction\w*|hormuz|attack\w*|strikes?|struck|missiles?|drones?|explosions?"
+                          r"|blasts?|seiz\w+)\b", re.I)
+_EARN_NOT_FA = re.compile(fa_norm("ایران|سپاه|تحریم|هرمز|حمله|موشک|پهپاد|انفجار|توقیف"))
+
+
+def _earnings(lang, t):
+    fa = lang == "fa"
+    t = fa_norm(t) if fa else (t or "")
+    return bool((_EARN_FA if fa else _EARN_EN).search(t)) and not (_EARN_NOT_FA if fa else _EARN_NOT_EN).search(t)
+
+
+# piracy off Somalia, in the Gulf of Aden or the Horn of Africa: far from the war, even when a report links the two.
+# Not when the IRGC is involved or it happens in the Persian Gulf, Hormuz or the Gulf of Oman.
+PIRACY_CAP = 40.0
+_PIRACY_EN = re.compile(r"\b(pirat\w*|piracy)\b", re.I)
+_PIRACY_FA = re.compile(fa_norm("دزدی دریایی|دزدان دریایی|دزد دریایی|راهزنی دریایی|راهزنان دریایی"))
+_PIRACY_NOT_EN = re.compile(r"\b(irgc|revolutionary guards?|hormuz|persian gulf|gulf of oman|arabian gulf)\b", re.I)
+_PIRACY_NOT_FA = re.compile(fa_norm("سپاه|هرمز|خلیج فارس|دریای عمان"))
+
+
+def _piracy(lang, t):
+    fa = lang == "fa"
+    t = fa_norm(t) if fa else (t or "")
+    return bool((_PIRACY_FA if fa else _PIRACY_EN).search(t)) and not (_PIRACY_NOT_FA if fa else _PIRACY_NOT_EN).search(t)
 
 
 CIVIL_DRILL_CAP = 35.0
@@ -628,6 +699,18 @@ def classify(item):
         # casualty figures inside Yemen, Lebanon, Gaza, Syria or Jordan: a yellow story
         flags = (set(flags) - HARD_EVENTS) | {"local_toll"}
         sev = min(sev, LOCAL_TOLL_CAP)
+    elif _local_humanitarian(lang, fa_t or en_t, fa_s or en_s):
+        # the humanitarian situation there (hospitals, aid, hunger, disease, the displaced): a yellow story
+        flags = (set(flags) - HARD_EVENTS) | {"local_toll"}
+        sev = min(sev, LOCAL_TOLL_CAP)
+    if _earnings(lang, fa_t or en_t):
+        # a company's financial results: a yellow story, whatever the oil price did
+        flags = (set(flags) - HARD_EVENTS - {"oil_spike"}) | {"earnings"}
+        sev = min(sev, EARNINGS_CAP)
+    if _piracy(lang, fa_t or en_t):
+        # piracy off Somalia or in the Gulf of Aden: a yellow story
+        flags = (set(flags) - HARD_EVENTS) | {"piracy"}
+        sev = min(sev, PIRACY_CAP)
     anchored = _anchor(lang, fa_t or en_t, fa_s or en_s)
     if not anchored and _far(lang, fa_t or en_t, fa_s or en_s):
         # China and India in the Himalayas, China and America over Cuba: nothing of the Middle East or of Iran's war
