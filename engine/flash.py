@@ -72,6 +72,9 @@ _OTHER_EN = re.compile(r"\b(leban\w*|beirut|gaza|syria\w*|damascus|yemen\w*|sana
 _STEPS = [
     (4, "blast", fa_norm("انفجار|منفجر|اصابت|صدای مهیب|موج انفجار"),
      r"\b(explosions?|blasts?|exploded|impacts?|struck|hit by|detonations?)\b"),
+    (4, "strike", fa_norm("حمله هوایی|حملات هوایی|حمله موشکی|حملات موشکی|حمله پهپادی|بمباران|هدف قرار گرفت|هدف حمله"),
+     r"\b(air ?strikes?|missile strikes?|drone strikes?|strikes? on|(?<!-)bomb(ed|ing|s)?|attacked|raids? on)\b"
+     r"|\b(israel\w*|u\.?s\.?|america\w*|iran\w*|irgc)\b[^.;]{0,12}\bstrikes?\b"),
     (3, "launch", fa_norm("پرتاب موشک|شلیک موشک|موشک ها شلیک|موشک ها پرتاب|موشک پرتاب|موشک شلیک|پرتاب شد|شلیک شد"),
      r"\b(launch(ed|es|ing)?|fires?|fired|firing)\b[^.;]{0,25}\bmissiles?\b|\bmissiles?\b[^.;]{0,20}\b(launch(ed|es)?"
      r"|fired)\b|\bmissile launch(es)?\b"),
@@ -82,7 +85,7 @@ _STEPS = [
     (1, "siren", fa_norm("آژیر|اژیر"), r"\bsirens?\b"),
 ]
 _STEPS = [(n, k, re.compile(fa), re.compile(en, re.I)) for n, k, fa, en in _STEPS]
-_WIT_STEP = {"blast": 4, "launch": 3, "airdef": 2, "jet": 1, "drone": 1, "siren": 1}
+_WIT_STEP = {"strike": 4, "blast": 4, "launch": 3, "airdef": 2, "jet": 1, "drone": 1, "siren": 1, "infra": 4}
 # a report that is not of something happening now
 _NOT_NOW = {"denial", "controlled", "past", "speculative", "threat", "analysis", "opinion", "reaction", "verbal",
             "civil_drill", "exercise", "sport", "local_toll", "earnings", "piracy", "far_off"}
@@ -96,8 +99,146 @@ _SAID_FA = re.compile(r"^[^:：]{2,45}[:：]|" + fa_norm("گفت|اعلام کر
 _SAID_EN = re.compile(r"^[^:]{2,45}:|\b(says?|said|claims?|claimed|told)\b", re.I)
 
 
+# energy and other vital infrastructure in the region that Iran may strike directly: named sites, and kinds of site in
+# a country ("تأسیسات نفتی عربستان"); key -> (Persian, English, Persian forms, English forms)
+INFRA = {
+    "ras_tanura": ("راس تنوره", "Ras Tanura", ["راس تنوره", "رأس تنوره"], ["ras tanura"]),
+    "abqaiq": ("ابقیق", "Abqaiq", ["ابقیق", "بقیق"], ["abqaiq"]),
+    "jubail": ("جبیل", "Jubail", ["جبیل"], ["jubail"]),
+    "yanbu": ("ینبع", "Yanbu", ["ینبع"], ["yanbu"]),
+    "ras_al_khair": ("راس الخیر", "Ras al-Khair", ["راس الخیر", "رأس الخیر"], ["ras al-khair", "ras al khair"]),
+    "khurais": ("خریص", "Khurais", ["خریص"], ["khurais"]),
+    "aramco": ("تأسیسات آرامکو", "Aramco facilities", ["آرامکو"], ["aramco"]),
+    "fujairah": ("فجیره", "Fujairah", ["فجیره"], ["fujairah"]),
+    "ruwais": ("رویس", "Ruwais", ["رویس"], ["ruwais"]),
+    "jebel_ali": ("بندر جبل علی", "Jebel Ali port", ["جبل علی"], ["jebel ali"]),
+    "barakah": ("نیروگاه اتمی براکه", "Barakah nuclear plant", ["براکه"], ["barakah"]),
+    "habshan": ("حبشان", "Habshan", ["حبشان"], ["habshan"]),
+    "ras_laffan": ("راس لفان", "Ras Laffan", ["راس لفان", "رأس لفان"], ["ras laffan"]),
+    "mesaieed": ("مسیعید", "Mesaieed", ["مسیعید"], ["mesaieed"]),
+    "mina_ahmadi": ("مینا الاحمدی", "Mina al-Ahmadi", ["مینا الاحمدی", "میناء الاحمدی"], ["mina al-ahmadi", "mina al ahmadi"]),
+    "al_zour": ("الزور", "Al-Zour", ["الزور"], ["al-zour", "al zour"]),
+    "sitra": ("پالایشگاه سیتره", "Sitra refinery", ["سیتره", "بپکو"], ["sitra", "bapco"]),
+    "duqm": ("دقم", "Duqm", ["دقم"], ["duqm"]),
+    "sohar": ("صحار", "Sohar", ["صحار"], ["sohar"]),
+    "haifa_refinery": ("پالایشگاه حیفا", "the Haifa refinery", ["پالایشگاه حیفا", "بازان"], ["haifa refinery", "bazan"]),
+    "hadera": ("نیروگاه حدیرا", "the Hadera power station", ["حدیرا", "اوروت رابین"], ["hadera", "orot rabin"]),
+    "leviathan": ("میدان گازی لویاتان", "the Leviathan gas field", ["لویاتان"], ["leviathan"]),
+    "karish": ("میدان گازی کاریش", "the Karish gas field", ["کاریش"], ["karish"]),
+    "tamar": ("میدان گازی تامار", "the Tamar gas field", ["تامار"], ["tamar"]),
+}
+_INFRA_RX = [(k, _rx_fa(v[2]), _rx_en(v[3])) for k, v in INFRA.items()]
+_SITE_KINDS = [  # kind -> (Persian name, English name, Persian forms, English forms)
+    ("refinery", "پالایشگاه", "refinery", ["پالایشگاه"], [r"refiner(?:y|ies)"]),
+    ("oil", "تأسیسات نفتی", "oil facilities", ["تاسیسات نفتی", "میدان نفتی", "میادین نفتی", "پایانه نفتی",
+                                                 "پایانه صادرات نفت", "مخازن نفت"],
+     [r"oil (?:facilit(?:y|ies)|installations?|fields?|terminals?|depots?|storage)", r"crude terminals?"]),
+    ("gas", "تأسیسات گازی", "gas facilities", ["تاسیسات گازی", "میدان گازی", "تاسیسات ال ان جی", "ال ان جی"],
+     [r"gas (?:facilit(?:y|ies)|fields?|plants?|installations?)", r"lng (?:plants?|facilit(?:y|ies)|terminals?)"]),
+    ("pipeline", "خط لوله", "pipeline", ["خط لوله"], [r"pipelines?"]),
+    ("power", "نیروگاه", "power plant", ["نیروگاه"], [r"power (?:plants?|stations?)"]),
+    ("water", "تأسیسات آب‌شیرین‌کن", "desalination plant", ["آب شیرین کن", "آب شیرینکن", "تاسیسات آب"],
+     [r"desalination"]),
+    ("port", "بندر", "port", ["بندر", "اسکله"], [r"ports?", r"harbou?rs?"]),
+]
+_SITE_KINDS = [(k, fa, en, re.compile("|".join(re.escape(fa_norm(x)).replace(r"\ ", r"\s*") for x in faf)),
+                re.compile(r"\b(?:" + "|".join(enf) + r")\b", re.I)) for k, fa, en, faf, enf in _SITE_KINDS]
+_GULF = {  # country -> (Persian, English, Persian forms, English forms)
+    "sa": ("عربستان", "Saudi Arabia", ["عربستان", "سعودی"], ["saudi"]),
+    "ae": ("امارات", "the UAE", ["امارات"], ["uae", "emirati", "emirates", "abu dhabi", "dubai"]),
+    "qa": ("قطر", "Qatar", ["قطر"], ["qatar\\w*"]),
+    "kw": ("کویت", "Kuwait", ["کویت"], ["kuwait\\w*"]),
+    "bh": ("بحرین", "Bahrain", ["بحرین"], ["bahrain\\w*"]),
+    "om": ("عمان", "Oman", ["عمان"], ["oman\\w*"]),
+    "il": ("اسرائیل", "Israel", ["اسرائیل", "اسراییل", "سرزمین های اشغالی"], ["israel\\w*"]),
+}
+_GULF_RX = [(k, _rx_fa(v[2]), re.compile(r"\b(?:" + "|".join(v[3]) + r")\b", re.I)) for k, v in _GULF.items()]
+# Iran as the one striking; not the Houthis (their attacks on Saudi Arabia are another front)
+_IRAN_FA = re.compile(fa_norm("ایران|سپاه|ارتش جمهوری اسلامی|نیروی هوافضا"))
+_IRAN_EN = re.compile(r"\b(iran\w*|irgc|revolutionary guards?|tehran)\b", re.I)
+_HOUTHI_FA = re.compile(fa_norm("حوثی|یمن|انصارالله|صنعا"))
+_HOUTHI_EN = re.compile(r"\b(houthis?|yemen\w*|ansar ?allah|sanaa)\b", re.I)
+_HIT_FA = re.compile(fa_norm("حمله|حملات|هدف قرار|اصابت|انفجار|آتش|بمباران|موشک|پهپاد"))
+_HIT_EN = re.compile(r"\b(attack\w*|strikes?|struck|hit|hits|targeted|targets?|explosions?|blasts?|fire|ablaze|missiles?"
+                     r"|drones?)\b", re.I)
+_TOWARD_FA = re.compile(fa_norm("به سمت|به سوی"))
+_TOWARD_EN = re.compile(r"\b(towards?|aimed at|fired at|launched at)\b|\b(fires?|fired|launch\w*)\b[^.;]{0,25}\bat\b", re.I)
+
+
+def _object_of_strike(p, fa_t, en_t):
+    """The place is what was struck: named right after on/in/at/near/hit, or «به/در/حوالی/نزدیک»."""
+    v = witness.CITIES.get(p) or _FRONT.get(p)
+    if not v:
+        return False
+    if fa_t:
+        forms = "|".join(re.escape(fa_norm(x)).replace(r"\ ", r"\s*") for x in [v[0], *v[2]])
+        if re.search(fa_norm("(?:به|در|حوالی|نزدیک|اطراف|بر)") + r"\s*(?:\S+\s+){0,2}(?:" + forms + ")", fa_t):
+            return True
+    if en_t:
+        forms = "|".join(re.escape(x) for x in [v[1].lower(), *v[3]])
+        if re.search(r"\b(?:on|in|at|near|over|hits?|struck|strikes?|targets?|targeted)\s+(?:\S+\s+){0,2}(?:" + forms + r")\b",
+                     en_t, re.I):
+            return True
+    return False
+
+
+def _infra(fa_t, en_t):
+    """Vital sites a headline names: [(key, Persian name, English name)]."""
+    out = [(k, INFRA[k][0], INFRA[k][1]) for k, rf, re_ in _INFRA_RX
+           if (fa_t and rf.search(fa_t)) or (en_t and re_.search(en_t))]
+    if out:
+        return out
+    countries = [k for k, rf, re_ in _GULF_RX if (fa_t and rf.search(fa_t)) or (en_t and re_.search(en_t))]
+    for kind, kfa, ken, rf, re_ in _SITE_KINDS:
+        if (fa_t and rf.search(fa_t)) or (en_t and re_.search(en_t)):
+            for c in countries[:1]:
+                out.append((f"{kind}_{c}", f"{kfa} {_GULF[c][0]}", f"{_GULF[c][1]}'s {ken}"))
+            break
+    return out
+
+
+_OTHER_SIDE_FA = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|آمریکا|امریکا"))
+_OTHER_SIDE_EN = re.compile(r"\b(israel\w*|idf|u\.?s\.?|america\w*|pentagon|centcom)\b", re.I)
+
+
+def _iran_strikes(fa_t, en_t):
+    """Iran is the one striking: it is named, and before Israel or America if they are named ("Israel strikes Iran's
+    Abadan refinery" is not)."""
+    for t, ir, other in ((fa_t, _IRAN_FA, _OTHER_SIDE_FA), (en_t, _IRAN_EN, _OTHER_SIDE_EN)):
+        if not t:
+            continue
+        a, b = ir.search(t), other.search(t)
+        if a and (not b or a.start() < b.start()):
+            return True
+    return False
+
+
+def _infra_events(m, fa_t, en_t, step, kind):
+    """Iran striking energy or other vital infrastructure in the region directly (Gulf states, Israel)."""
+    if not _iran_strikes(fa_t, en_t):
+        return []
+    if (fa_t and _HOUTHI_FA.search(fa_t)) or (en_t and _HOUTHI_EN.search(en_t)):
+        return []
+    if not ((fa_t and _HIT_FA.search(fa_t)) or (en_t and _HIT_EN.search(en_t))):
+        return []
+    sites = _infra(fa_t, en_t)
+    if not sites:
+        return []
+    toward = (fa_t and _TOWARD_FA.search(fa_t)) or (en_t and _TOWARD_EN.search(en_t))
+    if step == 2:
+        st, fa_v, en_v = 2, "رهگیری حمله‌ی ایران به ", "Iranian attack intercepted over "
+    elif toward and step != 4:
+        st, fa_v, en_v = 3, "پرتاب موشک و پهپاد ایران به سمت ", "Iranian missiles and drones fired at "
+    else:
+        st, fa_v, en_v = 4, "حمله‌ی ایران به ", "Iranian strike on "
+    return [{"place": k, "step": st, "kind": "infra", "t": m["t"], "fa": fa_v + nfa, "en": en_v + nen}
+            for k, nfa, nen in sites]
+
+
 def _name(key, lang):
-    v = witness.CITIES.get(key) or _FRONT.get(key) or _GENERAL.get(key)
+    v = witness.CITIES.get(key) or _FRONT.get(key) or _GENERAL.get(key) or INFRA.get(key)
+    if v is None:
+        return key
     return v[0] if lang == "fa" else v[1]
 
 
@@ -152,11 +293,11 @@ def _wit_time(m):
 def _title(kind, step, place, lang, wit, frm):
     p = _name(place, lang)
     if lang == "fa":
-        return {"blast": ("شنیده شدن صدای انفجار در " if wit else "انفجار در ") + p,
+        return {"strike": "حمله به " + p, "blast": ("شنیده شدن صدای انفجار در " if wit else "انفجار در ") + p,
                 "launch": ("پرتاب موشک از " if frm else "پرتاب موشک در ") + p,
                 "airdef": "شلیک پدافند در " + p, "jet": "صدای جنگنده در " + p, "drone": "صدای پهپاد در " + p,
                 "siren": "صدای آژیر در " + p}[kind]
-    return {"blast": ("Explosion heard in " if wit else "Explosion in ") + p,
+    return {"strike": "Strike on " + p, "blast": ("Explosion heard in " if wit else "Explosion in ") + p,
             "launch": ("Missiles launched from " if frm else "Missile launch in ") + p,
             "airdef": "Air defence fire in " + p, "jet": "Jets heard over " + p, "drone": "Drones heard over " + p,
             "siren": "Sirens in " + p}[kind]
@@ -188,6 +329,9 @@ def events(m):
     if (fa_t and _NOT_NOW_FA.search(fa_t)) or (en_t and _NOT_NOW_EN.search(en_t)):
         return []
     step, kind = _step(fa_t, en_t)
+    infra = _infra_events(m, fa_t, en_t, step, kind)
+    if infra:
+        return infra                        # Iran striking an oil, gas, power or water site, a port
     if not step:
         return []
     places = _places(fa_t, en_t)
@@ -199,16 +343,26 @@ def events(m):
         for k in places:                    # "… launched from Iran": the origin is named after "from"
             if re.search((r"\bfrom\s+" + k) if not fa_t else (fa_norm("از") + r"\s*" + fa_norm(_GENERAL[k][0])), txt):
                 a, b = k, ({"iran", "israel"} - {k}).pop()
-        fa_k = {"blast": "انفجار", "launch": "پرتاب موشک", "airdef": "رهگیری", "jet": "پرواز جنگنده",
+        fa_k = {"strike": "حمله", "blast": "انفجار", "launch": "پرتاب موشک", "airdef": "رهگیری", "jet": "پرواز جنگنده",
                 "drone": "پرتاب پهپاد", "siren": "آژیر"}[kind]
-        en_k = {"blast": "Explosions", "launch": "Missiles launched", "airdef": "Interceptions", "jet": "Jets",
+        en_k = {"strike": "Strikes", "blast": "Explosions", "launch": "Missiles launched", "airdef": "Interceptions", "jet": "Jets",
                 "drone": "Drones launched", "siren": "Sirens"}[kind]
         return [{"place": a, "step": step, "kind": kind, "t": m["t"],
                  "fa": f"{fa_k} از {_name(a, 'fa')} به سمت {_name(b, 'fa')}",
                  "en": f"{en_k} from {_name(a, 'en')} towards {_name(b, 'en')}"}]
     if places & set(witness.CITIES):
         places &= set(witness.CITIES)       # "missiles from Sirik towards Hormuz": the city is the place
+    if kind == "strike":
+        # a strike names the place it hit ("airstrikes hit Isfahan", "حمله هوایی به اصفهان"), not a capital speaking for
+        # its government ("Tehran says…") nor the country in general ("new Iran strikes")
+        places = {p for p in places - set(_GENERAL) if _object_of_strike(p, fa_t, en_t)}
+    ship = "maritime_incident" in flags and kind in ("strike", "blast")
     for p in places:
+        if ship:
+            out.append({"place": p, "step": step, "kind": kind, "t": m["t"],
+                        "fa": ("حمله به کشتی در " if kind == "strike" else "انفجار کشتی در ") + _name(p, "fa"),
+                        "en": ("Ship attacked in " if kind == "strike" else "Ship explosion in ") + _name(p, "en")})
+            continue
         frm = bool(fa_t and re.search(_FROM_FA.pattern + r"\s*(?:جزیره\s*)?" + re.escape(fa_norm(_name(p, "fa"))), fa_t)) \
             or bool(en_t and re.search(r"\bfrom\b[^.;]{0,15}" + re.escape(_name(p, "en")), en_t, re.I))
         out.append({"place": p, "step": step, "kind": kind, "t": m["t"], "fa": _title(kind, step, p, "fa", False, frm),
@@ -285,9 +439,9 @@ def process(state, items, now_t, story_start=None, quiet=False):
     return ([] if quiet else msgs), keys
 
 
-_KIND_NOUN_FA = {"blast": "انفجار", "launch": "پرتاب موشک", "airdef": "شلیک پدافند", "jet": "صدای جنگنده",
+_KIND_NOUN_FA = {"infra": "حمله به زیرساخت", "strike": "حمله", "blast": "انفجار", "launch": "پرتاب موشک", "airdef": "شلیک پدافند", "jet": "صدای جنگنده",
                  "drone": "صدای پهپاد", "siren": "آژیر"}
-_KIND_NOUN_EN = {"blast": "explosions", "launch": "missile launches", "airdef": "air defence fire", "jet": "jets",
+_KIND_NOUN_EN = {"infra": "strikes on infrastructure", "strike": "strikes", "blast": "explosions", "launch": "missile launches", "airdef": "air defence fire", "jet": "jets",
                  "drone": "drones", "siren": "sirens"}
 
 
