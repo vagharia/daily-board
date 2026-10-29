@@ -26,6 +26,11 @@ MAJORITY = 61
 # the law's own deadline for publishing the final results in the official gazette (Reshumot): 4 Nov 2026
 LEGAL_FINAL = 1793829600          # 2026-11-05 00:00 Israel time
 KEEP_AFTER_FINAL = 24 * 3600
+# the committee publishes no share of the count, so it is estimated: the turnout it announced when the polls closed
+# (77.7% at 22:00, of the 7,331,981 voters) plus the double-envelope votes counted after (soldiers, prisoners,
+# diplomats; 430-480 thousand by the press)
+POLL_TURNOUT = 0.777
+DOUBLE_ENVELOPES = 455_000
 BRANCH = "election"
 
 # lists by their ballot letters: Persian and English names, leader, bloc
@@ -137,7 +142,12 @@ def build(parsed, prev=None, t=None):
     final_t = prev.get("final_t")
     if not final_t and (parsed["final"] or t >= LEGAL_FINAL):
         final_t = t
+    est = None
+    if parsed["eligible"] and parsed["votes"]:
+        expected = POLL_TURNOUT * parsed["eligible"] + DOUBLE_ENVELOPES
+        est = 100.0 if final_t else min(99.0, round(100 * parsed["votes"] / expected, 1))
     return {"v": 1, "updated": t, "asof": parsed["asof"], "source": URL, "eligible": parsed["eligible"],
+            "counted_est": est,
             "votes": parsed["votes"], "valid": parsed["valid"], "boxes": parsed["boxes"],
             "turnout": round(100 * parsed["votes"] / parsed["eligible"], 1) if parsed["eligible"] and parsed["votes"] else None,
             "threshold": THRESHOLD * 100, "majority": MAJORITY, "seats_total": SEATS, "blocs": blocs,

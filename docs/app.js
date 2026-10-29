@@ -26,7 +26,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 21;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 24;
+  var APP_BUILD = 25;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -51,7 +51,8 @@
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
       deesc: 'کاهش تنش', live: 'زنده', elecH: 'نتایج زنده‌ی انتخابات کنست', elecShort: 'انتخابات اسرائیل', elecFinal: 'نتایج نهایی',
-      elecCount: 'آرای شمرده‌شده:', mVotes: 'میلیون', vs: 'در برابر', blocBibi: 'ائتلاف نتانیاهو', blocArab: 'احزاب عربی',
+      elecCount: 'آرای شمرده‌شده:', mVotes: 'میلیون', elecBoxes: '{b} صندوق و {v} میلیون رأی شمرده شده؛ مشارکت تاکنون {t}',
+      elecEst: 'حدود {p} آرا شمرده شده', elecEstTag: 'تخمینی', elecAll: 'همه‌ی آرا شمرده شده', elecAsOf: 'نتایج تا ساعت {h}', vs: 'در برابر', blocBibi: 'ائتلاف نتانیاهو', blocArab: 'احزاب عربی',
       blocChange: 'جبهه‌ی آیزنکوت', elecMaj: '{n} کرسی برای اکثریت', seatsW: 'کرسی', votesW: 'رأی',
       elecBelow: 'زیر حد نصاب {p}٪:',
       storiesH: 'استوری خبرها', fullStory: 'خبر کامل', close: 'بستن', srcLabel: 'منبع:', prev: 'قبلی', next: 'بعدی',
@@ -112,7 +113,8 @@
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
       deesc: 'De-escalation', live: 'Live', elecH: 'Knesset election live results', elecShort: 'Israel election', elecFinal: 'Final results',
-      elecCount: 'Counted:', mVotes: 'm votes', vs: 'vs', blocBibi: "Netanyahu's bloc", blocArab: 'Arab parties',
+      elecCount: 'Counted:', mVotes: 'm votes', elecBoxes: '{b} ballot boxes and {v} million votes counted; turnout so far {t}',
+      elecEst: 'About {p} of the vote counted', elecEstTag: 'estimate', elecAll: 'All votes counted', elecAsOf: 'Results as of {h}', vs: 'vs', blocBibi: "Netanyahu's bloc", blocArab: 'Arab parties',
       blocChange: "Eisenkot's bloc", elecMaj: '{n} seats for a majority', seatsW: 'Seats', votesW: 'Votes',
       elecBelow: 'Below the {p}% threshold:',
       storiesH: 'News stories', fullStory: 'Full story', close: 'Close', srcLabel: 'Source:', prev: 'Previous', next: 'Next',
@@ -654,9 +656,17 @@
     var yas = d.lists.filter(function (r) { return r.let === 'דרך'; })[0] || { seats: 0, votes: 0 };
     var max = Math.max.apply(null, seated.map(function (r) { return r.seats; }).concat([1]));
     var h = '<div class="ev-top"><span class="ev-live"><i></i>' + esc(d.final ? t('elecFinal') : t('live')) + '</span>' +
-      '<span class="ev-when">' + esc(t('elecCount')) + ' ' + nfmt((d.votes || 0) / 1e6, 2) + ' ' + esc(t('mVotes')) +
-      (d.asof ? ' | ' + esc(clock(d.asof)) : '') + '</span>' +
+      '<span class="ev-when">' + (d.asof ? esc(t('elecAsOf').replace('{h}', clock(d.asof))) : '') + '</span>' +
       '<button class="sv-x" data-ev="close" aria-label="' + esc(t('close')) + '">' + ic('x') + '</button></div>';
+    // how far the count has got: the committee's own figures, and the share counted, estimated (election.py)
+    if (d.boxes || d.votes) {
+      var est = d.counted_est, done = d.final || (est != null && est >= 100);
+      h += '<div class="ev-count"><div class="ev-cnt">' + esc(t('elecBoxes').replace('{b}', nfmt(d.boxes || 0))
+        .replace('{v}', nfmt((d.votes || 0) / 1e6, 2)).replace('{t}', d.turnout != null ? pctStr(d.turnout, 1) : '-')) + '</div>' +
+        (est != null ? '<div class="ev-est"><span>' + esc(done ? t('elecAll') : t('elecEst').replace('{p}', pctStr(Math.round(est), 0))) +
+          (done ? '' : ' <em>' + esc(t('elecEstTag')) + '</em>') + '</span><span class="ev-pb"><i style="width:' +
+          Math.min(100, est).toFixed(1) + '%"></i></span></div>' : '') + '</div>';
+    }
     // the duel: Netanyahu against Eisenkot
     var sum = (lik.seats + yas.seats) || 1;
     h += '<div class="ev-duel">' +
