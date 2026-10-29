@@ -8,7 +8,7 @@ called off, a team that won't travel).
 import math
 import re
 
-from . import config, deesc, sport
+from . import config, deesc, sport, witness
 from .classify_fa import score_fa
 from .fronts import saudi_houthi
 from .internet import internet, severity as net_severity
@@ -540,6 +540,15 @@ def classify(item):
     """Fill severity, topics, flags, people, places, countries on an item. Each report is read in its own
     language: a Persian report by the Persian rules and lexicon on its original text (its English translation is
     only for display and for matching it with foreign reports), anything else by the English rules."""
+    if item.get("wit"):
+        # citizen reports relayed by a channel: severity from how many people report what, and where (witness.py)
+        sev, flags = witness.score(item["wit"])
+        item["sev"], item["flags"], item["topics"] = sev, sorted(flags), ["military"]
+        t, s = item.get("ti") or "", item.get("su") or ""
+        item["ppl"] = []
+        item["geo"] = match_keys(PLACES_RX, item.get("en_ti") or "", t)
+        item["ctry"] = sorted(set(match_keys(COUNTRIES_RX, item.get("en_ti") or "", t)) | {"ir"})
+        return item
     if item.get("lang") == "fa":
         t, s = _head(item.get("ti") or "", strip_dateline(item.get("su") or ""))
         sev, topics, flags = score_fa(t, s)

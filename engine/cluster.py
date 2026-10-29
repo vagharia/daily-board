@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import config
+from . import config, witness
 from .classify import cluster_severity, tier
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -401,7 +401,38 @@ def features(m):
             "ctry": set(m.get("ctry") or []), "ppl": set(m.get("ppl") or []), "spk": speaker(title),
             "nums": _numbers(title), "days": frozenset(d.lower() for d in _DAYS.findall(title)),
             "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title)),
-            "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m)))}
+            "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
+            "wit": bool(m.get("wit")), "wcity": _wcities(m),
+            "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE}
+
+
+def _wcities(m):
+    """Iranian cities (witness.CITIES keys) a report names: those of a post of citizen reports, or those in a
+    report's headline and the start of its text."""
+    if m.get("wit"):
+        return frozenset(m["wit"].get("cities") or {})
+    out = witness.cities_in((m.get("en_ti") or "") + " " + (m.get("en_su") or "")[:200], "en")
+    if m.get("lang") == "fa":
+        out |= witness.cities_in((m.get("ti") or "") + " " + (m.get("su") or "")[:200], "fa")
+    return frozenset(out)
+
+
+WIT_SAME = 2 * 3600          # citizen reports from the same city: one story for two hours
+WIT_NEWS = 3 * 3600          # a news report of something that happened in that city joins them within three hours
+
+
+def _witness_match(a, b, dt):
+    """Citizen reports (witness.py) join other citizen reports from the same city, and a news or channel report of
+    an attack, an explosion or air defence fire in that city (not a gas explosion, an exercise or a denial), so
+    the story stops being unconfirmed once an outlet reports it. Nothing else joins them."""
+    if not a["wcity"] & b["wcity"]:
+        return False
+    if a["wit"] and b["wit"]:
+        return 0.5 if dt <= WIT_SAME else False
+    o = b if a["wit"] else a
+    if o["cls"] in ("K", "A", "M") and o["strike_ok"] and not o["blast"] and dt <= WIT_NEWS:
+        return 0.5
+    return False
 
 
 def _text_close(x, y, physical):
@@ -434,6 +465,8 @@ def same_story(a, b, dt=0, rare=frozenset()):
     agree on what happened, where and who said it, and their headlines are very close.
     Reports within two hours of each other that share uncommon words (a place such as Pakdasht or Sirik, a
     rare name) need a little less overlap. The story's time window is checked by the caller."""
+    if a.get("wit") or b.get("wit"):
+        return _witness_match(a, b, dt)
     ka, kb = KIND[a["cls"]], KIND[b["cls"]]
     if ka and kb and ka != kb:                      # what happened
         return False

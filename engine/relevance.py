@@ -314,6 +314,8 @@ def roundup(item):
 
 
 def is_relevant(item):
+    if item.get("wit"):
+        return 76, True                       # citizen reports of explosions, air defence fire, jets (witness.py)
     item = dict(item, su=strip_dateline(item.get("su") or ""))   # "تهران- ایرنا- …" doesn't make a story Iran's
     from .classify import cable
     if cable(item.get("lang") or "en", item.get("ti", ""), item.get("su", "")):

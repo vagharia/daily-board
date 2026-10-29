@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from . import config, http, media
 from .feeds import parse_feed
 from .sources import SOURCES, source_for_domain
+from . import witness
 from .util import clean_summary, clean_title, first_sentences, has_fa, log, parse_date, sha, norm_url, tg_text
 
 KW_EN = '(Iran OR Iranian OR Israel OR Israeli OR Hormuz OR Tehran OR IRGC OR Hezbollah OR Houthi OR "Persian Gulf" OR Gulf OR CENTCOM)'
@@ -124,6 +125,7 @@ def make_items(src, entries, via, T, gn_source=None):
             "s": src["id"], "sn": name_en, "sn_fa": name_fa, "rel": src["rel"], "u": link, "t": ts,
             "ti": title, "su": su, "img": img, "vid": vid, "lang": "fa" if has_fa(title) else "en", "via": via,
             "html": ((e.get("summary") or "") + " " + (e.get("content") or ""))[:40000],
+            **({k: e[k] for k in ("wit", "en_ti", "en_su")} if e.get("wit") else {}),
         })
     return out
 
@@ -194,7 +196,9 @@ def _tg_parse(soup):
             continue
         for br in tnode.find_all("br"):
             br.replace_with("\n")
-        lines = [_clean_tg_line(x) for x in tnode.get_text("").split("\n")]
+        raw = tnode.get_text("")
+        wit = witness.parse(raw)
+        lines = [_clean_tg_line(x) for x in raw.split("\n")]
         lines = [x for x in lines if x and "t.me/" not in x]
         if len(lines) > 1 and len(lines[0]) < 30 and lines[0].endswith(":"):
             lines = [lines[0] + " " + lines[1]] + lines[2:]          # "عراقچی:" + the quote
@@ -209,6 +213,11 @@ def _tg_parse(soup):
             cut = cut[: cut.rfind(" ")] + "…" if len(quoted) > 90 and " " in cut else cut
             title = f"{title} (در ادامهٔ: {cut})" if has_fa(title + quoted) else f"{title} (following: {cut})"
         title, rest = tg_head(title, rest)
+        extra = {}
+        if wit:
+            # citizen reports ("پیام‌های دریافتی: …"): one news sentence and a line of counts (witness.py)
+            title, rest, en_ti, en_su = witness.texts(wit)
+            extra = {"wit": wit, "en_ti": en_ti, "en_su": en_su}
         img = None
         ph = div.select_one(".tgme_widget_message_photo_wrap")
         if ph and ph.get("style"):
@@ -217,7 +226,7 @@ def _tg_parse(soup):
                 img = norm_url(m.group(1))
         out.append({"title": title, "link": f"https://t.me/{div['data-post']}", "summary": rest[:900], "content": "",
                     "date": tm["datetime"], "media": [{"url": img, "type": "image/jpeg", "medium": "image", "w": 0}] if img else [],
-                    "source_name": "", "source_url": ""})
+                    "source_name": "", "source_url": "", **extra})
     return out
 
 

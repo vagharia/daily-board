@@ -16,7 +16,7 @@ from .translate import Translator, fix_terms
 from .util import data_path, fa_norm, first_sentences, load_json, log, now, save_json, speaker_first, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
-               "sev", "topics", "flags", "ppl", "geo", "ctry")
+               "sev", "topics", "flags", "ppl", "geo", "ctry", "wit")
 PUBLIC_FLAGS = {"kinetic", "denial", "analysis", "opinion", "speculative", "past", "maritime_incident", "airspace",
                 "evac", "deploy", "ultimatum", "sanctions", "exercise", "threat"}
 
@@ -377,7 +377,8 @@ def news_round(full=True):
     # ---------------------------------------------------------------- 3. Persian items -> English
     tr = Translator(tcache)
     fa_items, deferred, budget = [], [], config.MAX_FA_TRANSLATE
-    for it in sorted([it for it in rel_items if it["lang"] == "fa"], key=lambda x: -x["t"]):
+    # citizen reports come with their English text already written (witness.py)
+    for it in sorted([it for it in rel_items if it["lang"] == "fa" and not it.get("wit")], key=lambda x: -x["t"]):
         if tr.get(it["ti"], "fa", "en") is not None:
             fa_items.append(it)
         elif budget > 0:
@@ -401,7 +402,9 @@ def news_round(full=True):
             texts.append(first_sentences(it["su"], 330))
     res = tr.translate_many(texts, "fa", "en") if texts else {}
     for it in rel_items:
-        if it["lang"] == "fa":
+        if it.get("wit"):
+            pass
+        elif it["lang"] == "fa":
             it["en_ti"] = res.get(it["ti"], "")
             it["en_su"] = res.get(first_sentences(it.get("su", ""), 330), "") if it.get("su") else ""
         else:
