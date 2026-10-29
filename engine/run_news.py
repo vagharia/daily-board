@@ -183,10 +183,10 @@ def drop_reply_copies(clusters, seen, T):
 
 
 def reread_cut_posts(clusters, T):
-    """Telegram posts of the last two days whose headline was cut mid-sentence while their text lost the rest are
+    """Telegram posts of the last week whose headline was cut mid-sentence while their text lost the rest are
     read again, each from its own page, and get their whole text back. Returns (posts read again, posts found)."""
     by_id = BY_ID
-    todo = [(m, c) for c in clusters for m in c["m"] if m.get("via") == "tg" and T - m["t"] <= 48 * 3600
+    todo = [(m, c) for c in clusters for m in c["m"] if m.get("via") == "tg" and T - m["t"] <= 8 * 86400
             and (m.get("ti") or "").endswith("…") and m.get("s") in by_id]
     n = 0
     for (m, c), e, err in parallel(lambda mc: collect.tg_post(mc[0]["u"]), todo, workers=8):
@@ -314,9 +314,9 @@ def news_round(full=True):
         # replies on Telegram pages were once read as the post they answer: such copies are dropped and read again
         log(f"telegram replies to read again: {drop_reply_copies(clusters, seen, T)}")
         misc["tg_replies"] = 1
-    if misc.get("tg_cut") != 1:
+    if misc.get("tg_cut") != 2:
         log("telegram posts cut mid-sentence, read again: %d of %d" % reread_cut_posts(clusters, T))
-        misc["tg_cut"] = 1
+        misc["tg_cut"] = 2
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
     if misc.get("live_fix") != 1:
