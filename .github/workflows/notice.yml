@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       to:
-        description: 'owner = only the owner; all = owner and every subscriber'
+        description: 'owner = only the owner; others = subscribers except the owner; all = owner and every subscriber'
         required: true
         default: owner
         type: choice
-        options: [owner, all]
+        options: [owner, others, all]
 permissions:
   contents: read
 jobs:

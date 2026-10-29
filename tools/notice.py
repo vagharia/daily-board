@@ -21,8 +21,10 @@ def main():
     chats = [owner] if owner else []
     if to == "all":
         chats += [c for c in alerts._subs(state, token) if c not in chats]
+    elif to == "others":  # every subscriber except the owner (who already has it)
+        chats = [c for c in alerts._subs(state, token) if c != owner]
     elif to != "owner":
-        sys.exit("target must be owner or all")
+        sys.exit("target must be owner, others or all")
     if not chats:
         sys.exit("no chat to send to")
     sent = alerts.send_all(dict(state), token, chats, [text])
