@@ -402,7 +402,7 @@ def features(m):
             "nums": _numbers(title), "days": frozenset(d.lower() for d in _DAYS.findall(title)),
             "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title)),
             "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
-            "wit": bool(m.get("wit")), "wcity": _wcities(m),
+            "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
             "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE}
 
 
@@ -417,21 +417,46 @@ def _wcities(m):
     return frozenset(out)
 
 
-WIT_SAME = 2 * 3600          # citizen reports from the same city: one story for two hours
+WIT_SAME = 30 * 60           # citizen reports from the same city: the same incident if the times they give are within
+                             # half an hour of each other
+WIT_UNTIMED = 2 * 3600       # or, when a post gives no time, if the posts are within two hours of each other
 WIT_NEWS = 3 * 3600          # a news report of something that happened in that city joins them within three hours
+TEHRAN = 12600               # Iran time, UTC+3:30 all year
+
+
+def _wtimes(m):
+    """(earliest, latest) moment of what a post of citizen reports tells, from the clock times in its messages (each
+    the last such time at or before the post, give or take ten minutes); None if its messages give no time."""
+    t = m.get("t") or 0
+    hm = (m.get("wit") or {}).get("times") or []
+    if not hm:
+        return None
+    day = (t + TEHRAN) // 86400 * 86400 - TEHRAN          # midnight in Tehran on the post's day
+    out = []
+    for x in hm:
+        e = day + int(x[:2]) * 3600 + int(x[3:]) * 60
+        if e > t + 600:
+            e -= 86400                                     # 23:55 told in a post after midnight
+        if t - e <= 6 * 3600:                              # a time far before the post is something else
+            out.append(e)
+    return (min(out), max(out)) if out else None
 
 
 def _witness_match(a, b, dt):
-    """Citizen reports (witness.py) join other citizen reports from the same city, and a news or channel report of
+    """Citizen reports (witness.py) join other citizen reports from the same city about the same moment, and a news or channel report of
     an attack, an explosion or air defence fire in that city (not a gas explosion, an exercise or a denial), so
     the story stops being unconfirmed once an outlet reports it. Nothing else joins them."""
     if not a["wcity"] & b["wcity"]:
         return False
     if a["wit"] and b["wit"]:
-        return 0.5 if dt <= WIT_SAME else False
+        if a["wtime"] and b["wtime"]:
+            # both give clock times: the same incident if those are within half an hour (a blast is reported at once)
+            gap = max(a["wtime"][0], b["wtime"][0]) - min(a["wtime"][1], b["wtime"][1])
+            return 0.5 if gap <= WIT_SAME else False
+        return 0.5 if dt <= WIT_UNTIMED else False
     o = b if a["wit"] else a
     if o["cls"] in ("K", "A", "M") and o["strike_ok"] and not o["blast"] and dt <= WIT_NEWS:
-        return 0.5
+        return 0.5 + 0.4 * (1 - dt / WIT_NEWS)            # the closest citizen reports in time first
     return False
 
 
