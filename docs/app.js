@@ -26,7 +26,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 22;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 27;
+  var APP_BUILD = 28;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -1680,7 +1680,6 @@
       else if (a === 'clear') { S.tiers = Object.assign({}, DEF_TIERS); store.set('tiers', S.tiers); S.topic = S.ctry = S.ppl = null; S.q = ''; $('#searchInput').value = ''; $('#searchBox').hidden = true; renderChips(); renderFeed(); if (sheetOpen) closeSheet(); }
     }
   });
-  $('#langBtn').addEventListener('click', function () { setLang(L() === 'fa' ? 'en' : 'fa'); });
   $('#searchBtn').addEventListener('click', function () { var b = $('#searchBox'); b.hidden = !b.hidden; if (!b.hidden) $('#searchInput').focus(); });
   $('#searchClose').addEventListener('click', function () { $('#searchBox').hidden = true; S.q = ''; $('#searchInput').value = ''; renderChips(); renderFeed(); });
   var qTimer;
