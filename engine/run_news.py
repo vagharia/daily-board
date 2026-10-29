@@ -235,9 +235,9 @@ def rescore(clusters):
     return out
 
 
-def lite(T, day, idx, lights, lang):
+def lite(T, day, idx, lights, lang, front=()):
     """Everything the app's data-saving mode shows, in one small file per language: the three prices, the index,
-    the lamps and the last day's headlines (no summaries, links, pictures or tags)."""
+    the lamps, the last day's headlines (no summaries, links, pictures or tags) and the main front's list."""
     tk = load_json(data_path("ticker.json"), {}) or {}
     pick = lambda d, ks: {k: d.get(k) for k in ks if d.get(k) is not None}  # noqa: E731
     other = "en" if lang == "fa" else "fa"
@@ -253,6 +253,9 @@ def lite(T, day, idx, lights, lang):
                   (c[lang] or {}).get("ti") or (c[other] or {}).get("ti", ""),
                   (c["src"][0].get("nf" if lang == "fa" else "n") or c["src"][0].get("n") or "") if c["src"] else "",
                   c.get("unconf") or "", 1 if c.get("green") else 0] for c in day],
+        # the main front as it happens (flash.py): time, step, line, confirmed by a news outlet
+        "front": [[e["t"], e["s"], e.get(lang) or e.get(other, ""), e.get("conf", 0)]
+                  for e in front if T - e["t"] <= 48 * 3600][-80:],
     }
 
 
@@ -612,7 +615,7 @@ def news_round(full=True):
     save_json(data_path("x.json"), {"v": 1, "updated": T, "posts": posts[:120], "stats": xstats})
     save_json(data_path("flash.json"), {"v": 1, "updated": T, "events": fstate.get("log", [])[-200:]})
     for lang in ("fa", "en"):
-        save_json(data_path(f"lite_{lang}.json"), lite(T, day, idx, lights, lang))
+        save_json(data_path(f"lite_{lang}.json"), lite(T, day, idx, lights, lang, fstate.get("log", [])))
     src_health = []
     for s in SOURCES:
         h = health[s["id"]]

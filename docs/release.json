@@ -1,17 +1,11 @@
 {
-  "v": 21,
+  "v": 22,
   "fa": {
     "title": "نسخه‌ی جدید بولتن روزانه",
     "items": [
-      "استوری ثابت نتایج زنده‌ی انتخابات اسرائیل، اول ردیف استوری‌ها: کرسی هر حزب و ائتلاف، و رقابت نتانیاهو و آیزنکوت",
-      "شاخص تنش جدید: چهار بخش (اقدام نظامی، تهدید و نشانه‌های جنگ، گستردگی جبهه‌ها، سیگنال‌های عینی) با تمرکز اصلی روی جنگ ایران با آمریکا و اسرائیل؛ با بیشتر شدن حمله‌ها، تهدیدها و اعزام نیروهای نظامی بالاتر می‌رود",
-      "تم روشن، کنار تم تیره (از تنظیمات)",
-      "حالت کم‌مصرف برای اینترنت ضعیف: آیکون بالای صفحه؛ فقط تیتر خبرها، بدون عکس و ویدیو",
-      "برچسب‌های تازه برای خبرهای کانال‌های تلگرامی: «گزارش تأییدنشده»، «منبع ذکر نشده» و «در انتظار تأیید منبع»",
-      "تب ایکس فقط پست‌های مهم سیاسی و نظامی",
-      "هشدارهای حریم هوایی فقط هشدارهای تازه و هنوز معتبر",
-      "لینک نقشه‌ی زنده‌ی پروازها کنار نقشه‌ی کشتی‌های هرمز",
-      "نگه داشتن انگشت روی استوری دوباره استوری را نگه می‌دارد",
+      "دکمه‌ی تازه‌ی «گزارش‌های لحظه‌ای جبهه‌ی اصلی» بالای صفحه: انفجار، پرتاب موشک، شلیک پدافند و صدای جنگنده یا پهپاد در ایران، تنگه‌ی هرمز و خلیج فارس، اسرائیل و پایگاه‌های آمریکا؛ هر کدام در یک خط با مکان و ساعت. نقطه‌ی قرمز یا نارنجی روی دکمه یعنی گزارش تازه‌ای آمده",
+      "هشدارهای تلگرام برای همین رویدادها حالا لحظه‌ای و پله‌ای است: صدای جنگنده، بعد پرتاب موشک، بعد انفجار، هر کدام یک هشدار",
+      "خبرهایی از جبهه‌ی اصلی که فقط کانال‌های تلگرام گزارش کرده‌اند، تیتری از همه‌ی گزارش‌ها می‌گیرند و ساعت آخرین گزارش روی کارتشان دیده می‌شود",
       "بهبودها و رفع اشکال"
     ],
     "note": "بعد از به‌روزرسانی کمی صبر کنید تا اطلاعات جدید بارگذاری شود. اگر نیامد، صفحه را به پایین بکشید تا تازه شود.",
@@ -20,19 +14,13 @@
   "en": {
     "title": "What's new in Daily Brief",
     "items": [
-      "A pinned live story for Israel's election results, first in the stories row: seats per party and bloc, and Netanyahu against Eisenkot",
-      "A new escalation index in four parts (military action, threats and signs of war, fronts involved, objective signals), centred on war between Iran and America or Israel; it rises as attacks, threats and military build-ups multiply",
-      "A light theme next to the dark one (in Settings)",
-      "Data saver for weak connections: the icon at the top; headlines only, no pictures or video",
-      "New labels for Telegram channel reports: unconfirmed, source not named, and awaiting the source",
-      "The X tab shows important political and military posts only",
-      "Airspace warnings: only recent ones still in force",
-      "A live flight map link next to the Hormuz ship map",
-      "Press and hold on a story pauses it again",
+      "A new “Main front, as it happens” button at the top: explosions, missile launches, air defence fire, jets or drones heard in Iran, Hormuz and the Persian Gulf, Israel and US bases; one line each with its place and time. A red or orange dot on it means something new came in",
+      "Telegram alerts for these events now come at once and step by step: jets heard, then a missile launch, then an explosion, one alert each",
+      "Main-front stories reported only by Telegram channels get a headline made of all their reports, and their cards show the latest report's time",
       "Improvements and bug fixes"
     ],
     "note": "After updating, give it a moment for new data to load. If it doesn't appear, pull the page down to refresh.",
     "button": "Update"
   },
-  "build": 26
+  "build": 27
 }

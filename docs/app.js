@@ -24,9 +24,9 @@
     set: function (k, v) { try { localStorage.setItem('db.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   };
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
-  var APP_REL = 21;
+  var APP_REL = 22;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 26;
+  var APP_BUILD = 27;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -46,7 +46,7 @@
       unconfCited: 'در انتظار تأیید منبع', unconfCitedShort: 'در انتظار تأیید:', unconfCitedNote: 'کانال تلگرامی این خبر را از رسانه‌ای نقل کرده، ولی گزارش خود آن رسانه هنوز پیدا نشده است. وقتی پیدا شود، برچسب برداشته می‌شود.',
       lite: 'حالت کم‌مصرف', liteOn: 'حالت کم‌مصرف روشن شد: فقط تیتر خبرهای ۲۴ ساعت، بدون عکس و ویدیو.', liteOffMsg: 'حالت کم‌مصرف خاموش شد.', liteTab: 'در حالت کم‌مصرف فقط تب خبرها کار می‌کند.', liteWeek: 'در حالت کم‌مصرف فقط خبرهای ۲۴ ساعت می‌آید.', liteNote: 'حالت کم‌مصرف: فقط تیتر خبرها؛ متن کامل و منابع در حالت عادی.',
       theme: 'تم', themeDark: 'تیره', themeLight: 'روشن', liveAir: 'نقشه زنده پروازها', liveMil: 'پروازهای نظامی (ADS-B Exchange)',
-      lastShort: 'آخرین {t}', firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
+      frontH: 'گزارش‌های لحظه‌ای جبهه‌ی اصلی', frontNote: 'انفجار، پرتاب موشک، شلیک پدافند و صدای جنگنده یا پهپاد در ایران، تنگه‌ی هرمز و خلیج فارس، اسرائیل و پایگاه‌های آمریکا؛ ۴۸ ساعت اخیر.', frontNone: 'گزارشی وجود ندارد', frontUnc: 'تأییدنشده', frontOk: 'تأییدشده', lastShort: 'آخرین {t}', firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
@@ -108,7 +108,7 @@
       unconfCited: 'Awaiting source check', unconfCitedShort: 'Awaiting check:', unconfCitedNote: 'A Telegram channel relays this from an outlet, but that outlet\'s own report hasn\'t been found yet. Once it is, the label goes.',
       lite: 'Data saver', liteOn: 'Data saver on: only the day\'s headlines, no pictures or video.', liteOffMsg: 'Data saver off.', liteTab: 'In data saver mode only the news tab works.', liteWeek: 'In data saver mode only the last 24 hours are loaded.', liteNote: 'Data saver: headlines only; full text and sources in normal mode.',
       theme: 'Theme', themeDark: 'Dark', themeLight: 'Light', liveAir: 'Live flight map', liveMil: 'Military flights (ADS-B Exchange)',
-      lastShort: 'latest {t}', firstRep: 'First reported {t}', lastRep: 'Last update {t}',
+      frontH: 'Main front, as it happens', frontNote: 'Explosions, missile launches, air defence fire, jets or drones heard in Iran, Hormuz and the Persian Gulf, Israel and US bases; last 48 hours.', frontNone: 'No reports', frontUnc: 'unconfirmed', frontOk: 'confirmed', lastShort: 'latest {t}', firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
@@ -279,7 +279,7 @@
     }, function (e) { clearTimeout(tm); throw e; });
   }
   var KEYS = { ticker: 'ticker.json', signals: 'signals.json', news24: 'news_24h.json', newsWeek: 'news_week.json', x: 'x.json', health: 'health.json',
-    stories: 'stories.json', econ: 'economist.json' };
+    stories: 'stories.json', econ: 'economist.json', front: 'flash.json' };
   function load(keys, fresh) {
     return Promise.all(keys.map(function (k) {
       return getJSON(KEYS[k], fresh).then(function (j) { return [k, j, null]; }, function (e) { return [k, null, e]; });
@@ -884,6 +884,39 @@
     var c = list[0];
     toast('<b>' + esc(t('newRed')) + ':</b> ' + esc(txt(c).ti), c.id, true);
     beep();
+  }
+
+  // ------------------------------------------------------------------ main front, as it happens (flash.json)
+  // Explosions, launches, air defence fire, jets heard: one line each with its place and time. The dot on the button
+  // shows something from the last six hours not yet looked at: red for a launch or an explosion, orange otherwise.
+  function frontEvents() {
+    var d = S.d.front, now = nowS();
+    return d && d.events ? d.events.filter(function (e) { return now - e.t <= 48 * 3600; }).sort(function (a, b) { return b.t - a.t; }) : [];
+  }
+  function renderFrontBtn() {
+    var btn = $('#frontBtn');
+    if (!btn) return;
+    var dot = btn.querySelector('.front-dot'), seen = store.get('frontSeen', 0), now = nowS();
+    var fresh = frontEvents().filter(function (e) { return now - e.t <= 6 * 3600 && e.t > seen; });
+    dot.hidden = !fresh.length;
+    dot.classList.toggle('hot', fresh.some(function (e) { return e.s >= 3; }));
+    btn.setAttribute('aria-label', t('frontH'));
+  }
+  function openFront() {
+    var evs = frontEvents();
+    store.set('frontSeen', nowS());
+    renderFrontBtn();
+    var h = '<h2>' + esc(t('frontH')) + '</h2><p class="subnote">' + esc(t('frontNote')) + '</p>';
+    if (!evs.length) h += '<p class="front-none">' + esc(t('frontNone')) + '</p>';
+    var day = null;
+    evs.forEach(function (e) {
+      var k = dayKey(e.t);
+      if (k !== day) { day = k; h += '<h4 class="front-day">' + esc(dlong(e.t)) + '</h4>'; }
+      h += '<div class="front-row s' + e.s + '"><i class="fr-dot"></i><span class="fr-t" dir="auto">' + esc(L() === 'fa' ? e.fa : e.en) + '</span>' +
+        (e.conf ? '<span class="fr-ok">' + ic('check') + esc(t('frontOk')) + '</span>' : '<span class="fr-unc">' + esc(t('frontUnc')) + '</span>') +
+        '<span class="fr-h">' + esc(clock(e.t)) + '</span></div>';
+    });
+    openSheet(h);
   }
 
   // ------------------------------------------------------------------ sheet
@@ -1559,6 +1592,7 @@
     if (!j) return;
     S.d.ticker = j.ticker || {};
     S.d.signals = { updated: j.updated, index: j.index, lights: (j.lights || []).map(function (l) { return Object.assign({ evidence: [] }, l); }) };
+    S.d.front = { updated: j.updated, events: (j.front || []).map(function (r) { var o = { t: r[0], s: r[1], conf: r[3] }; o.fa = o.en = r[2]; return o; }) };
     S.d.news24 = { updated: j.updated, range: '24h', clusters: (j.news || []).map(function (r) {
       var tx = { ti: r[5], su: '' };
       return { id: r[0], tier: r[1], sev: r[2], t: r[3], u: r[3], ns: r[4], fa: tx, en: tx, lang: L(), img: null, vid: null,
@@ -1594,7 +1628,7 @@
     if (window.scrollY > top) window.scrollTo(0, top);
   }
   function renderAll(langChanged) {
-    renderHeader(); renderMarkets(); renderGauge(); renderLamps(); renderFlash(); renderStories();
+    renderHeader(); renderMarkets(); renderGauge(); renderLamps(); renderFlash(); renderFrontBtn(); renderStories();
     $$('#rangeSeg button').forEach(function (b) { b.classList.toggle('on', b.dataset.range === S.range); });
     renderChips(); renderFeed(true);
     if (S.tab === 'map') { renderMap(); renderSignals(); }
@@ -1638,6 +1672,7 @@
       var a = el.dataset.a;
       if (a === 'settings') openSettings();
       else if (a === 'lite') setLite(!S.lite);
+      else if (a === 'front') openFront();
       else if (a === 'lights') openLights();
       else if (a === 'index') openIndex();
       else if (a === 'markets') openMarkets();
@@ -1682,7 +1717,7 @@
   // ------------------------------------------------------------------ refresh loop
   function refreshAll(fresh) {
     if (S.lite) return loadLite(fresh).then(function (ch) { S.loaded = true; if (ch.news24) trackNew(!!S.firstDone); S.firstDone = true; renderAll(); });
-    var keys = ['ticker', 'signals', 'news24', 'x', 'stories', 'econ'];
+    var keys = ['ticker', 'signals', 'news24', 'x', 'stories', 'econ', 'front'];
     if (S.range === 'week' || S.d.newsWeek) keys.push('newsWeek');
     S.econAt = nowS();
     loadElection(fresh);
@@ -1703,12 +1738,12 @@
       if (nowS() - (S.liteAt || 0) < 280) return;  // one small file every five minutes
       S.liteAt = nowS();
       loadLite().then(function (ch) {
-        if (ch.news24) { trackNew(true); renderMarkets(); renderGauge(); renderLamps(); renderFlash(); renderChips(); if (window.scrollY < 400) renderFeed(true); }
+        if (ch.news24) { trackNew(true); renderMarkets(); renderGauge(); renderLamps(); renderFlash(); renderFrontBtn(); renderChips(); if (window.scrollY < 400) renderFeed(true); }
         renderHeader();
       });
       return;
     }
-    var keys = ['signals', 'news24'];
+    var keys = ['signals', 'news24', 'front'];
     if (S.tab === 'x' || Math.random() < 0.5) keys.push('x');
     if (S.range === 'week') keys.push('newsWeek');
     if (!S.d.stories || nowS() > (S.d.stories.next || 0) - 60) keys.push('stories');      // a new set every two hours
@@ -1717,6 +1752,7 @@
       if (ch.stories && !SV) renderStories();
       if (ch.econ) { if (S.tab === 'econ') { renderEcon(); econSeen(); } else econDot(); }
       if (ch.news24) trackNew(true);
+      if (ch.front) renderFrontBtn();
       if (ch.news24 || ch.signals || ch.newsWeek) {
         renderHeader(); renderGauge(); renderLamps(); renderFlash(); renderChips();
         if (window.scrollY < 400) renderFeed(true);
