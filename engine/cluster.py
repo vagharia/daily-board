@@ -434,8 +434,27 @@ def features(m):
             "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
             "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
             "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE,
-            "ship": vessel.mark(m), "sgen": vessel.general(m), "dep": deploy.mark(m), "dup": _dup_key(m),
+            "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "dup": _dup_key(m),
+            "stmt": vessel.signature(m), "when": vessel.when(m) if _at_sea(m) else None,
+            "inc": _incident_report(m),
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")}
+
+
+def _at_sea(m):
+    en = m.get("en_ti") or m.get("ti") or ""
+    return bool(vessel.SHIP_EN.search(en) or (m.get("lang") == "fa" and vessel.SHIP_FA.search(fa_norm(m.get("ti") or "")))
+                or "maritime_incident" in (m.get("flags") or []))
+
+
+def _general(m):
+    """A report about one ship in a sea area that gives no place, and is not an Iranian statement."""
+    return None if vessel.statement(m) else vessel.general(m)
+
+
+def _incident_report(m):
+    """A report of an incident at sea told independently (UKMTO, outlets abroad), not an Iranian statement."""
+    return bool(_at_sea(m) and "maritime_incident" in (m.get("flags") or []) and not vessel.statement(m)) \
+        or bool(vessel.mark(m))
 
 
 # the same article published again (an outlet re-posting it hours later, a wire story carried word for word): the
@@ -554,6 +573,15 @@ def same_story(a, b, dt=0, rare=frozenset()):
     ka, kb = KIND[a["cls"]], KIND[b["cls"]]
     if ka and kb and ka != kb:                      # what happened
         return False
+    if (a.get("stmt") and b.get("inc")) or (b.get("stmt") and a.get("inc")):
+        return False                                # an Iranian statement and an incident told independently
+    if a.get("when") and b.get("when") and not vessel.overlap(a["when"], b["when"]):
+        return False                                # at sea, the times the reports give don't meet
+    if a.get("stmt") and b.get("stmt"):             # an Iranian statement about ships (vessel.py)
+        if vessel.same_statement(a["stmt"], b["stmt"]):
+            return 0.6
+        if vessel.other_statement(a["stmt"], b["stmt"]):
+            return False
     if a.get("ship") and b.get("ship"):             # an incident at sea placed by distance and bearing (vessel.py)
         if vessel.same(a["ship"], b["ship"]):
             return 0.6
@@ -635,6 +663,8 @@ class Clusterer:
         self.index = {}
         self.tok = {}
         self.ships = {}                                   # story id -> [(place of an incident at sea, time)]
+        self.stmts = {}                                   # story id -> [(Iranian statement about ships, when, time)]
+        self.incs = {}                                    # story id -> [(when, time)] of incidents at sea told independently
         self.deps = {}                                    # (count, kind, destination) of a deployment -> story ids
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
         for c in clusters:
@@ -650,6 +680,10 @@ class Clusterer:
                         self.index.setdefault(w, set()).add(c["id"])
                 if feats[m["k"]].get("ship"):
                     self.ships.setdefault(c["id"], []).append((feats[m["k"]]["ship"], m["t"]))
+                if feats[m["k"]].get("stmt"):
+                    self.stmts.setdefault(c["id"], []).append((feats[m["k"]]["stmt"], feats[m["k"]]["when"], m["t"]))
+                if feats[m["k"]].get("inc"):
+                    self.incs.setdefault(c["id"], []).append((feats[m["k"]]["when"], m["t"]))
                 if feats[m["k"]].get("dep"):
                     self.deps.setdefault(feats[m["k"]]["dep"], set()).add(c["id"])
                 if feats[m["k"]].get("dup"):
@@ -692,6 +726,8 @@ class Clusterer:
                 return c, False
             if self._ship_conflict(f["ship"], cid):
                 continue                                   # an incident at sea placed elsewhere
+            if self._kind_conflict(f, cid):
+                continue                                   # an Iranian statement vs an incident told independently
             feats = self.tok.get(cid, {})
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
             if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"]:
@@ -701,7 +737,7 @@ class Clusterer:
                         default=0.0)
             if score:
                 matches.append((score, c))
-        for score, c in self._ship_matches(item, f) + self._same_matches(item, f):
+        for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches):
@@ -763,7 +799,7 @@ class Clusterer:
             for cid, marks in self.ships.items():
                 c = self.byid.get(cid)
                 if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= SHIP_KEEP \
-                        and any(vessel.same(f["ship"], x) for x, _ in marks):
+                        and any(vessel.same(f["ship"], x) for x, _ in marks) and not self._kind_conflict(f, cid):
                     out.append((0.6, c))
         elif f.get("sgen"):
             cands = []
@@ -771,12 +807,42 @@ class Clusterer:
                 c = self.byid.get(cid)
                 first, latest = min(t for _, t in marks), max(t for _, t in marks)
                 if c and len(c["m"]) < 60 and marks[0][0]["area"] == f["sgen"] and 0 <= item["t"] - first <= SHIP_KEEP \
-                        and item["t"] - latest <= SHIP_FRESH:
+                        and item["t"] - latest <= SHIP_FRESH and not self._kind_conflict(f, cid):
                     cands.append((c, marks))
             if cands and all(any(vessel.same(x, y) for x, _ in cands[0][1] for y, _ in mk) for _, mk in cands):
                 out.append((0.45, max(cands, key=lambda x: len(x[0]["m"]))[0]))
         return out
 
+
+    def _kind_conflict(self, f, cid):
+        """An Iranian statement about ships never joins a story of an incident told independently, nor the reverse;
+        and at sea, a report whose time doesn't meet the story's never joins it."""
+        st, inc = self.stmts.get(cid), self.incs.get(cid)
+        if f.get("stmt") and inc and not st:
+            return True
+        if f.get("inc") and st and not inc:
+            return True
+        if f.get("when"):
+            ws = [w for w, _ in (inc or [])] + [w for _, w, _ in (st or [])]
+            ws = [w for w in ws if w]
+            if ws and not any(vessel.overlap(f["when"], w) for w in ws):
+                return True
+        return False
+
+    def _stmt_matches(self, item, f):
+        """The story of the same Iranian statement (the same body, the same count, a super tanker, ships stopped),
+        for twelve hours after that story's latest report."""
+        out = []
+        if not f.get("stmt"):
+            return out
+        for cid, sts in self.stmts.items():
+            c = self.byid.get(cid)
+            if not c or len(c["m"]) >= 60 or abs(item["t"] - c["u"]) > STMT_KEEP:
+                continue
+            if any(vessel.same_statement(f["stmt"], x) and (not f.get("when") or not w or vessel.overlap(f["when"], w))
+                   for x, w, _ in sts):
+                out.append((0.6, c))
+        return out
 
     def _same_matches(self, item, f):
         """The story of the same article published again (same headline, nearly the same text) or of the same
@@ -793,10 +859,19 @@ class Clusterer:
         return out
 
 
+STMT_KEEP = 12 * 3600      # reports of the same Iranian statement join its story this long after its latest report
 DEP_KEEP = 24 * 3600       # reports of the same deployment join its story this long after its latest report
 SHIP_KEEP = 24 * 3600      # reports placing an incident at sea at the same spot join its story this long after its latest
 SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins the one incident placed in that sea area
                            # this soon after its latest placed report
+
+
+def _vague_at_sea(ms):
+    if not any("maritime_incident" in (m.get("flags") or []) for m in ms):
+        return False
+    if any(vessel.statement(m) or vessel.mark(m) or vessel.when(m) for m in ms):
+        return False
+    return len({(m.get("s") or "").split(":")[0] for m in ms}) < 2
 
 
 def _since(c):
@@ -923,6 +998,10 @@ def refresh(c):
         c.pop("claim", None)
         if ch_strike and (not news or any(strike(m) for m in news)):
             c["sev"] = max(c["sev"], RED_FLOOR)      # a second channel or the news confirms the strike: still red
+    if _vague_at_sea(ms):
+        # an incident at sea told by one outlet only, with no time and no place: not red until a second outlet, a
+        # time or a place makes sure it is new and not an incident told hours ago
+        c["sev"] = min(c["sev"], 69.0)
     if any(blast(m) for m in ms) and not any(set(m.get("flags", [])) & {"controlled", "denial"} for m in ms):
         c["sev"] = max(c["sev"], RED_FLOOR)          # an explosion in Iran put down to gas stays red
     c["tier"] = tier(c["sev"])

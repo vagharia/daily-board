@@ -69,7 +69,8 @@ _MARK_FA = re.compile(
 
 SHIP_EN = re.compile(r"\b(vessels?|ships?|tankers?|dhows?|boats?|carriers?|freighters?|bulkers?|bulk carriers?"
                      r"|merchant|supertankers?|lng carriers?)\b", re.I)
-SHIP_FA = re.compile(fa_norm("نفتکش|نفت کش|کشتی|شناور|لنج|تانکر|ناو|قایق|سوپرتانکر|ابرنفتکش"))
+SHIP_FA = re.compile(r"(?<![\u0621-\u06FF])(?:" + fa_norm("نفتکش|نفت کش|کشتی|شناور|شناورها|لنج|تانکر|ناو|ناوها|ناوهای"
+                     "|ناوشکن|قایق|قایق ها|سوپرتانکر|سوپر نفتکش|ابرنفتکش") + r")(?![\u0621-\u06FF])")
 _PLURAL_EN = re.compile(r"\b(vessels|ships|tankers|dhows|boats|carriers|freighters|supertankers)\b"
                         r"|\b(?:vessel|ship|tanker|shipping)\s+(?:attacks|incidents|strikes|seizures)\b"
                         r"|\b(two|three|four|five|six|several|multiple|\d+)\s+(?:\w+\s+)?(vessels|ships|tankers)", re.I)
@@ -82,8 +83,8 @@ _ANOTHER_FA = re.compile(fa_norm("کشتی دیگر|نفتکش دیگر|نفت �
 _HAPPENED_EN = re.compile(r"\b(fire|ablaze|burning|blaze|attack\w*|struck|hit|hits|explosions?|blasts?|incident"
                           r"|damaged|disabled|sank|sinks|sinking|sunk|targeted|exploded)\b", re.I)
 _HAPPENED_FA = re.compile(fa_norm("آتش|حمله|اصابت|انفجار|حادثه|آسیب|غرق|هدف قرار"))
-_MINE_EN = re.compile(r"\bmines?\b|\bmined\b", re.I)
-_MINE_FA = re.compile(r"(?<![ء-ۿ])" + fa_norm("مین") + r"(?:\s*" + fa_norm("ها") + r")?(?![ء-ۿ])")
+_MINE_EN = re.compile(r"(?<!limpet )(?<!limpet-)\bmines?\b|\bmined\b", re.I)   # a limpet mine is stuck on by hand
+_MINE_FA = re.compile(r"(?<![ء-ۿ])" + fa_norm("مین") + r"(?:\s*" + fa_norm("ها") + r")?(?![ء-ۿ])(?!\s*(?:مغناطیسی|چسبان|چسبنده|لیمپت))")
 _IRAN_SAYS_EN = re.compile(r"\b(iran\w*|irgc|revolutionary guards?|tehran)\b[^.;:]{0,40}\b(says?|said|claims?|claimed"
                            r"|reports?|announc\w+)\b|^\W*(iran|irgc)\w*\s*:", re.I)
 _IRAN_SAYS_FA = re.compile(fa_norm("(?:سپاه|ارتش|ایران|نیروی دریایی)") + r"[^.:؛]{0,40}"
@@ -214,7 +215,7 @@ def general(m):
 FACTS_EN = [("sank", r"\b(sank|sinks|sinking|sunk|capsiz\w+|submerged)\b"),
             ("hurt", r"\b(killed|dead|deaths?|died|injur\w+|wounded|missing|casualt\w+)\b"),
             ("who", r"\b(claims? responsibility|claimed responsibility|blam\w+|attribut\w+|behind the attack)\b"),
-            ("explosive", r"\b(explosives?|limpets?)\b"), ("mine", r"\bmines?\b"), ("drone", r"\bdrones?\b"),
+            ("explosive", r"\b(explosives?|limpets?)\b"), ("mine", r"(?<!limpet )\bmines?\b"), ("drone", r"\bdrones?\b"),
             ("missile", r"\bmissiles?\b"), ("projectile", r"\bprojectiles?\b"),
             ("boat", r"\b(small boat|skiff|speedboat|fast boat|boarded|boarding)\b"), ("seized", r"\bseiz\w+\b")]
 FACTS_FA = [("sank", "غرق"), ("hurt", "کشته|جان باخت|زخمی|مجروح|مفقود|تلفات"),
@@ -245,3 +246,173 @@ def facts(m):
         fa = _NO_HURT_FA.sub(" ", fa_h + " . " + _FIRST.split(fa_s.strip(), 1)[0])
         out |= {k for k, rx in _FACTS_FA if rx.search(fa)}
     return out
+
+
+# ------------------------------------------------------------------ when it happened, as the report says
+TEHRAN = 12600
+H = 3600
+_WEEKDAYS_EN = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+_WEEKDAYS_FA = ["دوشنبه", "سه شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه"]   # Monday first
+_MONTHS = {m: i + 1 for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august",
+                                           "september", "october", "november", "december"])}
+_REL_EN = [  # phrase -> (from, to) in hours relative to the report, or "day:k" for a day k days before the report's
+    (re.compile(r"\b(past|last) (24|twenty-four) hours\b|\bin the past day\b", re.I), (-24, 0)),
+    (re.compile(r"\b(minutes ago|an hour ago|hours? ago|moments ago|just now)\b", re.I), (-4, 0)),
+    (re.compile(r"\b(earlier today|this morning|this afternoon|this evening|today)\b", re.I), "day:0"),
+    (re.compile(r"\b(late yesterday|last night|overnight|yesterday|late on \w+day)\b", re.I), "day:1"),
+]
+_REL_FA = [
+    (re.compile(fa_norm("شبانه روز گذشته|24 ساعت گذشته|۲۴ ساعت گذشته|بیست و چهار ساعت گذشته")), (-24, 0)),
+    (re.compile(fa_norm("دقایقی پیش|ساعتی پیش|ساعاتی پیش|لحظاتی پیش|دقایق پیش|ساعت گذشته")), (-4, 0)),
+    (re.compile(fa_norm("بامداد امروز|صبح امروز|ظهر امروز|عصر امروز|امروز")), "day:0"),
+    (re.compile(fa_norm("دیشب|شب گذشته|دیروز|روز گذشته|بامداد دیروز")), "day:1"),
+]
+_CLOCK_UTC = re.compile(r"\b(\d{1,2})[:.]?(\d{2})\s*(?:hrs?\s*)?(utc|gmt|z\b)", re.I)
+_CLOCK_FA_UTC = re.compile(r"(\d{1,2})[:.](\d{2})\s*" + fa_norm("به وقت (?:جهانی|گرینویچ)"))
+_DATE_EN = re.compile(r"\b(\d{1,2})\s+(" + "|".join(_MONTHS) + r")\b|\b(" + "|".join(_MONTHS) + r")\s+(\d{1,2})\b", re.I)
+
+
+def _day0(t):
+    """Midnight in Tehran of the day of t."""
+    return (t + TEHRAN) // 86400 * 86400 - TEHRAN
+
+
+def when(m):
+    """(earliest, latest) moment of what the report tells of, from its headline and text: a clock time in UTC, a date,
+    a weekday, "an hour ago", "last night", "in the past 24 hours"… None if it says nothing about time."""
+    t = m["t"]
+    en, fa = _texts(m)
+    d0 = _day0(t)
+    # a clock time in UTC, on the date given or else the last such moment before the report
+    x = _CLOCK_UTC.search(en) or (fa and _CLOCK_FA_UTC.search(fa))
+    if x:
+        hh, mm = int(x.group(1)), int(x.group(2))
+        if hh < 24 and mm < 60:
+            dt = _DATE_EN.search(en)
+            base = None
+            if dt:
+                day = int(dt.group(1) or dt.group(4))
+                mon = _MONTHS[(dt.group(2) or dt.group(3)).lower()]
+                import calendar
+                import time as _t
+                y = _t.gmtime(t).tm_year
+                base = calendar.timegm((y, mon, day, hh, mm, 0))
+                if base > t + 86400:
+                    base = calendar.timegm((y - 1, mon, day, hh, mm, 0))
+            if base is None:
+                base = (t // 86400) * 86400 + hh * H + mm * 60
+                if base > t + 600:
+                    base -= 86400
+            if 0 <= t - base <= 4 * 86400:
+                return (base - H // 2, base + H // 2)
+    for rx, span, txt in [(r, sp, en) for r, sp in _REL_EN] + [(r, sp, fa) for r, sp in _REL_FA]:
+        if txt and rx.search(txt):
+            if isinstance(span, tuple):
+                return (t + span[0] * H, t + span[1] * H)
+            k = int(span.split(":")[1])
+            lo = d0 - k * 86400
+            return (lo - (6 * H if k else 0), min(t, lo + 86400 + (6 * H if k else 0)))
+    # a weekday named: that day (the most recent one), give or take the night around it
+    low = en.lower()
+    for i, w in enumerate(_WEEKDAYS_EN):
+        if re.search(r"\b(on )?" + w + r"\b", low):
+            return _weekday(t, i)
+    if fa:
+        for i, w in enumerate(_WEEKDAYS_FA):
+            if re.search(r"(?<![ء-ۿ])" + re.escape(fa_norm(w)) + r"(?![ء-ۿ])", fa):
+                if w == "شنبه" and re.search(fa_norm("(?:یک|دو|سه|چهار|پنج)\\s*شنبه"), fa):
+                    continue
+                return _weekday(t, i)
+    return None
+
+
+def _weekday(t, i):
+    import time as _t
+    wd = _t.gmtime(t + TEHRAN).tm_wday                    # 0 = Monday, in Tehran
+    back = (wd - i) % 7
+    lo = _day0(t) - back * 86400
+    return (lo - 6 * H, min(t, lo + 86400 + 6 * H))
+
+
+def overlap(a, b, slack=3 * H):
+    return a[0] - slack <= b[1] and b[0] - slack <= a[1]
+
+
+# ------------------------------------------------------------------ an Iranian body's statement about tankers
+_IR_WORDS_FA = re.compile(fa_norm("متخلف|مسیر غیر مجاز|مسیر غیرمجاز|محدوده ممنوعه|منطقه ممنوعه|محدوده ناامن|"
+                                  "بی توجهی به هشدار|مسیر غیر قانونی"))
+_IR_WORDS_EN = re.compile(r"\b(offending|violating|unauthori[sz]ed route|illegal route|prohibited (?:area|zone|route)"
+                          r"|unsafe area|ignor\w+ (?:radio )?warnings?)\b", re.I)
+_IR_OUTLETS = {"irna", "fars", "isna", "mehr", "iribnews", "nournews", "defapress", "tasnim", "presstv", "khabaronline",
+               "entekhab"}
+_RELAYS = re.compile(r"\bukmto\b|\bu\.?k\.? maritime|\bbritish\b|\bunited kingdom\b|\bvanguard\b|\bambrey\b", re.I)
+_RELAYS_FA = re.compile(fa_norm("بریتانیا|انگلیس|ukmto|عملیات تجارت دریایی|سنتکام"))
+
+
+def statement(m):
+    """True if the report tells an Iranian body's statement about ships (the IRGC or the army saying tankers hit
+    mines, were stopped…), not an incident reported independently: an Iranian claim or a headline about mines,
+    the words those statements use ("offending" tankers, the "unauthorised route"), or an Iranian outlet's report
+    about a ship that cites no one else (UKMTO, Britain). A report placing the incident by distance is not."""
+    if mark(m):
+        return False
+    en, fa = _head(m)
+    ten, tfa = _texts(m)
+    if not (SHIP_EN.search(en) or (fa and SHIP_FA.search(fa))):
+        return False
+    if iran_claim(m) or _IR_WORDS_EN.search(ten) or (fa and _IR_WORDS_FA.search(tfa)):
+        return True
+    sid = (m.get("s") or "").split(":")[0]
+    if sid in _IR_OUTLETS and not (_RELAYS.search(ten) or (tfa and _RELAYS_FA.search(tfa))):
+        return True
+    return False
+
+
+_WHO_IRGC = re.compile(r"\b(irgc|revolutionary guards?|guards navy)\b", re.I)
+_WHO_IRGC_FA = re.compile(fa_norm("سپاه"))
+_WHO_ARMY = re.compile(r"\b(army|artesh)\b|\bnavy of the army\b", re.I)
+_WHO_ARMY_FA = re.compile(fa_norm("ارتش"))
+_SUPER = re.compile(r"\b(super ?tankers?|vlcc|very large crude)\b", re.I)
+_SUPER_FA = re.compile(fa_norm("سوپر نفتکش|سوپرنفتکش|ابرنفتکش|ابر نفتکش"))
+_STOP = re.compile(r"\b(stopped|halted|intercepted|seized|stoppage)\b", re.I)
+_STOP_FA = re.compile(fa_norm("متوقف|توقف|توقیف|رهگیری"))
+_ORD = {"second": 2, "third": 3, "fourth": 4, "fifth": 5}
+_ORD_FA = {"دومین": 2, "سومین": 3, "چهارمین": 4, "پنجمین": 5}
+
+
+def signature(m):
+    """Who made the statement and what sets it apart: {"who", "nums", "super", "stop", "ord"}, or None if the report
+    is not an Iranian statement about ships."""
+    if not statement(m):
+        return None
+    from .cluster import _numbers
+    en, fa = _head(m)
+    ten, tfa = _texts(m)
+    who = ("irgc" if _WHO_IRGC.search(ten) or (tfa and _WHO_IRGC_FA.search(tfa)) else
+           "army" if _WHO_ARMY.search(ten) or (tfa and _WHO_ARMY_FA.search(tfa)) else "iran")
+    ord_ = next((v for k, v in _ORD.items() if re.search(r"\b" + k + r"\b", en, re.I)), None) or \
+        next((v for k, v in _ORD_FA.items() if fa and fa_norm(k) in fa), None)
+    return {"who": who, "nums": sorted(_numbers(en)), "ord": ord_,
+            "super": bool(_SUPER.search(en) or (fa and _SUPER_FA.search(fa))),
+            "stop": bool(_STOP.search(en) or (fa and _STOP_FA.search(fa)))}
+
+
+def same_statement(a, b):
+    """Reports of one statement: the same body (or one of them only says "Iran") and something particular in common,
+    the same count of ships, a super tanker, ships stopped."""
+    if not a or not b:
+        return False
+    if a["who"] != b["who"] and "iran" not in (a["who"], b["who"]):
+        return False
+    if a["nums"] and b["nums"] and set(a["nums"]) & set(b["nums"]):
+        return True
+    return (a["super"] and b["super"]) or (a["stop"] and b["stop"])
+
+
+def other_statement(a, b):
+    """Two statements that cannot be one: the same body with other counts, or a super tanker and ships stopped."""
+    if not a or not b or (a["who"] != b["who"] and "iran" not in (a["who"], b["who"])):
+        return False
+    if a["nums"] and b["nums"] and not set(a["nums"]) & set(b["nums"]):
+        return True
+    return (a["super"] and b["stop"] and not b["super"]) or (b["super"] and a["stop"] and not a["super"])

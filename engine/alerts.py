@@ -204,29 +204,38 @@ def _recap(c):
 
 
 def _claims(c):
-    """Keys of the Iranian claims about ships a story's reports tell ("ir|4|mine": four tankers hit mines)."""
-    from .cluster import _numbers                   # cluster builds on classify, which alerts needn't load
+    """Keys of the Iranian statements about ships a story's reports tell: who, how many, a super tanker, ships stopped,
+    "the third" ("irgc|3|||": the IRGC's three tankers)."""
     out = set()
     for m in c["m"]:
-        if vessel.iran_claim(m):
-            en = m.get("en_ti") or m.get("ti") or ""
-            fa = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
-            who = ("irgc" if _IRGC.search(en) or _IRGC_FA.search(fa) else
-                   "army" if _ARMY.search(en) or _ARMY_FA.search(fa) else "iran")
-            mine = "mine" if re.search(r"\bmines?\b", en, re.I) or "مین" in fa else ""
-            out.add(who + "|" + ",".join(str(n) for n in sorted(_numbers(en))) + "|" + mine)
+        x = vessel.signature(m)
+        if x:
+            out.add("|".join([x["who"], ",".join(str(n) for n in x["nums"]), "S" if x["super"] else "",
+                              "T" if x["stop"] else "", str(x["ord"] or "")]))
     return out
 
 
-_IRGC = re.compile(r"\b(irgc|revolutionary guards?|guards)\b", re.I)
-_IRGC_FA = re.compile(fa_norm("سپاه"))
-_ARMY = re.compile(r"\b(army|artesh)\b|\biranian navy\b|\bnavy of the (iranian )?army\b", re.I)
-_ARMY_FA = re.compile(fa_norm("ارتش"))
+def _repeatable(k):
+    """Only a statement with a count and no "second", "third" can be a repeat: "IRGC: 3 tankers" told again."""
+    who, nums, sup, stop, ord_ = k.split("|")
+    return bool(nums) and not ord_
 
 
 def _head_claim(c):
-    en, _ = _heads(c)
-    return vessel.iran_claim({"en_ti": en, "ti": (c.get("fa") or {}).get("ti") or "", "lang": "fa"})
+    """A story of an Iranian statement about ships: some of its reports are such statements, none an incident told
+    independently."""
+    sts = [m for m in c["m"] if vessel.signature(m)]
+    return bool(sts) and not any(vessel.mark(m) or ("maritime_incident" in (m.get("flags") or [])
+                                                     and not vessel.statement(m)) for m in c["m"])
+
+
+SEA_FRESH = 6 * 3600         # an incident the reports place in time earlier than this is not announced
+
+
+def _old(c, t):
+    """True if the reports say when it happened and that is more than six hours ago."""
+    ws = [w for w in (vessel.when(m) for m in c["m"]) if w]
+    return bool(ws) and max(w[1] for w in ws) < t - SEA_FRESH
 
 
 def _incident(c):
@@ -255,9 +264,11 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
     incs = sea.setdefault("inc", [])
     if _recap(c):
         return None
+    if _old(c, t):
+        return None                                  # the reports place it hours ago: told again, not new
     keys = _claims(c)
     if _head_claim(c) and keys:
-        new = {k for k in keys if first - claims.get(k, -1e12) > CLAIM_KEEP}
+        new = {k for k in keys if not _repeatable(k) or first - claims.get(k, -1e12) > CLAIM_KEEP}
         for k in keys:
             claims[k] = max(claims.get(k, 0), t)
         return "send" if new and not quiet else None
