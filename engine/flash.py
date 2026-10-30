@@ -614,3 +614,31 @@ def story_texts(c):
     en_su = (f"{n} Telegram channel{'s' if n != 1 else ''}: " + "; ".join(parts_en)
              + ". No news outlet has reported it yet.")
     return {"fa": {"ti": fa_ti, "su": fa_su}, "en": {"ti": en_ti, "su": en_su}}
+
+
+LATE_CONFIRM = 12 * 3600     # the bulletin's list: a news report of the same thing at the same place this long after it
+
+
+def confirm_late(state, items):
+    """For the bulletin's list only (never Telegram): an event only channels or citizen reports told of is marked
+    confirmed when a news outlet reports the same kind of thing (an explosion, a launch, air defence fire, jets) at
+    the same place within twelve hours, whatever cause it gives. Returns how many events were marked."""
+    log_ = state.get("log") or []
+    open_ = [x for x in log_ if not x.get("conf")]
+    if not open_:
+        return 0
+    n = 0
+    for m in items:
+        if channel(m) or m.get("wit") or "denial" in (m.get("flags") or []):
+            continue
+        fa_t = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
+        en_t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
+        step, _ = _step(fa_t, en_t)
+        if not step:
+            continue
+        places = _places(fa_t, en_t)
+        for x in open_:
+            if not x.get("conf") and x["p"] in places and x["s"] == step and -INCIDENT <= m["t"] - x["t"] <= LATE_CONFIRM:
+                x["conf"] = 1
+                n += 1
+    return n

@@ -604,6 +604,12 @@ def news_round(full=True):
     fa_head = {m["k"]: c["fa"]["ti"] for c in clusters if (c.get("fa") or {}).get("ti")
                and not all(flash.channel(x) for x in c["m"]) for m in c["m"]}
     flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run, fa_story=fa_head)
+    # the bulletin's list of the main front: a news report within twelve hours marks an event confirmed (not Telegram)
+    late = rel_items if misc.get("front_conf") == 1 else [m for c in clusters for m in c["m"] if T - m["t"] <= 2 * 86400]
+    misc["front_conf"] = 1
+    n = flash.confirm_late(fstate, late)
+    if n:
+        log(f"main-front events confirmed late by a news report: {n}")
     alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run, flash_msgs=flash_msgs,
                            flash_keys=set(fstate.get("keys", {})))
 
