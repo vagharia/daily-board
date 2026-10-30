@@ -93,8 +93,8 @@ _IRAN_SAYS_FA = re.compile(fa_norm("(?:سپاه|ارتش|ایران|نیروی �
 def _texts(m):
     """(English text, Persian text) of a report: its headline and the start of its body."""
     en = ((m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or "") + " . "
-          + (m.get("en_su") or (m.get("su") if m.get("lang") != "fa" else "") or "")[:300])
-    fa = (to_latin_digits(fa_norm((m.get("ti") or "") + " . " + (m.get("su") or "")[:300]))
+          + (m.get("en_su") or (m.get("su") if m.get("lang") != "fa" else "") or "")[:600])
+    fa = (to_latin_digits(fa_norm((m.get("ti") or "") + " . " + (m.get("su") or "")[:600]))
           if m.get("lang") == "fa" else "")
     return en, fa
 
@@ -214,7 +214,7 @@ def general(m):
 FACTS_EN = [("sank", r"\b(sank|sinks|sinking|sunk|capsiz\w+|submerged)\b"),
             ("hurt", r"\b(killed|dead|deaths?|died|injur\w+|wounded|missing|casualt\w+)\b"),
             ("who", r"\b(claims? responsibility|claimed responsibility|blam\w+|attribut\w+|behind the attack)\b"),
-            ("explosive", r"\b(explosive|limpet)\b"), ("mine", r"\bmines?\b"), ("drone", r"\bdrones?\b"),
+            ("explosive", r"\b(explosives?|limpets?)\b"), ("mine", r"\bmines?\b"), ("drone", r"\bdrones?\b"),
             ("missile", r"\bmissiles?\b"), ("projectile", r"\bprojectiles?\b"),
             ("boat", r"\b(small boat|skiff|speedboat|fast boat|boarded|boarding)\b"), ("seized", r"\bseiz\w+\b")]
 FACTS_FA = [("sank", "غرق"), ("hurt", "کشته|جان باخت|زخمی|مجروح|مفقود|تلفات"),

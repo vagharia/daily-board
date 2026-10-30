@@ -230,46 +230,60 @@ def _head_claim(c):
 
 
 def _incident(c):
+    """(place, sea area, facts, tells of another ship, time of its latest report giving the place) of a story."""
     ms = sorted(c["m"], key=lambda m: m["t"])
-    mk = next((x for x in (vessel.mark(m) for m in ms) if x), None)
+    marked = [(m, vessel.mark(m)) for m in ms]
+    marked = [(m, x) for m, x in marked if x]
+    mk = marked[0][1] if marked else None
+    mt = marked[-1][0]["t"] if marked else None
     ar = mk["area"] if mk else next((a for a in (vessel.area(m, head=True) for m in ms) if a), None)
     fx = set().union(*(vessel.facts(m) for m in ms)) if ms else set()
     another = vessel.another({"en_ti": _heads(c)[0], "ti": (c.get("fa") or {}).get("ti") or "", "lang": "fa"})
-    return mk, ar, fx, another
+    return mk, ar, fx, another, mt
 
 
-def _sea_pick(sea, c, t, quiet=False):
-    """'send', 'update' or None (not announced) for a red story about ships; records what was announced."""
+SEA_ADOPT = 3 * 3600          # a placed report gives its place to a vague incident announced this soon before it
+
+
+def _sea_pick(sea, c, t, quiet=False, first=None):
+    """'send', 'update' or None (not announced) for a red story about ships; records what was announced.
+    t: now (or, for a story already announced, its latest report); first: when the story was first reported.
+    A report that gives no place counts as an incident in that sea area if it comes within six hours of the latest
+    report that placed the incident (or of its first report), and within a day of its first report."""
+    first = t if first is None else first
     claims = sea.setdefault("claims", {})
     incs = sea.setdefault("inc", [])
     if _recap(c):
         return None
     keys = _claims(c)
     if _head_claim(c) and keys:
-        new = {k for k in keys if t - claims.get(k, -1e12) > CLAIM_KEEP}
+        new = {k for k in keys if first - claims.get(k, -1e12) > CLAIM_KEEP}
         for k in keys:
-            claims[k] = t
+            claims[k] = max(claims.get(k, 0), t)
         return "send" if new and not quiet else None
-    mk, ar, fx, another = _incident(c)
+    mk, ar, fx, another, mt = _incident(c)
     inc = None
     if mk:
-        inc = next((i for i in incs if i.get("mk") and vessel.same(i["mk"], mk) and t - i["t"] <= SEA_KEEP), None)
+        inc = next((i for i in incs if i.get("mk") and vessel.same(i["mk"], mk) and first - i["t"] <= SEA_KEEP), None)
         if not inc:
             inc = next((i for i in reversed(incs) if not i.get("mk") and i.get("area") == ar and ar
-                        and t - i["t0"] <= SEA_VAGUE), None)
+                        and 0 <= first - i["t0"] <= SEA_ADOPT), None)
             if inc:
                 inc["mk"] = mk                       # the place the first, vague report didn't give
     elif ar and not another:
-        inc = next((i for i in reversed(incs) if i.get("area") == ar and t - i["t0"] <= SEA_VAGUE), None)
+        inc = next((i for i in reversed(incs) if i.get("area") == ar and first - i.get("tm", i["t0"]) <= SEA_VAGUE
+                    and first - i["t0"] <= SEA_KEEP), None)
     if inc:
-        inc["t"] = t
+        inc["t"] = max(inc["t"], t)
+        if mt:
+            inc["tm"] = max(inc.get("tm", inc["t0"]), mt)
         new = fx - set(inc.get("fx", []))
         inc["fx"] = sorted(set(inc.get("fx", [])) | fx)
         if new and inc.get("upd", 0) < SEA_UPDATES and not quiet:
             inc["upd"] = inc.get("upd", 0) + 1
             return "update"
         return None
-    incs.append({"t0": t, "t": t, "mk": mk, "area": ar, "fx": sorted(fx), "upd": 0})
+    incs.append({"t0": first, "t": t, "tm": mt or first, "mk": mk, "area": ar, "fx": sorted(fx), "upd": 0})
     return None if quiet else "send"
 
 
@@ -292,7 +306,7 @@ def _sea_state(state, clusters, sent, t):
             for k in _claims(c):
                 sea["claims"].setdefault(k, c["u"])
         if c["id"] not in seen:
-            _sea_pick(sea, c, c["u"], quiet=True)
+            _sea_pick(sea, c, c["u"], quiet=True, first=c["t"])
             seen[c["id"]] = c["u"]
     return sea
 
@@ -325,7 +339,7 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
         if not _at_sea(c):
             keep.append(c)
             continue
-        how = _sea_pick(sea, c, t, quiet=first_run)
+        how = _sea_pick(sea, c, t, quiet=first_run, first=c["t"])
         sea["seen"][c["id"]] = t
         if how:
             keep.append(c)

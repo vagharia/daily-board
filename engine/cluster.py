@@ -722,8 +722,8 @@ class Clusterer:
     def _ship_matches(self, item, f):
         """Stories of the same incident at sea, beyond the usual time window: a report placing it at the same
         distance and bearing from the same point joins its story for a day after that story's latest report; a
-        report about one ship in the same sea area that gives no place joins the one incident placed there in the
-        last six hours, if there is exactly one."""
+        report about one ship in the same sea area that gives no place joins the one incident placed there, if there
+        is exactly one, within six hours of its latest report giving the place and a day of its first."""
         out = []
         if f.get("ship"):
             for cid, marks in self.ships.items():
@@ -735,8 +735,9 @@ class Clusterer:
             cands = []
             for cid, marks in self.ships.items():
                 c = self.byid.get(cid)
-                first = min(t for _, t in marks)
-                if c and len(c["m"]) < 60 and marks[0][0]["area"] == f["sgen"] and 0 <= item["t"] - first <= SHIP_FRESH:
+                first, latest = min(t for _, t in marks), max(t for _, t in marks)
+                if c and len(c["m"]) < 60 and marks[0][0]["area"] == f["sgen"] and 0 <= item["t"] - first <= SHIP_KEEP \
+                        and item["t"] - latest <= SHIP_FRESH:
                     cands.append((c, marks))
             if cands and all(any(vessel.same(x, y) for x, _ in cands[0][1] for y, _ in mk) for _, mk in cands):
                 out.append((0.45, max(cands, key=lambda x: len(x[0]["m"]))[0]))
@@ -745,7 +746,7 @@ class Clusterer:
 
 SHIP_KEEP = 24 * 3600      # reports placing an incident at sea at the same spot join its story this long after its latest
 SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins the one incident placed in that sea area
-                           # this soon after its first placed report
+                           # this soon after its latest placed report
 
 
 def _since(c):
