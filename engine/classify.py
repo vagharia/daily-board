@@ -420,7 +420,16 @@ _TRIB_FA = re.compile(fa_norm("ناگفته") + "|" + fa_norm("(?:همسر|ما�
                       + r"\s*(?:" + fa_norm("پاسدار") + r"\s*)?" + fa_norm("شهید") + "|"
                       + fa_norm("زندگی") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("سیره") + r"\s*" + fa_norm("شهید")
                       + "|" + fa_norm("وصیت") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("خاطرات"))
-_TRIB_EN = re.compile(r"\b(untold stor\w*|widow of|tribute to|remembering)\b", re.I)
+_REL_EN = (r"(?:family|families|wife|husband|children|child|sons?|daughters?|parents|mother|father|brothers?|sisters?"
+           r"|relatives|loved ones|fianc[eé]e?)")
+_TRIB_EN = re.compile(r"\b(untold stor\w*|widow of|tribute to|remembering)\b"
+                      # the story of victims: "Iranian man whose 12 family members were killed", "who lost his wife"
+                      r"|\bwhose\b[^.;:]{0,25}\b" + _REL_EN + r"\b|\bwho lost\b"
+                      r"|\blost (?:his|her|their|my) (?:\w+ ){0,2}" + _REL_EN + r"\b"
+                      r"|\b" + _REL_EN + r" (?:members )?(?:were |was )?killed\b[^.;]{0,10}$"
+                      r"|\b(?:widow|widower|orphan)\w*\b|\bsurvivors? (?:recall|recount|describe)"
+                      # looking back: "43 years after Beirut terror attack…"
+                      r"|\b\d+ years after\b", re.I)
 
 
 def _tribute(lang, t):
