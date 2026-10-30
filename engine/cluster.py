@@ -1061,6 +1061,9 @@ def refresh(c):
         c["sev"] = min(c["sev"], 69.0)
     if any(blast(m) for m in ms) and not any(set(m.get("flags", [])) & {"controlled", "denial"} for m in ms):
         c["sev"] = max(c["sev"], RED_FLOOR)          # an explosion in Iran put down to gas stays red
+    if any("cleric" in (m.get("flags") or []) for m in ms) and not any(
+            set(m.get("flags") or []) & {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"} for m in ms):
+        c["sev"] = min(c["sev"], 40.0)               # a cleric's statement, however many outlets carry it: yellow
     if _joined_single(ms):
         c["sev"] = min(c["sev"], 40.0)               # one outlet tying two happenings together: yellow
     c["tier"] = tier(c["sev"])
