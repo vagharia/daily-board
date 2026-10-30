@@ -422,18 +422,9 @@ def system(state, sources, ticker, tr_stats, full):
                         "بقیه منابع کار می‌کنند؛ اگر برایت مهم است، به Claude بگو بررسی کند.")
         if back:
             msgs.append(f"✅ <b>گزارش فنی بولتن:</b> این منابع دوباره جواب می‌دهند: {_names(back)}")
-    # dollar: trades are posted through the Tehran trading day
-    d = (ticker or {}).get("dollar") or {}
-    last = d.get("t") or 0
-    hour = time.gmtime(t + 12600).tm_hour            # Tehran time (UTC+3:30)
-    if last and 11 <= hour < 21 and t - last > 4 * 3600:
-        if not sysst.get("usd"):
-            sysst["usd"] = t
-            msgs.append("⚙️ <b>گزارش فنی بولتن:</b> بیش از ۴ ساعت است معامله تازه‌ای از کانال دلار خوانده نشده. "
-                        "شاید کانال پستی نگذاشته یا قالب پیام‌هایش عوض شده؛ اگر ادامه داشت، به Claude بگو.")
-    elif last and t - last < 3600 and sysst.get("usd"):
-        sysst.pop("usd", None)
-        msgs.append("✅ <b>گزارش فنی بولتن:</b> قیمت دلار دوباره به‌روز می‌شود.")
+    # the dollar channel going quiet is not reported: the market is closed on Fridays and holidays, and the bulletin
+    # shows the time of the latest trade anyway
+    sysst.pop("usd", None)
     # translation
     done = sum(v for k, v in (tr_stats or {}).items() if k in ("single", "multi", "clients5"))
     failed = (tr_stats or {}).get("failed", 0)
