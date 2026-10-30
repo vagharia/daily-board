@@ -335,11 +335,15 @@ def _local_region(fa, t):
     return None
 
 
+_BACKED_FA = re.compile(fa_norm(r"(?:وابسته|مورد حمایت|تحت حمایت|طرفدار|مزدور|مزدوران|حامی)\s*(?:به\s*)?(?:ائتلاف\s*)?(?:عربستان|سعودی|امارات)"))
+
+
 def _local_headline(lang, t):
     fa = lang == "fa"
     t = fa_norm(t) if fa else re.sub(r"\biran[- ]backed\b", "", t or "", flags=re.I)
     if fa:
         t = t.replace(fa_norm("ایران ساخت"), "")
+        t = _BACKED_FA.sub(" ", t)          # "forces backed by Saudi Arabia" are a side inside Yemen, not an attack on it
     return fa, t
 
 
@@ -439,6 +443,19 @@ def _tribute(lang, t):
 
 # hijab and dress-code enforcement inside Iran (a prosecutor calling on the IRGC to enforce it, arrests over it): a
 # domestic matter, yellow, even when the IRGC or a "warning" is in the headline
+# a statement of clerics (the seminary, Friday prayer leaders, grand ayatollahs): a yellow story, unless it tells of
+# an attack
+CLERIC_CAP = 40.0
+_CLERIC_FA = re.compile(fa_norm("جامعه مدرسین|حوزه علمیه|حوزه های علمیه|حوزه‌های علمیه|مراجع تقلید|مرجع تقلید|امام جمعه"
+                                "|ائمه جمعه|خطیب نماز جمعه|خطیب جمعه|مجمع جهانی اهل بیت|مجمع جهانی تقریب|علمای |روحانیون"))
+_CLERIC_EN = re.compile(r"\b(seminar(y|ies)|friday prayer (leader|imam|sermon)|grand ayatollah|marja\w*|clerics?)\b", re.I)
+
+
+def _cleric(lang, t):
+    fa = lang == "fa"
+    return bool((_CLERIC_FA if fa else _CLERIC_EN).search(fa_norm(t) if fa else (t or "")))
+
+
 HIJAB_CAP = 40.0
 _HIJAB_FA = re.compile(fa_norm("حجاب|عفاف|بدحجاب|بی حجاب|کشف حجاب|گشت ارشاد|پلیس اخلاق|قانون پوشش|پوشش اسلامی"))
 _HIJAB_EN = re.compile(r"\b(hijab|headscarf|headscarves|morality police|dress code|chastity)\b", re.I)
@@ -792,6 +809,9 @@ def classify(item):
     if _hijab(lang, fa_t or en_t):
         flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
         sev = min(sev, HIJAB_CAP)
+    if _cleric(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
+        flags = set(flags) | {"cleric"}
+        sev = min(sev, CLERIC_CAP)
     if _digest(lang, fa_t or en_t):
         # several items in one headline: a yellow story, whatever one of them tells
         flags = (set(flags) - HARD_EVENTS) | {"digest"}
