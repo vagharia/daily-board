@@ -366,6 +366,25 @@ def _title(kind, step, place, lang, wit, frm):
             "siren": "Sirens in " + p}[kind]
 
 
+# a headline joining two things ("… caught fire in Hormuz Strait as Qatari delegation visits Tehran"): only its first
+# part tells what happened; and a place someone visits or travels to is not where something happened
+_SECOND_EN = re.compile(r"\s+(?:as|while|amid|meanwhile)\s+.*$|\s*;\s+.*$", re.I)
+_SECOND_FA = re.compile(fa_norm(r"\s*؛\s*.*$|\s+(?:همزمان با|در حالی که|در حالیکه|در بحبوحه)\s+.*$"))
+_VISIT_EN = re.compile(r"\b(?:visits?|visited|visiting|arrives? in|arrived in|travels? to|trip to|tour of|delegation (?:to|in)"
+                       r"|talks in|meets? in|met in|hosts?|hosted)\s+(?:the\s+)?[A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?")
+_VISIT_FA = re.compile(fa_norm(r"(?:سفر به|دیدار از|وارد|در سفر به|هیئت\S*\s+\S+\s+(?:در|به)|میزبان)\s+\S+(?:\s+\S+)?"))
+
+
+def _main_part(fa_t, en_t):
+    """The part of a headline that tells what happened, without places merely visited. "Section | headline": the
+    longest part."""
+    pick = lambda t: max(re.split(r"\s+\|\s+", t), key=len) if t and " | " in t else t  # noqa: E731
+    fa_t, en_t = pick(fa_t), pick(en_t)
+    en_t = _VISIT_EN.sub(" ", _SECOND_EN.sub("", en_t or "")) if en_t else en_t
+    fa_t = _VISIT_FA.sub(" ", _SECOND_FA.sub("", fa_t or "")) if fa_t else fa_t
+    return fa_t, en_t
+
+
 def events(m):
     """Signs of war at main-front places in one report: [{place, step, kind, t, fa, en}]."""
     flags = set(m.get("flags") or [])
@@ -385,10 +404,10 @@ def events(m):
                             "fa": _title(best, _WIT_STEP[best], c, "fa", True, False),
                             "en": _title(best, _WIT_STEP[best], c, "en", True, False)})
         return out
-    if flags & _NOT_NOW or not flags & {"kinetic", "maritime_incident", "airspace"} or blast(m):
+    if flags & _NOT_NOW or "digest" in flags or not flags & {"kinetic", "maritime_incident", "airspace"} or blast(m):
         return []
-    fa_t = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
-    en_t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
+    fa_t, en_t = _main_part(fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else "",
+                            m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or "")
     if (fa_t and _NOT_NOW_FA.search(fa_t)) or (en_t and _NOT_NOW_EN.search(en_t)):
         return []
     step, kind = _step(fa_t, en_t)
