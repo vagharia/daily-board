@@ -273,7 +273,7 @@ def lite(T, day, idx, lights, lang, front=()):
                   (c["src"][0].get("nf" if lang == "fa" else "n") or c["src"][0].get("n") or "") if c["src"] else "",
                   c.get("unconf") or "", 1 if c.get("green") else 0] for c in day],
         # the main front as it happens (flash.py): time, step, line, confirmed by a news outlet
-        "front": [[e["t"], e["s"], e.get(lang) or e.get(other, ""), e.get("conf", 0)]
+        "front": [[e["t"], e["s"], e.get(lang) or e.get(other, ""), e.get("conf", 0), e.get("x", 0)]
                   for e in front if T - e["t"] <= 48 * 3600][-80:],
     }
 
@@ -605,7 +605,16 @@ def news_round(full=True):
     start = {m["k"]: c["t"] for c in clusters for m in c["m"]}
     fa_head = {m["k"]: c["fa"]["ti"] for c in clusters if (c.get("fa") or {}).get("ti")
                and not all(flash.channel(x) for x in c["m"]) for m in c["m"]}
-    flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run, fa_story=fa_head)
+    fstory = {}
+    for c in clusters:
+        if T - c["u"] <= 2 * 86400 and any(flash.events(m) for m in c["m"]):
+            pl = flash.story_places(c)
+            for m in c["m"]:
+                fstory[m["k"]] = {"sid": c["id"], "places": pl, "n": len(c["m"])}
+    flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run, fa_story=fa_head, story=fstory)
+    nx = flash.mark_denied(fstate, clusters)
+    if nx:
+        log(f"main-front lines marked not confirmed: {nx}")
     # the bulletin's list of the main front: a news report within twelve hours marks an event confirmed (not Telegram)
     late = rel_items if misc.get("front_conf") == 1 else [m for c in clusters for m in c["m"] if T - m["t"] <= 2 * 86400]
     misc["front_conf"] = 1

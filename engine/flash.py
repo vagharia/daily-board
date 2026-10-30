@@ -16,6 +16,7 @@ import html
 import re
 
 from . import witness
+from . import vessel
 from .cluster import blast, channel
 from .util import fa_norm, truncate
 
@@ -508,7 +509,92 @@ def _message(ev, m, kind_of_alert, fa_story=None):
     return f"{head} <b>{title}</b>، {at}{det}\n<i>{tail}</i>"
 
 
-def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
+# ------------------------------------------------------------------ news outlets' reports on the panel
+# A channel's or citizens' report is the moment itself; an outlet's report often comes later, recaps, or names a place
+# only in passing. A line from an outlet is added only when (1) its story in the bulletin tells of the same place,
+# (2) the place is where it happened ("in Tehran", "در تهران"), not who speaks or hosts, (3) its story and that place
+# have no line from an outlet already (six hours), (4) it is of now: no analysis, question, quote, reaction, denial,
+# recap or live page, and no time in its text more than six hours ago.
+NEWS_REPEAT = 6 * 3600
+_NEWS_NOT = {"analysis", "speculative", "quote", "reaction", "denial", "past", "opinion", "digest", "controlled",
+             "verbal", "threat"}
+_LIVE_HEAD = re.compile(r"\blive\b|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b|\bmore on\b", re.I)
+_PREP_EN = r"(?:in|at|near|over|off|outside|across|around|into|onto|towards?|on|of|hit|hits|struck|strikes? on|attacks? on)"
+_PREP_FA = fa_norm("(?:در|به|نزدیک|بر فراز|حوالی|اطراف|سمت|سوی|شهر|جزیره|بندر|تنگه|آسمان|انفجار|حمله|اصابت|پایگاه)")
+
+
+_SAYS_EN = re.compile(r"^\W*(?:\w+\W+){0,3}(?:says|said|claims|claimed|reports|reported)\b", re.I)
+_SAYS_FA = re.compile(fa_norm("(?:می گوید|می‌گوید|مدعی شد|اعلام کرد|ادعا کرد|گزارش داد)"))
+
+
+def _forms(place):
+    if place in witness.CITIES:
+        fa, en, faf, enf = witness.CITIES[place]
+        return [fa] + list(faf), [en.lower()] + list(enf)
+    if place in _FRONT:
+        v = _FRONT[place]
+        return list(v[2]), list(v[3])
+    return None
+
+
+def _located(m, place):
+    """The place is where it happened: named after "in / at / near / over…" or right after the event."""
+    forms = _forms(place)
+    if not forms:
+        return True                         # Iran, Israel, a site abroad: read by their own rules
+    fa_t, en_t = _main_part(fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else "",
+                            m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or "")
+    for f in forms[1]:
+        if en_t and re.search(r"\b" + _PREP_EN + r"\s+(?:the\s+)?(?:\w+\s+)?" + re.escape(f) + r"\b", en_t, re.I):
+            return True
+        if en_t and re.search(r"\b" + re.escape(f) + r"(?:'s)?\s+(?:\w+\s+)?(?:explosions?|blasts?|strikes?|attacks?|airport"
+                              r"|port|base|refinery|skies)\b", en_t, re.I):
+            return True
+    for f in forms[0]:
+        if fa_t and re.search(_PREP_FA + r"\s*(?:\S+\s+)?" + re.escape(fa_norm(f)), fa_t):
+            return True
+    return False
+
+
+def _news_ok(m, ev, story, log_, now_t, new_line=True):
+    """See above. new_line: for a new line; else for a confirmation of a line already there (rules 2 and 4)."""
+    if set(m.get("flags") or []) & _NEWS_NOT:
+        return False
+    head = m.get("en_ti") or m.get("ti") or ""
+    if "?" in head or "؟" in (m.get("ti") or "") or _LIVE_HEAD.search(head):
+        return False
+    w = vessel.when(m)
+    if w and w[1] < now_t - NEWS_REPEAT:
+        return False
+    if not _located(m, ev["place"]):
+        return False
+    if not new_line:
+        return True
+    if story and story.get("n", 2) < 2 and (_SAYS_EN.match(m.get("en_ti") or "")
+                                            or _SAYS_FA.search(fa_norm(m.get("ti") or "")[:40])):
+        return False                        # one outlet retelling what a side says: a recap, not the moment
+    if story and ev["place"] not in story.get("places", ()):
+        return False
+    for x in log_:
+        if x.get("nw") and ((story and x.get("sid") == story.get("sid"))
+                            or (x["p"] == ev["place"] and abs(ev["t"] - x["t"]) <= NEWS_REPEAT)):
+            return False
+    return True
+
+
+def story_places(c):
+    """Places a story tells of: those in its headline, and those at least two of its reports name."""
+    out = set()
+    fa_t, en_t = _main_part(fa_norm((c.get("fa") or {}).get("ti") or ""), (c.get("en") or {}).get("ti") or "")
+    out |= _places(fa_t, en_t)
+    n = {}
+    for m in c["m"]:
+        for p in {e["place"] for e in events(m)}:
+            n[p] = n.get(p, 0) + 1
+    return out | {p for p, k in n.items() if k >= 2}
+
+
+def process(state, items, now_t, story_start=None, quiet=False, fa_story=None, story=None):
     """Read this round's new reports. story_start: report key -> when its story was first reported; a report that
     joins a story more than half an hour old tells of something already known (a later account, a recap) and is
     left out. fa_story: report key -> its story's Persian headline (the line under an alert from a foreign outlet).
@@ -517,6 +603,7 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
     (a higher step, the confirmation); otherwise its story gets the usual red alert."""
     story_start = story_start or {}
     fa_story = fa_story or {}
+    story = story or {}
     inc = state.setdefault("inc", {})
     log_ = state.setdefault("log", [])
     for p in list(inc):
@@ -535,8 +622,11 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
             continue
         news = not channel(m)
         live = False                        # part of an incident a channel or citizen reports announced
+        st = story.get(m["k"])
         for ev in evs:
             p, t = ev["place"], ev["t"]
+            if news and not _news_ok(m, ev, st, log_, now_t, new_line=False):
+                continue                    # an outlet's report that isn't of this moment or this place
             # a report read long after the moment it tells of (a feed that brings it hours late) is not announced as
             # happening now; it still goes on the bulletin's list as before
             fresh = now_t - t <= STALE
@@ -548,12 +638,12 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
                 if not news:
                     cur["ch"] = 1
                 live = live or say
-                if ev["step"] > cur["step"]:
+                if ev["step"] > cur["step"] and (not news or _news_ok(m, ev, st, log_, now_t)):
                     cur["step"] = ev["step"]
                     if say and fresh:
                         msgs.append(_message(ev, m, "up", fa_story.get(m["k"])))
                     log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
-                                 "conf": int(news or cur["conf"])})
+                                 "conf": int(news or cur["conf"]), "nw": int(news), "sid": (st or {}).get("sid")})
                 if news and not cur["conf"]:
                     cur["conf"] = 1
                     if now_t - cur["a"] <= CONFIRM_WITHIN:
@@ -562,6 +652,8 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
                         if x["p"] == p and x["t"] >= cur["t0"]:
                             x["conf"] = 1
             else:
+                if news and not _news_ok(m, ev, st, log_, now_t):
+                    continue
                 # a news outlet's report is rarely of this moment (a tanker hit hours ago): it starts an incident for
                 # the list, but its story is announced by the usual red alert
                 inc[p] = {"t0": t, "t1": t, "step": ev["step"], "conf": int(news), "a": now_t, "ch": int(not news)}
@@ -569,7 +661,7 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None):
                     msgs.append(_message(ev, m, "new", fa_story.get(m["k"])))
                     live = True
                 log_.append({"t": t, "p": p, "s": ev["step"], "fa": ev["fa"], "en": ev["en"], "src": m["s"],
-                             "conf": int(news)})
+                             "conf": int(news), "nw": int(news), "sid": (st or {}).get("sid")})
         if live:
             keys.add(m["k"])
             seen[m["k"]] = now_t
@@ -660,4 +752,19 @@ def confirm_late(state, items):
             if not x.get("conf") and x["p"] in places and x["s"] == step and -INCIDENT <= m["t"] - x["t"] <= LATE_CONFIRM:
                 x["conf"] = 1
                 n += 1
+    return n
+
+
+def mark_denied(state, clusters):
+    """A line whose story has since turned out not to hold (yellow, denied, told as past) is marked "not confirmed"
+    (x): it stays on the list. Returns how many were marked."""
+    by = {c["id"]: c for c in clusters}
+    n = 0
+    for x in state.get("log") or []:
+        c = by.get(x.get("sid"))
+        if c is None or x.get("x"):
+            continue
+        if c["tier"] == "yellow" or set(c.get("flags") or []) & {"denial", "past", "controlled"}:
+            x["x"] = 1
+            n += 1
     return n
