@@ -193,7 +193,36 @@ def unconf_kind(ms):
         t = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else (m.get("ti") or "")
         if (_QUOTE_FA if m.get("lang") == "fa" else _QUOTE_EN).search(t):
             return "quote"
+    if all(_analysis_post(m) for m in ms):
+        return "analysis"
     return "event"
+
+
+# a channel's analysis, summary or guesswork, not a report of something that happened: an analysis, an opinion or a
+# guess as the classifier reads it, or a piece about a market (oil, gold, the dollar, shares) and its worries
+_EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum",
+                "nuclear_red", "witness", "internet", "cable_cut"}
+_MARKET_FA = re.compile(fa_norm("قیمت نفت|نفت خام|برنت|طلا|دلار|بورس|سهام|بازار|معامله گران|معامله‌گران|سرمایه گذاران"
+                                "|ریسک|پوشش ریسک"))
+_MARKET_EN = re.compile(r"\b(oil prices?|crude|brent|gold|dollar|stocks?|shares|markets?|traders|investors|risk)\b", re.I)
+
+
+_TELLS_FA = re.compile(fa_norm("به گزارش|به نقل از|گزارش داد|اعلام کرد|نظرسنجی|یادداشت اطلاعاتی|آژانس|شورای"))
+_TELLS_EN = re.compile(r"\b(reports?|reported|according to|citing|poll|polls|survey|announced|said)\b", re.I)
+
+
+def _analysis_post(m):
+    """Not when it relays someone (an outlet, an agency, a poll: those are reports to confirm)."""
+    fl = set(m.get("flags") or [])
+    if fl & _EVENT_FLAGS:
+        return False
+    fa = m.get("lang") == "fa"
+    t = fa_norm(m.get("ti") or "") if fa else (m.get("en_ti") or m.get("ti") or "")
+    if (_TELLS_FA if fa else _TELLS_EN).search(t):
+        return False
+    if fl & {"analysis", "opinion"}:
+        return True
+    return bool((_MARKET_FA if fa else _MARKET_EN).search(t))
 
 
 def channel(m):

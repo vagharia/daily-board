@@ -384,6 +384,7 @@ html[lang=en] .post-text{line-height:1.55}
 .st-tier .pill--unc{background:none;border:1px dashed rgba(255,210,63,.5);color:var(--unc);font-weight:600}
 .st-unc{margin-top:-2px;margin-bottom:10px}
 .fl-unc{color:var(--unc);font-weight:600}
+.s-meta .unc.unc--an,.st-tier .pill--unc.pill--an{border:1px solid rgba(var(--mist),.3);color:var(--ink-2);font-weight:500}
 .st-title{font-size:20px;line-height:1.6;font-weight:850;margin:0 0 10px}
 html[lang=en] .st-title{line-height:1.35}
 .st-sum{font-size:15px;line-height:1.95;color:var(--ink-soft)}

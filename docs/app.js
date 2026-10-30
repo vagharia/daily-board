@@ -26,7 +26,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 22;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 28;
+  var APP_BUILD = 29;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -44,6 +44,7 @@
       unconf: 'گزارش تأییدنشده', unconfShort: 'تأییدنشده:', unconfNote: 'این خبر را تا الان فقط یک کانال تلگرامی گزارش کرده است. وقتی یک رسانهٔ خبری یا کانال دیگری همین خبر را گزارش کند، تأییدشده حساب می‌شود و رنگش بر اساس گزارش تازه تعیین می‌شود.',
       unconfQuote: 'منبع ذکر نشده', unconfQuoteShort: 'بی‌منبع:', unconfQuoteNote: 'این نقل‌قول را فقط یک کانال تلگرامی منتشر کرده و نگفته از کجا آمده است. وقتی یک رسانهٔ خبری یا کانال دیگری همین را گزارش کند، تأییدشده حساب می‌شود.',
       unconfCited: 'در انتظار تأیید منبع', unconfCitedShort: 'در انتظار تأیید:', unconfCitedNote: 'کانال تلگرامی این خبر را از رسانه‌ای نقل کرده، ولی گزارش خود آن رسانه هنوز پیدا نشده است. وقتی پیدا شود، برچسب برداشته می‌شود.',
+      unconfAnalysis: 'تحلیل کانال', unconfAnalysisShort: 'تحلیل:', unconfAnalysisNote: 'این متن تحلیل، جمع‌بندی یا گزارش بازارِ یک کانال تلگرامی است، نه گزارش یک رویداد.',
       lite: 'حالت کم‌مصرف', liteOn: 'حالت کم‌مصرف روشن شد: فقط تیتر خبرهای ۲۴ ساعت، بدون عکس و ویدیو.', liteOffMsg: 'حالت کم‌مصرف خاموش شد.', liteTab: 'در حالت کم‌مصرف فقط تب خبرها کار می‌کند.', liteWeek: 'در حالت کم‌مصرف فقط خبرهای ۲۴ ساعت می‌آید.', liteNote: 'حالت کم‌مصرف: فقط تیتر خبرها؛ متن کامل و منابع در حالت عادی.',
       theme: 'تم', themeDark: 'تیره', themeLight: 'روشن', liveAir: 'نقشه زنده پروازها', liveMil: 'پروازهای نظامی (ADS-B Exchange)',
       frontH: 'گزارش‌های لحظه‌ای جبهه‌ی اصلی', frontNote: 'انفجار، پرتاب موشک، شلیک پدافند و صدای جنگنده یا پهپاد در ایران، تنگه‌ی هرمز و خلیج فارس، اسرائیل و پایگاه‌های آمریکا؛ ۴۸ ساعت اخیر.', frontNone: 'گزارشی وجود ندارد', frontUnc: 'تأییدنشده', frontOk: 'تأییدشده', lastShort: 'آخرین {t}', firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
@@ -106,6 +107,7 @@
       unconf: 'Unconfirmed report', unconfShort: 'Unconfirmed:', unconfNote: 'So far only one Telegram channel has reported this. Once a news outlet or another channel reports it, it counts as confirmed and its colour follows the new report.',
       unconfQuote: 'Source not stated', unconfQuoteShort: 'No source:', unconfQuoteNote: 'Only one Telegram channel has published this quote, without saying where it comes from. Once a news outlet or another channel reports it, it counts as confirmed.',
       unconfCited: 'Awaiting source check', unconfCitedShort: 'Awaiting check:', unconfCitedNote: 'A Telegram channel relays this from an outlet, but that outlet\'s own report hasn\'t been found yet. Once it is, the label goes.',
+      unconfAnalysis: 'Channel analysis', unconfAnalysisShort: 'Analysis:', unconfAnalysisNote: 'This is a Telegram channel\'s analysis, summary or market note, not a report of something that happened.',
       lite: 'Data saver', liteOn: 'Data saver on: only the day\'s headlines, no pictures or video.', liteOffMsg: 'Data saver off.', liteTab: 'In data saver mode only the news tab works.', liteWeek: 'In data saver mode only the last 24 hours are loaded.', liteNote: 'Data saver: headlines only; full text and sources in normal mode.',
       theme: 'Theme', themeDark: 'Dark', themeLight: 'Light', liveAir: 'Live flight map', liveMil: 'Military flights (ADS-B Exchange)',
       frontH: 'Main front, as it happens', frontNote: 'Explosions, missile launches, air defence fire, jets or drones heard in Iran, Hormuz and the Persian Gulf, Israel and US bases; last 48 hours.', frontNone: 'No reports', frontUnc: 'unconfirmed', frontOk: 'confirmed', lastShort: 'latest {t}', firstRep: 'First reported {t}', lastRep: 'Last update {t}',
@@ -400,7 +402,7 @@
     reds = reds.slice(0, 6);
     if (!reds.length) { box.hidden = true; return; }
     box.hidden = false;
-    var one = reds.map(function (c) { return '<button data-story="' + c.id + '">' + (c.unconf ? '<span class="fl-unc">' + esc(uncText(c, 'Short')) + '</span> ' : '') + esc(txt(c).ti) + '</button>'; }).join('');
+    var one = reds.map(function (c) { return '<button data-story="' + c.id + '">' + (c.unconf && c.unconf !== 'analysis' ? '<span class="fl-unc">' + esc(uncText(c, 'Short')) + '</span> ' : '') + esc(txt(c).ti) + '</button>'; }).join('');
     var tr = $('#flashTrack');
     tr.innerHTML = one + one;
     var len = reds.reduce(function (a, c) { return a + txt(c).ti.length; }, 0);
@@ -420,7 +422,8 @@
     var list = d ? d.clusters.slice() : [];
     // an unconfirmed report of a serious event (only Telegram channels have it so far) is yellow, but shows with the
     // orange stories too, since it may turn orange or red once a news source confirms it
-    if (!ignoreTier) list = list.filter(function (c) { return S.tiers[c.tier] || (c.unconf && S.tiers.orange); });
+    // (a channel's analysis is not such a report: it shows with the yellow stories only)
+    if (!ignoreTier) list = list.filter(function (c) { return S.tiers[c.tier] || (c.unconf && c.unconf !== 'analysis' && S.tiers.orange); });
     if (S.topic) list = list.filter(function (c) { return c.topics.indexOf(S.topic) >= 0; });
     if (S.ctry) list = list.filter(function (c) { return c.ctry.indexOf(S.ctry) >= 0; });
     if (S.ppl) list = list.filter(function (c) { return c.ppl.indexOf(S.ppl) >= 0; });
@@ -437,14 +440,14 @@
   }
   // the label of a report only one Telegram channel has: an event, a quote without a source, or a relayed outlet
   function uncText(c, part) {
-    var k = c.unconf === 'quote' ? 'unconfQuote' : c.unconf === 'cited' ? 'unconfCited' : 'unconf';
+    var k = c.unconf === 'quote' ? 'unconfQuote' : c.unconf === 'cited' ? 'unconfCited' : c.unconf === 'analysis' ? 'unconfAnalysis' : 'unconf';
     return t(k + part);
   }
   function metaHtml(c) {
     var first = c.src[0] || { n: '', nf: '' };
     var more = c.ns > 1 ? '<span class="more">' + ic('users') + nfmt(c.ns) + '</span>' : '';
     var fresh = S.newIds[c.id] ? '<span class="fresh">' + esc(t('fresh')) + '</span>' : '';
-    var unc = c.unconf ? '<span class="unc">' + esc(uncText(c, '')) + '</span>' : '';
+    var unc = c.unconf ? '<span class="unc' + (c.unconf === 'analysis' ? ' unc--an' : '') + '">' + esc(uncText(c, '')) + '</span>' : '';
     var green = c.green && !c.unconf ? '<span class="deesc">' + esc(t('deesc')) + '</span>' : '';
     // a sign of war at the main front that is still being reported: its latest report too
     var last = c.fl && c.u - c.t > 600 ? '<span class="last">' + esc(t('lastShort', { t: clock(c.u) })) + '</span>' : '';
@@ -973,7 +976,7 @@
       var isMT = !!primary.mt;
       var shown = showOrig && other && other.ti ? other : primary;
       var h = storyMedia(c);
-      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc">' + esc(uncText(c, '')) + '</span>' : '') + (c.green && !c.unconf ? '<span class="pill pill--deesc">' + esc(t('deesc')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
+      h += '<div class="st-tier"><span class="pill"><i class="t-dot ' + c.tier + '"></i>' + esc(t(c.tier)) + '</span>' + (c.unconf ? '<span class="pill pill--unc' + (c.unconf === 'analysis' ? ' pill--an' : '') + '">' + esc(uncText(c, '')) + '</span>' : '') + (c.green && !c.unconf ? '<span class="pill pill--deesc">' + esc(t('deesc')) + '</span>' : '') + '<span>' + esc(t('sev', { n: nfmt(Math.round(c.sev)) })) + '</span><span>' + esc(t('sources', { n: nfmt(c.ns) })) + '</span></div>';
       h += '<h2 class="st-title" dir="auto">' + esc(shown.ti) + '</h2>';
       if (shown.su) h += '<p class="st-sum" dir="auto">' + esc(shown.su) + '</p>';
       if (c.unconf) h += '<p class="subnote st-unc">' + esc(uncText(c, 'Note')) + '</p>';
