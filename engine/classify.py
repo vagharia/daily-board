@@ -437,6 +437,18 @@ def _tribute(lang, t):
     return bool((_TRIB_FA if fa else _TRIB_EN).search(fa_norm(t) if fa else (t or "")))
 
 
+# hijab and dress-code enforcement inside Iran (a prosecutor calling on the IRGC to enforce it, arrests over it): a
+# domestic matter, yellow, even when the IRGC or a "warning" is in the headline
+HIJAB_CAP = 40.0
+_HIJAB_FA = re.compile(fa_norm("حجاب|عفاف|بدحجاب|بی حجاب|کشف حجاب|گشت ارشاد|پلیس اخلاق|قانون پوشش|پوشش اسلامی"))
+_HIJAB_EN = re.compile(r"\b(hijab|headscarf|headscarves|morality police|dress code|chastity)\b", re.I)
+
+
+def _hijab(lang, t):
+    fa = lang == "fa"
+    return bool((_HIJAB_FA if fa else _HIJAB_EN).search(fa_norm(t) if fa else (t or "")))
+
+
 # a headline that strings several items together (a newsletter, a briefing, "…, and other Mideast news"): its own
 # stories carry the news, so the bundle is yellow and not an attack. "U.S. and Israel" is not a second item: the
 # second sentence must start with "And," or "Plus,".
@@ -777,6 +789,9 @@ def classify(item):
         # a company's financial results: a yellow story, whatever the oil price did
         flags = (set(flags) - HARD_EVENTS - {"oil_spike"}) | {"earnings"}
         sev = min(sev, EARNINGS_CAP)
+    if _hijab(lang, fa_t or en_t):
+        flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
+        sev = min(sev, HIJAB_CAP)
     if _digest(lang, fa_t or en_t):
         # several items in one headline: a yellow story, whatever one of them tells
         flags = (set(flags) - HARD_EVENTS) | {"digest"}
