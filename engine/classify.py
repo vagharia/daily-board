@@ -512,6 +512,13 @@ HYPO = re.compile(r"\b(threat\w*|warn\w*|vow\w*|could|would|may|might|if|unless|
                   r"|push(es)? (for|to)|seeks?|wants? to|calls? for|weigh\w*|mull\w*|options?|draw(n|s)? up|drafts?"
                   r"|cards?|leverage|means|would mean)\b", I)
 QUESTION = re.compile(r"[?؟]\s*(\W*$|[|/:-])")
+# a question headline stays orange only when it asks about war or peace (an attack, a strike, an explosion, missiles,
+# a ceasefire, peace) and names Iran, America or Israel; any other question is analysis or background: yellow
+QUESTION_CAP = 44.0
+Q_WAR = re.compile(r"\b(attack\w*|strikes?|struck|air ?strikes?|bomb\w*|explosions?|blasts?|missiles?|rockets?"
+                   r"|drone strikes?|intercept\w*|retaliat\w*|invasion|invade\w*|ceasefire|cease-fire|truce|peace)\b", I)
+Q_SIDE = re.compile(r"\b(iran\w*|tehran|irgc|u\.?s\.?|us|america\w*|washington|pentagon|trump|israel\w*|idf"
+                    r"|netanyahu|tel aviv)\b", I)
 # controlled detonations of unexploded ordnance: loud, but not an attack
 CONTROLLED = re.compile(r"\b(non-?functional|unexploded|unfired|un-?detonated|controlled (explosions?|detonations?)"
                         r"|defus\w+|bomb disposal|ordnance|munitions? (clearance|disposal)|clearing (mines|munitions)"
@@ -616,8 +623,13 @@ def score_en(title: str, summary: str):
         flags.add("reaction")
         flags.discard("kinetic")
     if QUESTION.search(t):
-        best = min(best, 56)
-        flags.add("speculative")
+        if Q_WAR.search(t) and Q_SIDE.search(t):
+            best = min(best, 56)                   # a question about an attack, a missile, peace… of Iran, the US, Israel
+            flags.add("speculative")
+        else:
+            best = min(best, QUESTION_CAP)         # any other question in a headline: analysis, background
+            flags -= HARD_EVENTS
+            flags |= {"speculative", "analysis"}
     if OPINION.search(t):
         best = min(best, 38)
         flags.add("opinion")

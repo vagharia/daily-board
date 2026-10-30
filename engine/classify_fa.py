@@ -283,6 +283,11 @@ HYPO = re.compile(F("تهدید", "هشدار", "وعده", "ممکن", "احت�
                     "از سرگیری", "مجدد", "دوباره", "خواستار", "می خواهد", "میخواهد", "کارت", "اهرم", "به معنای",
                     "خواهد", "خواهیم", "خواهند", "می تواند", "می توانند", "میتواند", "خطر"))
 QUESTION = re.compile(R("re:[؟?]|^\\s*", "آیا", _E))
+QUESTION_CAP = 44.0
+Q_WAR = re.compile(F("حمله", "حملات", "انفجار", "موشک", "بمباران", "رهگیری", "تلافی", "صلح", "آتش بس", "آتشبس",
+                     "تهاجم", "پهپادی"))
+Q_SIDE = re.compile(F("ایران", "تهران", "سپاه", "آمریکا", "امریکا", "واشنگتن", "پنتاگون", "ترامپ", "اسرائیل", "اسراییل",
+                      "صهیونیست", "نتانیاهو", "تل آویو"))
 OPINION = re.compile(F("یادداشت", "سرمقاله", "دیدگاه", "سرمقاله ها"))
 ANALYSIS = re.compile(F("گفتگو با", "گفت وگو با", "گفت و گو با", "مصاحبه", "نظرسنجی", "تماشا کنید", "تحلیل",
                         "پادکست", "روایت", "گزارش ویژه", "پرونده", "اینفوگرافیک", "کارشناس", "نگاهی به", "پشت پرده",
@@ -382,8 +387,13 @@ def score_fa(title: str, summary: str):
         flags.add("reaction")
         flags.discard("kinetic")
     if QUESTION.search(t):
-        best = min(best, 56)
-        flags.add("speculative")
+        if Q_WAR.search(t) and Q_SIDE.search(t):
+            best = min(best, 56)                   # a question about an attack, a missile, peace… of Iran, the US, Israel
+            flags.add("speculative")
+        else:
+            best = min(best, QUESTION_CAP)         # any other question in a headline: analysis, background
+            flags -= HARD_EVENTS
+            flags |= {"speculative", "analysis"}
     if OPINION.search(t):
         best = min(best, 38)
         flags.add("opinion")
