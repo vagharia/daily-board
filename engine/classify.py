@@ -456,6 +456,35 @@ def _cleric(lang, t):
     return bool((_CLERIC_FA if fa else _CLERIC_EN).search(fa_norm(t) if fa else (t or "")))
 
 
+# mediators in Tehran in person: who comes, and that they have come (not "ready to mediate", "will visit")
+MEDIATOR_VISIT_SEV = 55.0
+_MED_WHO_EN = (r"(?:qatar\w*|oman\w*|saudi\w*|pakistan\w*|russia\w*|chin(?:a|ese)|egypt\w*|turk\w*|iraq\w*"
+               r"|mecca|makkah|mediators?|delegations?|envoys?|emissar\w*|asim munir|bin salman|lavrov|wang yi)")
+_MED_EN = re.compile(r"\b" + _MED_WHO_EN + r"\b[^.;?]{0,60}?\b(?:arriv\w* (?:in|at)|land\w* in|(?:are|is|were|was) (?:present )?in"
+                     r"|in|visit(?:s|ed)?|return(?:s|ed)? to|travel+ed to|came to|heads? to|reach\w*)\s+tehran\b"
+                     r"|\btehran\b[^.;?]{0,20}\b(?:hosts?|hosted|receives?|received|welcomes?|welcomed)\b[^.;?]{0,30}\b"
+                     + _MED_WHO_EN, re.I)
+_MED_NOT_EN = re.compile(r"\b(?:will|would|could|may|might|to visit|to travel|plans?|planned|ready|readiness|expected|set to"
+                         r"|ahead of|upcoming|purpose|aim\w*|offers? to|proposes?|invit\w*|on (?:its|their) way|to (?:meet|hold|begin|arrive|head|go|attend|join)"
+                         r"|due|next|tomorrow|before|on (?:mon|tues|wednes|thurs|fri|satur|sun)day)\b", re.I)
+_MED_WHO_FA = ("(?:قطر|عمان|عربستان|سعودی|پاکستان|روسیه|چین|مصر|ترکیه|عراق|پیمان مکه|توافق مکه|میانجی|هیئت|هیات|فرستاده"
+               "|عاصم منیر|بن سلمان|لاوروف|وانگ یی)")
+_MED_FA = re.compile(fa_norm(_MED_WHO_FA + "[^.؛؟?]{0,60}?(?:وارد تهران شد|به تهران سفر کرد|به تهران آمد|به تهران آمدند"
+                                           "|به تهران رسید|در تهران حضور|در تهران است|در تهران هستند|عازم تهران شد"
+                                           "|به تهران بازگشت|وارد تهران شدند|به تهران سفر کردند|به تهران رسیدند"
+                                           "|عازم تهران شدند)|(?:ورود|سفر|حضور)[^.؛؟?]{0,15}" + _MED_WHO_FA
+                             + "[^.؛؟?]{0,30}(?:به|در) تهران"))
+_MED_NOT_FA = re.compile(fa_norm("آماده|آمادگی|قرار است|خواهد|خواهند|در راه|هدف|با هدف|دعوت|پیشنهاد سفر|احتمال|ممکن|فردا|آینده|پیش از|قبل از"))
+
+
+def _mediator_visit(lang, t):
+    fa = lang == "fa"
+    t = fa_norm(t) if fa else (t or "")
+    if fa:
+        return bool(_MED_FA.search(t)) and not _MED_NOT_FA.search(t)
+    return bool(_MED_EN.search(t)) and not _MED_NOT_EN.search(t)
+
+
 HIJAB_CAP = 40.0
 _HIJAB_FA = re.compile(fa_norm("حجاب|عفاف|بدحجاب|بی حجاب|کشف حجاب|گشت ارشاد|پلیس اخلاق|قانون پوشش|پوشش اسلامی"))
 _HIJAB_EN = re.compile(r"\b(hijab|headscarf|headscarves|morality police|dress code|chastity)\b", re.I)
@@ -619,6 +648,27 @@ CASUALTIES = re.compile(r"\b(\d{1,5})\s+(people |civilians |soldiers |troops |sa
 _IMAGINE_EN = re.compile(r"^\W*(?:just\s+)?imagine\b|^\W*think (?:about|of) (?:it|this|that)\b", re.I)
 
 
+# a channel admin's own aside, not news: "به نظرم…", "فکر می‌کنم…", "اگر X بشود Y می‌شود…", "فرض کنید…", "شاید…"
+_ASIDE_FA = re.compile(fa_norm(
+    r"^[^\u0600-\u06FFA-Za-z0-9]*(?:به نظرم|بنظرم|به نظر من|بنظر من|به نظر بنده|به نظر می رسد|بنظر میرسد|به نظر میرسه"
+    r"|فکر می ?کنم|فکر میکنم|فکر کنم|فکرکنم|من فکر|گمانم|گمان می ?کنم|گمونم|حدس می ?زنم|حدسم|احساس می ?کنم|حسم"
+    r"|معتقدم|من معتقدم|شخصا|به شخصه|به گمانم|به عقیده من|از نظر من|راستش|بعید نیست|بعید میدونم|شاید|نکنه|نکند"
+    r"|یعنی ممکنه|یعنی میشه|ممکنه|احتمالش|اگه|اگر|چنانچه|در صورتی که|فرض کنیم|فرض کن|فرض کنید|فرضا|فرضاً|بیایید فرض"
+    r"|فکر کنید|فکرشو بکنید|فکرش را بکنید|فکرش رو بکنید|تصور کنید|تصور کن|تصورش|فکر کن|جالبه|خدا کنه"
+    r"|امیدوارم|کاش|ای کاش)(?![\u0600-\u06FF])"))
+_ASIDE_EN = re.compile(r"^\W*(?:i think|i believe|i guess|i suspect|i feel|i bet|i doubt|i hope|in my (?:opinion|view)|imo|imho"
+                       r"|personally|my guess|my take|let'?s (?:say|assume|suppose)|suppose|supposing|assume|assuming"
+                       r"|what if|if|maybe|perhaps|just imagine|imagine|think (?:about|of) (?:it|this|that)|wonder if"
+                       r"|hopefully|wouldn'?t it)\b", re.I)
+
+
+def aside(text):
+    """A channel post that is its admin's own opinion or what-if, not news. Only for Telegram channels: a news
+    headline starting "If…" or "Maybe…" is read by the usual rules."""
+    t = text or ""
+    return bool(_ASIDE_FA.search(fa_norm(t)) or _ASIDE_EN.search(t))
+
+
 def score_en(title: str, summary: str):
     t, s = title or "", summary or ""
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
@@ -766,6 +816,10 @@ def classify(item):
         en_s = _digest_part(en_t, en_s, "en")
         sev, topics, flags = score_en(en_t, en_s)
         fa_t = fa_s = ""
+    if item.get("via") == "tg" and aside(fa_t or en_t):
+        # a channel admin's own opinion or what-if: yellow, and never an event
+        sev = min(sev, 38)
+        flags = (set(flags) - HARD_EVENTS) | {"opinion"}
     title_topics = match_keys(TOPICS_RX, en_t, fa_t)
     body_topics = [k for k in match_keys(TOPICS_RX, en_s, fa_s) if k != "statement"]
     topics |= set(title_topics) | set(body_topics)
@@ -814,6 +868,12 @@ def classify(item):
     if _hijab(lang, fa_t or en_t):
         flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
         sev = min(sev, HIJAB_CAP)
+    if _mediator_visit(lang, fa_t or en_t) and not set(flags) & {"speculative", "analysis", "opinion", "past",
+                                                                     "denial", "reaction"}:
+        # mediators who have come to Tehran in person (Qatar, Oman, Saudi Arabia, Pakistan, Russia, China…): orange
+        flags = set(flags) | {"mediator_visit"}
+        topics = set(topics) | {"diplomacy"}
+        sev = max(sev, MEDIATOR_VISIT_SEV)
     if _cleric(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
         flags = set(flags) | {"cleric"}
         sev = min(sev, CLERIC_CAP)
