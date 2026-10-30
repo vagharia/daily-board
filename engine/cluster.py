@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import config, witness
+from . import config, vessel, witness
 from .classify import cluster_severity, tier
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -433,7 +433,8 @@ def features(m):
             "cite": frozenset(k for k, rx in _CITE.items() if rx.search(title)),
             "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
             "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
-            "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE}
+            "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE,
+            "ship": vessel.mark(m), "sgen": vessel.general(m)}
 
 
 def _wcities(m):
@@ -525,6 +526,11 @@ def same_story(a, b, dt=0, rare=frozenset()):
     ka, kb = KIND[a["cls"]], KIND[b["cls"]]
     if ka and kb and ka != kb:                      # what happened
         return False
+    if a.get("ship") and b.get("ship"):             # an incident at sea placed by distance and bearing (vessel.py)
+        if vessel.same(a["ship"], b["ship"]):
+            return 0.6
+        if vessel.differ(a["ship"], b["ship"]):
+            return False
     if same_spot(a, b):
         return 0.5                                  # the same incident at the same spot, in other words
     if same_visit(a, b):
@@ -600,6 +606,7 @@ class Clusterer:
         self.byid = {c["id"]: c for c in clusters}
         self.index = {}
         self.tok = {}
+        self.ships = {}                                   # story id -> [(place of an incident at sea, time)]
         for c in clusters:
             self._index(c)
 
@@ -611,6 +618,8 @@ class Clusterer:
                 for v in feats[m["k"]]["vars"]:
                     for w in v:
                         self.index.setdefault(w, set()).add(c["id"])
+                if feats[m["k"]].get("ship"):
+                    self.ships.setdefault(c["id"], []).append((feats[m["k"]]["ship"], m["t"]))
 
     def _rare(self, w, t):
         """True if at most RARE_STORIES stories of the two days around t use the word."""
@@ -647,6 +656,8 @@ class Clusterer:
                 continue
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
+            if self._ship_conflict(f["ship"], cid):
+                continue                                   # an incident at sea placed elsewhere
             feats = self.tok.get(cid, {})
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
             if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"]:
@@ -655,6 +666,11 @@ class Clusterer:
             score = max((same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()),
                         default=0.0)
             if score:
+                matches.append((score, c))
+        for score, c in self._ship_matches(item, f):
+            if any(m["k"] == item["k"] for m in c["m"]):
+                return c, False
+            if not any(x is c for _, x in matches):
                 matches.append((score, c))
         matches.sort(key=lambda x: -x[0])
         best = matches[0][1] if matches else None
@@ -665,6 +681,8 @@ class Clusterer:
                 continue
             if best.get("manual") or other.get("manual"):
                 continue                               # a story put together by hand is never folded either way
+            if any(self._ship_conflict(x, best["id"]) for x, _ in self.ships.get(other["id"], [])):
+                continue                               # two incidents at sea placed apart
             tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
             fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
             if not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
@@ -692,6 +710,42 @@ class Clusterer:
         best["u"] = max(best["u"], item["t"])
         self._index(best)
         return best, False
+
+
+    def _ship_conflict(self, mark, cid):
+        """True if the story tells of an incident at sea placed elsewhere than `mark` and nowhere at `mark`."""
+        if not mark:
+            return False
+        marks = [x for x, _ in self.ships.get(cid, [])]
+        return bool(marks) and not any(vessel.same(mark, x) for x in marks) and any(vessel.differ(mark, x) for x in marks)
+
+    def _ship_matches(self, item, f):
+        """Stories of the same incident at sea, beyond the usual time window: a report placing it at the same
+        distance and bearing from the same point joins its story for a day after that story's latest report; a
+        report about one ship in the same sea area that gives no place joins the one incident placed there in the
+        last six hours, if there is exactly one."""
+        out = []
+        if f.get("ship"):
+            for cid, marks in self.ships.items():
+                c = self.byid.get(cid)
+                if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= SHIP_KEEP \
+                        and any(vessel.same(f["ship"], x) for x, _ in marks):
+                    out.append((0.6, c))
+        elif f.get("sgen"):
+            cands = []
+            for cid, marks in self.ships.items():
+                c = self.byid.get(cid)
+                first = min(t for _, t in marks)
+                if c and len(c["m"]) < 60 and marks[0][0]["area"] == f["sgen"] and 0 <= item["t"] - first <= SHIP_FRESH:
+                    cands.append((c, marks))
+            if cands and all(any(vessel.same(x, y) for x, _ in cands[0][1] for y, _ in mk) for _, mk in cands):
+                out.append((0.45, max(cands, key=lambda x: len(x[0]["m"]))[0]))
+        return out
+
+
+SHIP_KEEP = 24 * 3600      # reports placing an incident at sea at the same spot join its story this long after its latest
+SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins the one incident placed in that sea area
+                           # this soon after its first placed report
 
 
 def _since(c):

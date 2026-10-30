@@ -12,8 +12,10 @@ import html
 import os
 import time
 
-from . import http
-from .util import log, now, truncate
+import re
+
+from . import http, vessel
+from .util import fa_norm, log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
 
@@ -171,6 +173,136 @@ def _fa_num(n):
     return "یک" if n == 1 else str(n).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
 
 
+# ------------------------------------------------------------------ incidents at sea: one alert each
+# Reports of one incident at sea come from many outlets over many hours and form many stories; an Iranian claim
+# about tankers is published again and again. Telegram gets: one alert per incident (and at most one update when a
+# report adds something important: a sinking, people hurt, who did it, how), no alert for a claim already
+# announced, none for live pages and recaps. The bulletin is not affected.
+SEA_KEEP = 24 * 3600         # an incident placed by distance and bearing is remembered this long
+SEA_VAGUE = 6 * 3600         # a report that gives no place counts as the incident announced in that sea area this soon
+CLAIM_KEEP = 36 * 3600       # an Iranian claim already announced is not announced again within this
+SEA_UPDATES = 1
+_RECAP_EN = re.compile(r"\blive\b|\bmore on\b|\blatest:|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b"
+                       r"|\bwatch:|\bday \d+\b|\bas (?:\w+ ){0,3}(?:attacks?|tensions?|incidents?|strikes?) "
+                       r"(?:escalate|mount|intensify|persist|grow|rise)", re.I)
+_RECAP_FA = re.compile(fa_norm("لحظه به لحظه|جمع بندی|مروری بر|گزارش زنده|پخش زنده|اطلاعات بیشتر در مورد|جزئیات بیشتر"))
+
+
+def _heads(c):
+    return (c.get("en") or {}).get("ti") or "", fa_norm((c.get("fa") or {}).get("ti") or "")
+
+
+def _at_sea(c):
+    en, fa = _heads(c)
+    return bool(vessel.SHIP_EN.search(en) or vessel.SHIP_FA.search(fa)
+                or any("maritime_incident" in (m.get("flags") or []) for m in c["m"]))
+
+
+def _recap(c):
+    en, fa = _heads(c)
+    return bool(_RECAP_EN.search(en) or _RECAP_FA.search(fa))
+
+
+def _claims(c):
+    """Keys of the Iranian claims about ships a story's reports tell ("ir|4|mine": four tankers hit mines)."""
+    from .cluster import _numbers                   # cluster builds on classify, which alerts needn't load
+    out = set()
+    for m in c["m"]:
+        if vessel.iran_claim(m):
+            en = m.get("en_ti") or m.get("ti") or ""
+            fa = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
+            who = ("irgc" if _IRGC.search(en) or _IRGC_FA.search(fa) else
+                   "army" if _ARMY.search(en) or _ARMY_FA.search(fa) else "iran")
+            mine = "mine" if re.search(r"\bmines?\b", en, re.I) or "مین" in fa else ""
+            out.add(who + "|" + ",".join(str(n) for n in sorted(_numbers(en))) + "|" + mine)
+    return out
+
+
+_IRGC = re.compile(r"\b(irgc|revolutionary guards?|guards)\b", re.I)
+_IRGC_FA = re.compile(fa_norm("سپاه"))
+_ARMY = re.compile(r"\b(army|artesh)\b|\biranian navy\b|\bnavy of the (iranian )?army\b", re.I)
+_ARMY_FA = re.compile(fa_norm("ارتش"))
+
+
+def _head_claim(c):
+    en, _ = _heads(c)
+    return vessel.iran_claim({"en_ti": en, "ti": (c.get("fa") or {}).get("ti") or "", "lang": "fa"})
+
+
+def _incident(c):
+    ms = sorted(c["m"], key=lambda m: m["t"])
+    mk = next((x for x in (vessel.mark(m) for m in ms) if x), None)
+    ar = mk["area"] if mk else next((a for a in (vessel.area(m, head=True) for m in ms) if a), None)
+    fx = set().union(*(vessel.facts(m) for m in ms)) if ms else set()
+    another = vessel.another({"en_ti": _heads(c)[0], "ti": (c.get("fa") or {}).get("ti") or "", "lang": "fa"})
+    return mk, ar, fx, another
+
+
+def _sea_pick(sea, c, t, quiet=False):
+    """'send', 'update' or None (not announced) for a red story about ships; records what was announced."""
+    claims = sea.setdefault("claims", {})
+    incs = sea.setdefault("inc", [])
+    if _recap(c):
+        return None
+    keys = _claims(c)
+    if _head_claim(c) and keys:
+        new = {k for k in keys if t - claims.get(k, -1e12) > CLAIM_KEEP}
+        for k in keys:
+            claims[k] = t
+        return "send" if new and not quiet else None
+    mk, ar, fx, another = _incident(c)
+    inc = None
+    if mk:
+        inc = next((i for i in incs if i.get("mk") and vessel.same(i["mk"], mk) and t - i["t"] <= SEA_KEEP), None)
+        if not inc:
+            inc = next((i for i in reversed(incs) if not i.get("mk") and i.get("area") == ar and ar
+                        and t - i["t0"] <= SEA_VAGUE), None)
+            if inc:
+                inc["mk"] = mk                       # the place the first, vague report didn't give
+    elif ar and not another:
+        inc = next((i for i in reversed(incs) if i.get("area") == ar and t - i["t0"] <= SEA_VAGUE), None)
+    if inc:
+        inc["t"] = t
+        new = fx - set(inc.get("fx", []))
+        inc["fx"] = sorted(set(inc.get("fx", [])) | fx)
+        if new and inc.get("upd", 0) < SEA_UPDATES and not quiet:
+            inc["upd"] = inc.get("upd", 0) + 1
+            return "update"
+        return None
+    incs.append({"t0": t, "t": t, "mk": mk, "area": ar, "fx": sorted(fx), "upd": 0})
+    return None if quiet else "send"
+
+
+def _sea_state(state, clusters, sent, t):
+    """The memory of incidents and claims at sea; the first time, made from the red stories about ships already
+    announced in the last day."""
+    sea = state.setdefault("sea", {})
+    sea["inc"] = [i for i in sea.get("inc", []) if t - i["t"] <= SEA_KEEP]
+    for i in sea["inc"]:
+        if i.get("mk"):
+            i["mk"] = {**i["mk"], "nm": frozenset(i["mk"]["nm"])}
+    sea["claims"] = {k: v for k, v in sea.get("claims", {}).items() if t - v <= CLAIM_KEEP}
+    seen = sea["seen"] = {k: v for k, v in sea.get("seen", {}).items() if t - v <= SEA_KEEP}
+    sent = set(sent)
+    for c in sorted(clusters, key=lambda c: c["t"]):
+        # stories already announced: what they tell is known, including the reports that joined them since
+        if c["tier"] != "red" or c["id"] not in sent or t - c["u"] > SEA_KEEP or not _at_sea(c):
+            continue
+        if _head_claim(c):
+            for k in _claims(c):
+                sea["claims"].setdefault(k, c["u"])
+        if c["id"] not in seen:
+            _sea_pick(sea, c, c["u"], quiet=True)
+            seen[c["id"]] = c["u"]
+    return sea
+
+
+def _sea_save(sea):
+    for i in sea.get("inc", []):
+        if i.get("mk"):
+            i["mk"] = {**i["mk"], "nm": sorted(i["mk"]["nm"])}
+
+
 def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None):
     """flash_msgs: the main front's instant alerts (flash.py), sent first; flash_keys: reports they cover, whose
     stories don't also get the red-story alert."""
@@ -186,10 +318,28 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     messages = []
     fk = flash_keys or set()
     red_msg = [c for c in red_new if not any(m["k"] in fk for m in c["m"])]
+    sea = _sea_state(state, clusters, sent, t)
+    upd = set()
+    keep = []
+    for c in sorted(red_msg, key=lambda c: c["t"]):     # stories about ships: one alert per incident (see above)
+        if not _at_sea(c):
+            keep.append(c)
+            continue
+        how = _sea_pick(sea, c, t, quiet=first_run)
+        sea["seen"][c["id"]] = t
+        if how:
+            keep.append(c)
+            if how == "update":
+                upd.add(c["id"])
+    _sea_save(sea)
+    red_msg = keep
     if not first_run:
         red_msg.sort(key=lambda c: -c["sev"])
         for c in red_msg[:4]:
-            messages.append(_story(c))
+            msg = _story(c)
+            if c["id"] in upd:
+                msg = msg.replace("🔴 <b>", "🔄 <b>به‌روزرسانی: ", 1)
+            messages.append(msg)
         if len(red_msg) > 4:
             messages.append(f"🔴 و {_fa_num(len(red_msg) - 4)} خبر قرمز دیگر در بولتن.")
         for l in lights_on:
