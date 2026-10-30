@@ -903,6 +903,34 @@ def _vague_at_sea(ms):
     return len({(m.get("s") or "").split(":")[0] for m in ms}) < 2
 
 
+_EVENT_EN = re.compile(r"\b(?:struck|strikes?|hit|attacked|attacks?|explod\w*|explosions?|blasts?|caught fire|ablaze|ablaze"
+                       r"|downed|shot down|destroy\w*|seiz\w*|sank|sunk|intercept\w*|launch\w*|fired|killed)\b", re.I)
+_EVENT_FA = re.compile(fa_norm("(?:منفجر|انفجار|اصابت|حمله|آتش گرفت|سرنگون|منهدم|توقیف|غرق|رهگیری|شلیک|پرتاب|کشته)"))
+_JOIN_EN = re.compile(r"\s+(?:as|while|amid|meanwhile)\s+.*$", re.I)
+_JOIN_FA = re.compile(fa_norm(r"\s*(?:همزمان با|در حالی که|در حالیکه|در بحبوحه).*$"))
+
+
+def _joined_single(ms):
+    """One outlet's headline that strings two happenings together and hangs a third thing on them ("Iran says enemy
+    USV struck, violating tankers caught fire in Hormuz Strait as Qatari delegation visits Tehran"): a retelling,
+    not the moment. A real event soon has many outlets."""
+    if channel(ms[0]) or len({(m.get("s") or "").split(":")[0] for m in ms}) > 1:
+        return False
+    if any(vessel.mark(m) for m in ms):
+        return False                        # a ship's report with an exact place
+    m = ms[0]
+    for t, join, ev, sep in ((m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or "", _JOIN_EN,
+                              _EVENT_EN, r",\s+|\s+and\s+"),
+                             (fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else "", _JOIN_FA, _EVENT_FA,
+                              r"\s*[،,]\s*|\s+و\s+")):
+        if not t or not join.search(t):
+            continue                        # the headline also hangs something else on: "… as …"
+        parts = [p for p in re.split(sep, join.sub("", t)) if len(p.split()) >= 2 and ev.search(p)]
+        if len(parts) >= 2:
+            return True
+    return False
+
+
 def _since(c):
     """When a story's time window starts: its first report, or for a story marked as ongoing by hand
     (c["ongoing"]) its latest one, so later reports of a long-running story keep joining it. Where the story sits
@@ -1033,6 +1061,8 @@ def refresh(c):
         c["sev"] = min(c["sev"], 69.0)
     if any(blast(m) for m in ms) and not any(set(m.get("flags", [])) & {"controlled", "denial"} for m in ms):
         c["sev"] = max(c["sev"], RED_FLOOR)          # an explosion in Iran put down to gas stays red
+    if _joined_single(ms):
+        c["sev"] = min(c["sev"], 40.0)               # one outlet tying two happenings together: yellow
     c["tier"] = tier(c["sev"])
     for f in ("topics", "flags", "ppl", "geo", "ctry"):
         acc = []
