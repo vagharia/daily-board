@@ -568,11 +568,13 @@ def news_round(full=True):
         by_lang.setdefault(lg, []).append(p)
     for lg, group in by_lang.items():
         if lg != "fa":
-            todo = [p["text"] for p in group if not p.get("fa") or p.get("fa") == p["text"]]
+            # a post that is only a link to an article is translated from the site and the words of its address
+            src = {p["text"]: xposts.link_text(p["text"]) or p["text"] for p in group}
+            todo = sorted({src[p["text"]] for p in group if not p.get("fa") or p.get("fa") == p["text"]})
             res = tr.translate_many(todo, lg, "fa") if todo else {}
             for p in group:
-                if res.get(p["text"]):
-                    p["fa"] = res[p["text"]]
+                if res.get(src[p["text"]]):
+                    p["fa"] = res[src[p["text"]]]
         if lg != "en":
             todo = [p["text"] for p in group if not p.get("en") or p.get("en") == p["text"]]
             res = tr.translate_many(todo, lg, "en") if todo else {}

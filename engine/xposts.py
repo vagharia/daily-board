@@ -649,6 +649,30 @@ def x_timelines(state, tr):
 MANUAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "xmanual", "posts.json")
 
 
+_LINK_ONLY = re.compile(r"^\s*(https?://)?(?:www\.)?([a-z0-9-]+)\.[a-z.]+/(\S+?)/?\s*$", re.I)
+_SITES = {"axios": "Axios", "reuters": "Reuters", "nytimes": "New York Times", "wsj": "Wall Street Journal",
+          "washingtonpost": "Washington Post", "timesofisrael": "Times of Israel", "jpost": "Jerusalem Post",
+          "ynetnews": "Ynet", "haaretz": "Haaretz", "bloomberg": "Bloomberg", "ft": "Financial Times",
+          "cnn": "CNN", "foxnews": "Fox News", "aljazeera": "Al Jazeera", "apnews": "AP", "bbc": "BBC",
+          "politico": "Politico", "nbcnews": "NBC News", "cbsnews": "CBS News", "abcnews": "ABC News"}
+
+
+def link_text(text):
+    """For a post that is only a link to an article, a readable line made of the site and the words of its address
+    ("axios.com/2026/10/29/brad-cooper-briefs-trump-iran-naval-blockade" -> "Axios: brad cooper briefs trump iran
+    naval blockade"), so it can be translated; None for anything else."""
+    m = _LINK_ONLY.match(text or "")
+    if not m:
+        return None
+    slug = [x for x in m.group(3).split("/") if re.search(r"[a-z]{3,}-[a-z]", x, re.I)]
+    if not slug:
+        return None
+    words = re.sub(r"-[0-9a-f]{5,}$|\.html?$", "", slug[-1]).replace("-", " ").strip()
+    if len(words.split()) < 3:
+        return None
+    return f"{_SITES.get(m.group(2).lower(), m.group(2).capitalize())}: {words}"
+
+
 def manual_posts():
     """The posts in engine/xmanual/posts.json, shaped like any other post in the X tab."""
     data = load_json(MANUAL, None) or {}
@@ -666,7 +690,8 @@ def manual_posts():
             "text": text, "fa": p.get("fa") or text, "en": p.get("en") or text,
             "lang": "fa" if has_fa(text) else "en", "media": [], "likes": 0, "replies": 0,
             "url": p.get("url") or f"https://x.com/{h}", "seg": p.get("seg") or (who[0] if who else "geo"),
-            "role_fa": who[1] if who else p.get("role_fa", ""), "role_en": who[2] if who else p.get("role_en", ""),
+            # a post another account wrote and a followed one shared: its own author's role, as typed in
+            "role_fa": p.get("role_fa") or (who[1] if who else ""), "role_en": p.get("role_en") or (who[2] if who else ""),
         })
     return out
 
