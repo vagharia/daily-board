@@ -616,6 +616,9 @@ TARGET = re.compile(r"\b(hormuz|nuclear (site|facility|facilities|plant)|natanz|
                     r"|embassy|al udeid|al dhafra|ain al-asad|airbase|air base|naval base|power plant)\b", I)
 CASUALTIES = re.compile(r"\b(\d{1,5})\s+(people |civilians |soldiers |troops |sailors |crew )?(killed|dead|died)\b", I)
 
+_IMAGINE_EN = re.compile(r"^\W*(?:just\s+)?imagine\b|^\W*think (?:about|of) (?:it|this|that)\b", re.I)
+
+
 def score_en(title: str, summary: str):
     t, s = title or "", summary or ""
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
@@ -685,9 +688,11 @@ def score_en(title: str, summary: str):
             best = min(best, QUESTION_CAP)         # any other question in a headline: analysis, background
             flags -= HARD_EVENTS
             flags |= {"speculative", "analysis"}
-    if OPINION.search(t):
+    if OPINION.search(t) or _IMAGINE_EN.search(t):
         best = min(best, 38)
         flags.add("opinion")
+        if _IMAGINE_EN.search(t):
+            flags -= HARD_EVENTS            # "Imagine Iran declaring war on the Houthis!": an aside, nothing happened
     elif (ANALYSIS.search(t) or EXTRA_ANALYSIS.search(t)) and not LIVE.search(t):
         best = min(best, 44)
         flags.add("analysis")

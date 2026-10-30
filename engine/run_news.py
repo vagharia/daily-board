@@ -337,9 +337,9 @@ def news_round(full=True):
         # replies on Telegram pages were once read as the post they answer: such copies are dropped and read again
         log(f"telegram replies to read again: {drop_reply_copies(clusters, seen, T)}")
         misc["tg_replies"] = 1
-    if misc.get("tg_follow") != 1:
+    if misc.get("tg_follow") != 2:
         log(f"telegram replies that only comment, dropped: {fix_follow_ups(clusters, T)}")
-        misc["tg_follow"] = 1
+        misc["tg_follow"] = 2
     if misc.get("tg_cut") != 2:
         log("telegram posts cut mid-sentence, read again: %d of %d" % reread_cut_posts(clusters, T))
         misc["tg_cut"] = 2

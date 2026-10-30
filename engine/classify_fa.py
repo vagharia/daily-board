@@ -234,6 +234,9 @@ DENIAL = re.compile(F("تکذیب", "شایعه", "کذب", "صحت ندارد",
                       "به نظر نمی رسد")
                     + R("|(?:حمله|لشکرکشی|تهاجم)", _ANY % 25, "(?:نخواهد|نخواهند|نمی\\s*کنیم|نمی\\s*کند|نمی\\s*کنند|نکرده|نکردیم|نداریم|ندارد"
                         "|نخواهیم)", "|(?:قصد|برنامه\\s*ای|تصمیمی)", _ANY % 30, "(?:نداریم|ندارد|ندارند)"))
+# a channel admin's aside that pictures something ("فکر کنید ایران به حوثی‌ها اعلام جنگ بدهد!"): not news
+IMAGINE = re.compile(fa_norm(r"(?:^|[\s«(])(?:فکر کنید|فکرش را بکنید|فکرشو بکنید|فکرش رو بکنید|تصور کنید|تصورش را بکنید"
+                             r"|فرض کنید|فرض کن|تصور کن|فکر کن)(?![\u0600-\u06FF])"))
 SPEC = re.compile(F("ممکن است", "احتمال", "احتمالا", "احتمالی", "امکان", "شاید", "در صورت", "اگر", "چنانچه",
                     "گزینه", "سناریو", "بیم", "در نظر", "قصد دارد", "برنامه ریزی", "خطر"))
 # "جلوگیری از تشدید تنش": mediation to prevent escalation is not escalation
@@ -394,9 +397,11 @@ def score_fa(title: str, summary: str):
             best = min(best, QUESTION_CAP)         # any other question in a headline: analysis, background
             flags -= HARD_EVENTS
             flags |= {"speculative", "analysis"}
-    if OPINION.search(t):
+    if OPINION.search(t) or IMAGINE.search(t):
         best = min(best, 38)
         flags.add("opinion")
+        if IMAGINE.search(t):
+            flags -= HARD_EVENTS            # "فکر کنید ایران … اعلام جنگ بدهد!": a channel's aside, nothing happened
     elif ANALYSIS.search(t) and not LIVE.search(t):
         best = min(best, 44)
         flags.add("analysis")

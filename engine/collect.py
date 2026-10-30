@@ -201,6 +201,10 @@ def follow_up_comment(text):
         sev, _, fl = score_en(text, "")
         if "denial" in fl:
             return False
+    from .classify import _IMAGINE_EN
+    from .classify_fa import IMAGINE
+    if IMAGINE.search(fa_norm(text)) or _IMAGINE_EN.search(text):
+        return True                         # "فکر کنید ایران … اعلام جنگ بدهد!": an aside, whatever it pictures
     if sev >= 40 or witness.cities_in(text, "fa" if has_fa(text) else "en") or re.match(r"^[^:：]{2,45}[:：]\s", text):
         return False                        # news of its own, a place, or someone quoted ("درخواست لرها: …")
     return not (match_keys(PLACES_RX, "" if has_fa(text) else text, text if has_fa(text) else ""))
