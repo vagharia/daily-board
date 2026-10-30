@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import config, vessel, witness
+from . import config, deploy, vessel, witness
 from .classify import cluster_severity, tier
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -434,7 +434,35 @@ def features(m):
             "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
             "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
             "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE,
-            "ship": vessel.mark(m), "sgen": vessel.general(m)}
+            "ship": vessel.mark(m), "sgen": vessel.general(m), "dep": deploy.mark(m), "dup": _dup_key(m),
+            "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")}
+
+
+# the same article published again (an outlet re-posting it hours later, a wire story carried word for word): the
+# same headline exactly and nearly the same text. Never for Telegram channels, citizen reports, or reports of an
+# attack, an explosion, an incident at sea or a closed airspace, whose short headlines repeat for separate events.
+DUP_WORDS = 8
+DUP_TEXT = 0.9
+DUP_KEEP = 24 * 3600
+_DUP_NOT = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "witness"}
+
+
+def _norm_text(x):
+    return re.sub(r"[^\w]+", " ", (x or "").lower()).strip()
+
+
+def _dup_key(m):
+    if channel(m) or m.get("wit") or set(m.get("flags") or []) & _DUP_NOT:
+        return None
+    t = _norm_text(m.get("en_ti") or m.get("ti") or "")
+    return t if len(t.split()) >= DUP_WORDS else None
+
+
+def _same_text(a, b):
+    if not a or not b:
+        return False
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, a[:600], b[:600]).ratio() >= DUP_TEXT
 
 
 def _wcities(m):
@@ -607,6 +635,8 @@ class Clusterer:
         self.index = {}
         self.tok = {}
         self.ships = {}                                   # story id -> [(place of an incident at sea, time)]
+        self.deps = {}                                    # (count, kind, destination) of a deployment -> story ids
+        self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
         for c in clusters:
             self._index(c)
 
@@ -620,6 +650,10 @@ class Clusterer:
                         self.index.setdefault(w, set()).add(c["id"])
                 if feats[m["k"]].get("ship"):
                     self.ships.setdefault(c["id"], []).append((feats[m["k"]]["ship"], m["t"]))
+                if feats[m["k"]].get("dep"):
+                    self.deps.setdefault(feats[m["k"]]["dep"], set()).add(c["id"])
+                if feats[m["k"]].get("dup"):
+                    self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
     def _rare(self, w, t):
         """True if at most RARE_STORIES stories of the two days around t use the word."""
@@ -667,7 +701,7 @@ class Clusterer:
                         default=0.0)
             if score:
                 matches.append((score, c))
-        for score, c in self._ship_matches(item, f):
+        for score, c in self._ship_matches(item, f) + self._same_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches):
@@ -744,6 +778,22 @@ class Clusterer:
         return out
 
 
+    def _same_matches(self, item, f):
+        """The story of the same article published again (same headline, nearly the same text) or of the same
+        deployment (the same count of the same forces to the same place), for a day after that story's latest report."""
+        out = []
+        for cid, t, su in self.dups.get(f.get("dup") or "", []):
+            c = self.byid.get(cid)
+            if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= DUP_KEEP and _same_text(f["dupsu"], su):
+                out.append((0.9, c))
+        for cid in self.deps.get(f.get("dep"), ()) if f.get("dep") else ():
+            c = self.byid.get(cid)
+            if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= DEP_KEEP:
+                out.append((0.6, c))
+        return out
+
+
+DEP_KEEP = 24 * 3600       # reports of the same deployment join its story this long after its latest report
 SHIP_KEEP = 24 * 3600      # reports placing an incident at sea at the same spot join its story this long after its latest
 SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins the one incident placed in that sea area
                            # this soon after its latest placed report

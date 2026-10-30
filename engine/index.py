@@ -435,6 +435,44 @@ def _ev_cluster(c):
             "tier": c["tier"], "t": c["u"]}
 
 
+def _event_keys(c):
+    """What a story tells, to spot two stories about one event: deployments (count, kind, destination), places of
+    incidents at sea, and its headlines' words."""
+    from . import deploy, vessel
+    from .cluster import tokens
+    deps = {d for d in (deploy.mark(m) for m in c["m"]) if d}
+    ships = [x for x in (vessel.mark(m) for m in c["m"]) if x]
+    heads = [tokens(m.get("en_ti") or m.get("ti") or "") for m in c["m"][:8]]
+    return deps, ships, heads
+
+
+def _same_event(a, b):
+    from . import vessel
+    if a[0] & b[0]:
+        return True
+    if any(vessel.same(x, y) for x in a[1] for y in b[1]):
+        return True
+    for x in a[2]:
+        for y in b[2]:
+            if x and y and len(x & y) >= 4 and len(x & y) / len(x | y) >= 0.6:
+                return True
+    return False
+
+
+def _distinct(cs, n):
+    """The first n stories that are not about an event already listed."""
+    out, keys = [], []
+    for c in cs:
+        k = _event_keys(c)
+        if any(_same_event(k, x) for x in keys):
+            continue
+        out.append(c)
+        keys.append(k)
+        if len(out) == n:
+            break
+    return out
+
+
 def compute_lights(clusters, av, sea, markets, t=None):
     t = t or now()
     recent = [c for c in clusters if t - c["u"] <= 72 * 3600]
@@ -486,10 +524,13 @@ def compute_lights(clusters, av, sea, markets, t=None):
         on, watch, data = res[key]
         state = "on" if (on or data) else ("watch" if watch else "off")
         ev = [{"type": "data", **d} if "type" not in d else d for d in data]
-        ev += [_ev_cluster(c) for c in sorted(on, key=lambda c: -c["sev"])[:4]]
+        # one line per event: two stories of one event (the same deployment, the same incident at sea, nearly the
+        # same headline) show once
+        ev += [_ev_cluster(c) for c in _distinct(sorted(on, key=lambda c: -c["sev"]), 4)]
         if state != "on":
-            ev += [c["_data"] if "_data" in c else _ev_cluster(c)
-                   for c in sorted(watch, key=lambda c: -c.get("sev", 0))[:3]]
+            ws = sorted(watch, key=lambda c: -c.get("sev", 0))
+            ev += ([_ev_cluster(c) for c in _distinct([c for c in ws if "_data" not in c], 3)]
+                   + [c["_data"] for c in ws if "_data" in c])[:3]
         out.append({"id": key, "fa": fa, "en": en, "state": state, "evidence": ev})
     return out
 
