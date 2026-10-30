@@ -27,6 +27,7 @@ after either ends the effect.
 import math
 import re
 
+from . import evac
 from .aviation import recent_warnings
 from .lexicon import PLACES
 from .sources import BY_ID
@@ -490,7 +491,11 @@ def compute_lights(clusters, av, sea, markets, t=None):
                 continue                       # one Telegram channel's report doesn't light a lamp
             if need_state_actor and not (set(c.get("ctry", [])) & STATE_ACTORS):
                 continue
-            (on if t - c["u"] <= 24 * 3600 else watch).append(c)
+            if "evac" in flags and any(evac.stale(m) for m in c["m"]):
+                continue                       # an order retold days after it took effect
+            # an order to leave a country: from when it was first reported, not from outlets retelling it later
+            last = c["t"] if flags == {"evac"} else c["u"]
+            (on if t - last <= 24 * 3600 else watch).append(c)
         return on, watch
 
     res = {}

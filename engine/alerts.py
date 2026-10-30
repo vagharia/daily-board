@@ -14,7 +14,7 @@ import time
 
 import re
 
-from . import http, vessel
+from . import evac, http, vessel
 from .util import fa_norm, log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -338,7 +338,8 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     t = now()
     red_new = [c for c in clusters if c["tier"] == "red" and c["id"] not in sent
                and not any(x in sent for x in c.get("merged", [])) and t - c["u"] <= 6 * 3600
-               and "denial" not in c.get("flags", []) and "past" not in c.get("flags", [])]
+               and "denial" not in c.get("flags", []) and "past" not in c.get("flags", [])
+               and not any(evac.stale(m) for m in c["m"])]       # an order to leave retold days after it took effect
     lights_on = [l for l in lights if l["state"] == "on" and prev_lights.get(l["id"]) != "on"]
     zone_up = index and state.get("zone") is not None and index["zone"] > state["zone"]
     messages = []

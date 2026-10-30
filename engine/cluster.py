@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import config, deploy, vessel, witness
+from . import config, deploy, evac, vessel, witness
 from .classify import cluster_severity, tier
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -463,7 +463,7 @@ def features(m):
             "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
             "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
             "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE,
-            "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "dup": _dup_key(m),
+            "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "evac": evac.mark(m), "dup": _dup_key(m),
             "stmt": vessel.signature(m), "when": vessel.when(m) if _at_sea(m) else None,
             "inc": _incident_report(m),
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")}
@@ -695,6 +695,7 @@ class Clusterer:
         self.stmts = {}                                   # story id -> [(Iranian statement about ships, when, time)]
         self.incs = {}                                    # story id -> [(when, time)] of incidents at sea told independently
         self.deps = {}                                    # (count, kind, destination) of a deployment -> story ids
+        self.evacs = {}                                   # (who, country, how far) of an order to leave -> story ids
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
         for c in clusters:
             self._index(c)
@@ -715,6 +716,8 @@ class Clusterer:
                     self.incs.setdefault(c["id"], []).append((feats[m["k"]]["when"], m["t"]))
                 if feats[m["k"]].get("dep"):
                     self.deps.setdefault(feats[m["k"]]["dep"], set()).add(c["id"])
+                if feats[m["k"]].get("evac"):
+                    self.evacs.setdefault(feats[m["k"]]["evac"], set()).add(c["id"])
                 if feats[m["k"]].get("dup"):
                     self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
@@ -885,10 +888,16 @@ class Clusterer:
             c = self.byid.get(cid)
             if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= DEP_KEEP:
                 out.append((0.6, c))
+        # the same order to leave a country (who, where, how far): outlets retell it for days
+        for cid in self.evacs.get(f.get("evac"), ()) if f.get("evac") else ():
+            c = self.byid.get(cid)
+            if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= EVAC_KEEP:
+                out.append((0.6, c))
         return out
 
 
 STMT_KEEP = 12 * 3600      # reports of the same Iranian statement join its story this long after its latest report
+EVAC_KEEP = 7 * 86400      # reports of the same order to leave a country join its story this long after its latest report
 DEP_KEEP = 24 * 3600       # reports of the same deployment join its story this long after its latest report
 SHIP_KEEP = 24 * 3600      # reports placing an incident at sea at the same spot join its story this long after its latest
 SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins the one incident placed in that sea area
