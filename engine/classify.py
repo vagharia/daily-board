@@ -437,6 +437,23 @@ def _tribute(lang, t):
     return bool((_TRIB_FA if fa else _TRIB_EN).search(fa_norm(t) if fa else (t or "")))
 
 
+# a headline that strings several items together (a newsletter, a briefing, "…, and other Mideast news"): its own
+# stories carry the news, so the bundle is yellow and not an attack. "U.S. and Israel" is not a second item: the
+# second sentence must start with "And," or "Plus,".
+DIGEST_CAP = 40.0
+_DIGEST_EN = re.compile(r"[.;!?]\s+(?:And|Plus|Also),\s"
+                        r"|(?i:\band other (?:\w+ ){0,2}news\b|\b(?:morning|evening|daily|weekly|news) (?:briefing|brief"
+                        r"|digest|roundup|round-up|wrap)\b|\bnewsletter\b|\btop (?:stories|news|headlines)\b"
+                        r"|\bnews in brief\b|\bwhat to know (?:today|this week)\b)")
+_DIGEST_FA = re.compile(fa_norm("صبحانه خبری|خلاصه اخبار|مرور اخبار|مروری بر مهم ترین|مهم ترین اخبار|گزیده اخبار"
+                                "|سرخط خبرها|سر خط خبرها|و دیگر اخبار|و سایر اخبار"))
+
+
+def _digest(lang, t):
+    fa = lang == "fa"
+    return bool((_DIGEST_FA if fa else _DIGEST_EN).search(fa_norm(t) if fa else (t or "")))
+
+
 # another market whose move the oil price only helps explain ("Copper Declines as Tech Selloff, Oil Rally Dent Risk
 # Appetite"): the headline begins with that market, so it is not an oil price spike. Oil first stays as it is.
 MARKET_CAP = 40.0
@@ -760,6 +777,10 @@ def classify(item):
         # a company's financial results: a yellow story, whatever the oil price did
         flags = (set(flags) - HARD_EVENTS - {"oil_spike"}) | {"earnings"}
         sev = min(sev, EARNINGS_CAP)
+    if _digest(lang, fa_t or en_t):
+        # several items in one headline: a yellow story, whatever one of them tells
+        flags = (set(flags) - HARD_EVENTS) | {"digest"}
+        sev = min(sev, DIGEST_CAP)
     if _tribute(lang, fa_t or en_t):
         # a memoir or a profile of the dead: a yellow story, whatever attack it recalls
         flags = (set(flags) - HARD_EVENTS) | {"tribute"}
