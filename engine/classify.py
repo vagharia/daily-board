@@ -413,6 +413,38 @@ def _piracy(lang, t):
     return bool((_PIRACY_FA if fa else _PIRACY_EN).search(t)) and not (_PIRACY_NOT_FA if fa else _PIRACY_NOT_EN).search(t)
 
 
+# a memoir or a profile of the dead ("ناگفته‌های همسر شهید ظفرمند…", a martyr's family, a will, memoirs): told after
+# the event, not an event. Read in the headline only.
+TRIBUTE_CAP = 40.0
+_TRIB_FA = re.compile(fa_norm("ناگفته") + "|" + fa_norm("(?:همسر|مادر|پدر|فرزند|فرزندان|خانواده|دختر|پسر)")
+                      + r"\s*(?:" + fa_norm("پاسدار") + r"\s*)?" + fa_norm("شهید") + "|"
+                      + fa_norm("زندگی") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("سیره") + r"\s*" + fa_norm("شهید")
+                      + "|" + fa_norm("وصیت") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("خاطرات"))
+_TRIB_EN = re.compile(r"\b(untold stor\w*|widow of|tribute to|remembering)\b", re.I)
+
+
+def _tribute(lang, t):
+    fa = lang == "fa"
+    return bool((_TRIB_FA if fa else _TRIB_EN).search(fa_norm(t) if fa else (t or "")))
+
+
+# another market whose move the oil price only helps explain ("Copper Declines as Tech Selloff, Oil Rally Dent Risk
+# Appetite"): the headline begins with that market, so it is not an oil price spike. Oil first stays as it is.
+MARKET_CAP = 40.0
+_MKT_EN = re.compile(r"^\W*(copper|gold|silver|platinum|palladium|alumin(i)?um|nickel|zinc|iron ore|base metals?|metals?"
+                     r"|stocks?|equities|shares|bonds?|treasur\w+|yields?|dollar|yen|euro|sterling|pound|rupee|yuan"
+                     r"|currenc\w+|bitcoin|crypto\w*|wheat|corn|soybeans?|palm oil|wall street|nikkei|ftse|s&p|dow"
+                     r"|nasdaq|asian (stocks|shares|markets)|european (stocks|shares)|emerging[- ]market\w*)\b", re.I)
+_MKT_FA = re.compile(r"^\W*(?:" + "|".join(fa_norm(x) for x in ("مس", "طلا", "نقره", "پلاتین", "آلومینیوم", "نیکل",
+                     "فلزات", "سهام", "بورس", "اوراق", "دلار", "ین", "یورو", "پوند", "روپیه", "یوان", "ارز", "بیت کوین",
+                     "رمزارز", "گندم", "ذرت", "وال استریت", "شاخص")) + r")(?![" + "ؠ-ۿ" + r"])")
+
+
+def _other_market(lang, t):
+    fa = lang == "fa"
+    return bool((_MKT_FA if fa else _MKT_EN).search(fa_norm(t) if fa else (t or "")))
+
+
 CIVIL_DRILL_CAP = 35.0
 _CIVIL_FA = re.compile(r"خدمت\s*فاطمی|درمان|پزشک|دندان|سلامت|بهداشت|امداد|هلال\s*احمر|آتش\s*نشان|اطفا|زلزله|سیل|"
                        r"مدیریت\s*بحران|اورژانس|بیمارستان|جهادی|محرومیت|کمک\s*مومنانه|خدمت\s*رسانی|دانش\s*آموز|مدارس")
@@ -707,6 +739,14 @@ def classify(item):
         # a company's financial results: a yellow story, whatever the oil price did
         flags = (set(flags) - HARD_EVENTS - {"oil_spike"}) | {"earnings"}
         sev = min(sev, EARNINGS_CAP)
+    if _tribute(lang, fa_t or en_t):
+        # a memoir or a profile of the dead: a yellow story, whatever attack it recalls
+        flags = (set(flags) - HARD_EVENTS) | {"tribute"}
+        sev = min(sev, TRIBUTE_CAP)
+    if "oil_spike" in flags and _other_market(lang, fa_t or en_t):
+        # copper, gold, stocks or a currency moving, the oil price one reason among others: a yellow story
+        flags = set(flags) - {"oil_spike"} | {"market"}
+        sev = min(sev, MARKET_CAP)
     if _piracy(lang, fa_t or en_t):
         # piracy off Somalia or in the Gulf of Aden: a yellow story
         flags = (set(flags) - HARD_EVENTS) | {"piracy"}
