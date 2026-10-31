@@ -214,13 +214,35 @@ def combine(p):
     return sum(w * v for w, v in ws) / sum(w for w, _ in ws)
 
 
+_SEA_FLAGS = {"maritime_incident", "hormuz_closure"}
+# America's or Israel's own forces in an incident at sea: then it is war between them and Iran, not on shipping
+_MIL_SEA = re.compile(r"\b(u\.?s\.? ?navy|us navy|u\.?s\.? (warship|destroyer|carrier|vessel|forces|military|helicopters?)"
+                      r"|american (warship|destroyer|carrier|forces|navy)|uss [a-z]|navy (destroyer|warship)|centcom (strikes?"
+                      r"|struck|destroy\w*|sank)|israeli (navy|warship))\b|"
+                      + "|".join(fa_norm(x) for x in ("ناو آمریکا", "ناوشکن آمریکا", "ناو هواپیمابر", "نیروی دریایی آمریکا",
+                                                       "ناوگان آمریکا", "نیروهای آمریکایی", "ارتش آمریکا", "بالگرد آمریکا",
+                                                       "ناو اسرائیل", "نیروی دریایی اسرائیل")), re.I)
+
+
+def _at_sea(c):
+    return bool(set(c.get("flags", [])) & _SEA_FLAGS)
+
+
+def _sea_war(c):
+    """An incident at sea between Iran and America's or Israel's own forces (not ships of commerce)."""
+    return any(_MIL_SEA.search(fa_norm(m.get("ti") or "") + " " + (m.get("en_ti") or "")) for m in c.get("m", []))
+
+
 def direct_strikes(clusters, t, hours=12, since=None):
     """Confirmed military action between Iran and America or Israel (serious, reported by at least two outlets) in
     the last `hours` hours."""
     out = []
     for c in clusters:
         got = _counted(c, t)
-        if not got or t - c["u"] > hours * 3600 or (since and c.get("t", c["u"]) < since):
+        # at sea (tankers, Hormuz), from the story's first report: outlets retelling an incident keep its latest
+        # report fresh for many hours
+        last = c.get("t", c["u"]) if _at_sea(c) else c["u"]
+        if not got or t - last > hours * 3600 or (since and c.get("t", c["u"]) < since):
             continue
         fl, _ = got
         if fl & ACT_FLAGS and "secondary" not in fl and c["sev"] >= 80 and c.get("ns", 1) >= 2 \
@@ -387,7 +409,10 @@ def index_value(clusters, av, sea, markets, t):
     # strike to "high tension", two separate ones (or one very large) to "critical"
     # "critical" counts only strikes told by someone other than the side that announced it
     allds = direct_strikes(clusters, t, since=pre[0] if pre else None)
-    ind = distinct([c for c in allds if independent(c)])
+    # attacks on tankers and other ships of commerce raise the index through the count of attacks, but only war
+    # between Iran and America's or Israel's own forces makes it critical
+    crit = [c for c in allds if not _at_sea(c) or _sea_war(c)]
+    ind = distinct([c for c in crit if independent(c)])
     ds = distinct(ind + [c for c in allds if c not in ind])        # an incident confirmed somewhere counts as that
     # (one very large strike counts like two; one ship hit or on fire never is one)
     if len(ind) >= 2 or any(c["sev"] >= 90 and c.get("ns", 1) >= 3 and "maritime_incident" not in c.get("flags", [])
