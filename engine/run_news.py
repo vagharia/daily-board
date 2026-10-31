@@ -622,7 +622,7 @@ def news_round(full=True):
     if n:
         log(f"main-front events confirmed late by a news report: {n}")
     alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run, flash_msgs=flash_msgs,
-                           flash_keys=set(fstate.get("keys", {})))
+                           flash_keys=set(fstate.get("keys", {})), seen=seen)
 
     # ---------------------------------------------------------------- 10. stories, chosen every two hours
     if T - (misc.get("stories_t") or 0) >= stories.EVERY - 300 or not os.path.exists(data_path("stories.json")):

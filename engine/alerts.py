@@ -329,7 +329,16 @@ def _sea_save(sea):
             i["mk"] = {**i["mk"], "nm": sorted(i["mk"]["nm"])}
 
 
-def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None):
+LATE = 2 * 3600            # a report seen this long after it was published is old news by then: no alert
+
+
+def _late(c, seen):
+    """Every report of the story reached the bulletin over two hours after it was published (a search feed showing
+    it late): announced now it would be old news."""
+    return bool(seen) and all(seen.get(m["k"], m["t"]) - m["t"] > LATE for m in c["m"])
+
+
+def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None, seen=None):
     """flash_msgs: the main front's instant alerts (flash.py), sent first; flash_keys: reports they cover, whose
     stories don't also get the red-story alert."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
@@ -339,7 +348,7 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     red_new = [c for c in clusters if c["tier"] == "red" and c["id"] not in sent
                and not any(x in sent for x in c.get("merged", [])) and t - c["u"] <= 6 * 3600
                and "denial" not in c.get("flags", []) and "past" not in c.get("flags", [])
-               and not any(evac.stale(m) for m in c["m"])]       # an order to leave retold days after it took effect
+               and not any(evac.stale(m) for m in c["m"]) and not _late(c, seen)]       # an order to leave retold days after it took effect
     lights_on = [l for l in lights if l["state"] == "on" and prev_lights.get(l["id"]) != "on"]
     zone_up = index and state.get("zone") is not None and index["zone"] > state["zone"]
     messages = []

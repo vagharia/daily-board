@@ -904,8 +904,24 @@ SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins t
                            # this soon after its latest placed report
 
 
+_SEA_PLACE = re.compile(r"\b(hormuz|persian gulf|gulf of oman|the gulf)\b", re.I)
+_SEA_PLACE_FA = re.compile(fa_norm("هرمز|خلیج فارس|دریای عمان|تنگه"))
+
+
+def _at_sea_vague(m):
+    """An incident at sea, or an explosion or attack named only by the sea it was in ("Explosions in Hormuz")."""
+    fl = m.get("flags") or []
+    if "maritime_incident" in fl:
+        return True
+    if "kinetic" not in fl:
+        return False
+    head = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else (m.get("en_ti") or m.get("ti") or "")
+    return bool((_SEA_PLACE_FA if m.get("lang") == "fa" else _SEA_PLACE).search(head)) \
+        and not witness.cities_in(head, m.get("lang") or "en")
+
+
 def _vague_at_sea(ms):
-    if not any("maritime_incident" in (m.get("flags") or []) for m in ms):
+    if not any(_at_sea_vague(m) for m in ms):
         return False
     if any(vessel.statement(m) or vessel.mark(m) or vessel.when(m) for m in ms):
         return False
