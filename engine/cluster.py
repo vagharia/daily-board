@@ -913,8 +913,8 @@ def _at_sea_vague(m):
     fl = m.get("flags") or []
     if "maritime_incident" in fl:
         return True
-    if "kinetic" not in fl:
-        return False
+    if "kinetic" not in fl or channel(m):
+        return False                        # a channel's "انفجار در هرمز" keeps the channels' own rules
     head = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else (m.get("en_ti") or m.get("ti") or "")
     return bool((_SEA_PLACE_FA if m.get("lang") == "fa" else _SEA_PLACE).search(head)) \
         and not witness.cities_in(head, m.get("lang") or "en")
