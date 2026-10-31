@@ -485,6 +485,31 @@ def _mediator_visit(lang, t):
     return bool(_MED_EN.search(t)) and not _MED_NOT_EN.search(t)
 
 
+# road accidents (a lorry off a bridge, a bus overturned, a crash on a highway): a yellow story, unless an attack is
+# part of it
+ROAD_CAP = 38.0
+_ROAD_FA = re.compile(fa_norm("تصادف|واژگونی|واژگون|تریلی|کامیون|اتوبوس|مینی بوس|سواری|خودروی سواری|موتورسیکلت|نفتکش جاده"
+                              "|تانکر حمل سوخت|محور مواصلاتی|جاده|آزادراه|بزرگراه|اتوبان|قیچی|حادثه رانندگی|سانحه رانندگی"
+                              "|پلیس راه|راهور|عابر پیاده"))
+_ROAD_STRONG_FA = re.compile(fa_norm("تصادف|واژگون|تریلی|کامیون|اتوبوس|مینی بوس|سواری|موتورسیکلت|قیچی|حادثه رانندگی"
+                                     "|سانحه رانندگی|عابر پیاده|راهور|پلیس راه"))
+_ROAD_EN = re.compile(r"\b(road (accident|crash)|traffic (accident|collision)|car crash|bus (crash|accident|overturn\w*|plunge\w*)"
+                      r"|truck (crash|accident|overturn\w*|plunge\w*)|lorry|highway (crash|accident)|pile-?up|head-on collision"
+                      r"|overturned (bus|truck|car|vehicle))\b", re.I)
+_ROAD_CRASH_FA = re.compile(fa_norm("تصادف|واژگون|قیچی|حادثه رانندگی|سانحه رانندگی|حوادث رانندگی|حوادث جاده"))
+_ROAD_HURT_FA = re.compile(fa_norm("سقوط|برخورد|کشته|مصدوم|جان باخت|جان‌باخت|مجروح|زخمی|فوت|حادثه"))
+_WAR_FA = re.compile(fa_norm("حمله|پهپاد|موشک|انفجار|بمب|ترور|اصابت|شلیک|پدافند|جنگنده|حمله هوایی|تیراندازی|مسلح"))
+_WAR_EN = re.compile(r"\b(attack\w*|strike\w*|drone|missile|explo\w+|bomb\w*|shell\w*|gunmen|ambush\w*|shot|militants?)\b", re.I)
+
+
+def _road(lang, t):
+    if lang == "fa":
+        t = fa_norm(t)
+        crash = _ROAD_CRASH_FA.search(t) or (_ROAD_STRONG_FA.search(t) and _ROAD_HURT_FA.search(t))
+        return bool(crash) and not _WAR_FA.search(t)
+    return bool(_ROAD_EN.search(t or "")) and not _WAR_EN.search(t or "")
+
+
 HIJAB_CAP = 40.0
 _HIJAB_FA = re.compile(fa_norm("حجاب|عفاف|بدحجاب|بی حجاب|کشف حجاب|گشت ارشاد|پلیس اخلاق|قانون پوشش|پوشش اسلامی"))
 _HIJAB_EN = re.compile(r"\b(hijab|headscarf|headscarves|morality police|dress code|chastity)\b", re.I)
@@ -865,6 +890,10 @@ def classify(item):
         # a company's financial results: a yellow story, whatever the oil price did
         flags = (set(flags) - HARD_EVENTS - {"oil_spike"}) | {"earnings"}
         sev = min(sev, EARNINGS_CAP)
+    if _road(lang, fa_t or en_t):
+        flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"domestic"}
+        topics = set(topics) - {"military"}
+        sev = min(sev, ROAD_CAP)
     if _hijab(lang, fa_t or en_t):
         flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
         sev = min(sev, HIJAB_CAP)
