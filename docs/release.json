@@ -1,11 +1,11 @@
 {
-  "v": 22,
+  "v": 23,
   "fa": {
     "title": "نسخه‌ی جدید بولتن روزانه",
     "items": [
-      "دکمه‌ی تازه‌ی «گزارش‌های لحظه‌ای جبهه‌ی اصلی» بالای صفحه: انفجار، پرتاب موشک، شلیک پدافند و صدای جنگنده یا پهپاد در ایران، تنگه‌ی هرمز و خلیج فارس، اسرائیل و پایگاه‌های آمریکا؛ هر کدام در یک خط با مکان و ساعت. نقطه‌ی قرمز یا نارنجی روی دکمه یعنی گزارش تازه‌ای آمده",
-      "هشدارهای تلگرام برای همین رویدادها حالا لحظه‌ای و پله‌ای است: صدای جنگنده، بعد پرتاب موشک، بعد انفجار، هر کدام یک هشدار",
-      "خبرهایی از جبهه‌ی اصلی که فقط کانال‌های تلگرام گزارش کرده‌اند، تیتری از همه‌ی گزارش‌ها می‌گیرند و ساعت آخرین گزارش روی کارتشان دیده می‌شود",
+      "استوری زنده‌ی انتخابات میان‌دوره‌ای آمریکا، اول ردیف استوری‌ها: کرسی‌های سنا و کنگره‌ی هر حزب، با نتایج و اعلام برنده‌ی خبرگزاری آسوشیتدپرس (AP) که هر چند دقیقه به‌روز می‌شود",
+      "نقشه‌ی ایالت‌ها در همین استوری: با دو طیف آبی و دو طیف قرمز نشان می‌دهد هر حزب در هر ایالت هم سنا و هم کنگره را برده یا فقط سنا را. با زدن روی هر ایالت، نامزدهای سنا و حوزه‌های کنگره‌ی آن دیده می‌شوند",
+      "نتایج انتخابات کنست اسرائیل از صفحه‌ی اصلی برداشته شد و از دکمه‌ی پایین استوری آمریکا باز می‌شود",
       "بهبودها و رفع اشکال"
     ],
     "note": "بعد از به‌روزرسانی کمی صبر کنید تا اطلاعات جدید بارگذاری شود. اگر نیامد، صفحه را به پایین بکشید تا تازه شود.",
@@ -14,13 +14,13 @@
   "en": {
     "title": "What's new in Daily Brief",
     "items": [
-      "A new “Main front, as it happens” button at the top: explosions, missile launches, air defence fire, jets or drones heard in Iran, Hormuz and the Persian Gulf, Israel and US bases; one line each with its place and time. A red or orange dot on it means something new came in",
-      "Telegram alerts for these events now come at once and step by step: jets heard, then a missile launch, then an explosion, one alert each",
-      "Main-front stories reported only by Telegram channels get a headline made of all their reports, and their cards show the latest report's time",
+      "A live story for the US midterm election, first in the stories row: each party's seats in the Senate and the House, with the Associated Press (AP) count and race calls, updated every few minutes",
+      "A state map in the same story: two blues and two reds show whether a party took both the Senate and the House in a state or only the Senate. Tap a state for its Senate candidates and House districts",
+      "Israel's Knesset election results left the home page; they open from the button at the bottom of the US story",
       "Improvements and bug fixes"
     ],
     "note": "After updating, give it a moment for new data to load. If it doesn't appear, pull the page down to refresh.",
     "button": "Update"
   },
-  "build": 31
+  "build": 32
 }

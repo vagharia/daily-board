@@ -26,9 +26,9 @@
     set: function (k, v) { try { localStorage.setItem('db.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   };
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
-  var APP_REL = 22;
+  var APP_REL = 23;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 31;
+  var APP_BUILD = 32;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
