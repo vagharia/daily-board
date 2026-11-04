@@ -111,6 +111,10 @@ PEOPLE = {
 # ------------------------------------------------------------------ places (lat, lon)
 PLACES = {
     "hormuz": ("تنگه هرمز", "Strait of Hormuz", 26.57, 56.25, ["hormuz"], ["هرمز$"]),
+    # the islands in and by the strait: their own places, within the strait's area (cluster.REGION)
+    "qeshm": ("قشم", "Qeshm", 26.85, 55.9, ["qeshm"], ["قشم"]),
+    "kish": ("کیش", "Kish", 26.53, 53.98, ["kish island"], ["جزیره کیش"]),
+    "abu_musa": ("ابوموسی", "Abu Musa", 25.87, 55.03, ["abu musa"], ["ابوموسی", "ابو موسی"]),
     "persian_gulf": ("خلیج فارس", "Persian Gulf", 27.2, 51.2, ["persian gulf", "arabian gulf"], ["خلیج فارس"]),
     "gulf_oman": ("دریای عمان", "Gulf of Oman", 24.6, 58.6, ["gulf of oman"], ["دریای عمان"]),
     "tehran": ("تهران", "Tehran", 35.69, 51.39, ["tehran"], ["تهران"]),

@@ -9,7 +9,7 @@ import math
 import re
 
 from . import config, deesc, sport, witness
-from .classify_fa import score_fa
+from .classify_fa import STRONG as STRONG_FA, score_fa
 from .fronts import saudi_houthi
 from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
@@ -550,7 +550,48 @@ _DIGEST_FA = re.compile(fa_norm("صبحانه خبری|خلاصه اخبار|م�
 
 def _digest(lang, t):
     fa = lang == "fa"
-    return bool((_DIGEST_FA if fa else _DIGEST_EN).search(fa_norm(t) if fa else (t or "")))
+    return bool((_DIGEST_FA if fa else _DIGEST_EN).search(fa_norm(t) if fa else (t or ""))) or bool(multi_parts(lang, t))
+
+
+# a headline made of several news items: Persian outlets join them with "/" ("ونس: … / سپاه از … خبر داد"),
+# newsletters with ";" ("Alphabet Opens Euro Bond Sales; Trump Weighs Iran Diplomacy; Countdown to Midterms"). Only
+# its first item is read; the whole is a yellow story (DIGEST_CAP). A one-word label before "/" ("ببینید/", "فوری/")
+# is not an item, nor a date (۱۴۰۴/۰۸/۱۲).
+_MULTI_FA = re.compile(r"(?<![0-9۰-۹])\s*/\s*(?![0-9۰-۹])")
+_MULTI_EN = re.compile(r"\s+/\s+")
+_MULTI_SEMI = re.compile(r";\s+")
+# an item is a sentence of its own: someone speaking ("ونس: …") or a verb at its end; a lead-in before "/" is not
+_SENTENCE_FA = re.compile(r"[:：]|(?:کرد|کردند|کرده|شد|شدند|شده|داد|دادند|داده|است|اند|هستند|نیست|نیستند|دارد|ندارد|دارند"
+                          r"|ندارند|داریم|نداریم|گفت|گفتند|رسید|رسیدند|کند|کنند|نکند|شود|شوند|نشود|بود|بودند|خواهد|خواهند"
+                          r"|یابد|یافت|گیرد|گرفت|زد|زدند|کنیم|کردیم|دهد|دهند|ایم|نیست)\s*[.!؟?»\"]*\s*$")
+
+
+def multi_parts(lang, t):
+    """The items of a headline that strings several news items together, or [] if it is one item."""
+    t = (t or "").strip()
+    if lang == "fa":
+        parts = [x.strip() for x in _MULTI_FA.split(t)]
+        items = [x for x in parts if len(x.split()) >= 3]
+        if len(items) < 2 or not _SENTENCE_FA.search(fa_norm(items[0])):
+            return []                       # "حمله تروریستی در جنوب شرق کشور/ ستوان … به شهادت رسید": a lead-in
+        return items
+    parts = [x.strip() for x in _MULTI_EN.split(t)]
+    items = [x for x in parts if len(x.split()) >= 3]
+    if len(items) >= 2:
+        return items
+    parts = [x.strip() for x in _MULTI_SEMI.split(t)]
+    items = [x for x in parts if len(x.split()) >= 2]
+    return items if len(items) >= 3 else []
+
+
+def first_item(lang, t):
+    """The first news item of a headline (the whole headline when it is one item)."""
+    items = multi_parts(lang, t)
+    if not items:
+        return t
+    if lang == "fa":
+        return next(x for x in _MULTI_FA.split((t or "").strip()) if len(x.split()) >= 3)
+    return items[0]
 
 
 # another market whose move the oil price only helps explain ("Copper Declines as Tech Selloff, Oil Rally Dent Risk
@@ -732,8 +773,27 @@ DENIAL = re.compile(r"\b(den(y|ies|ied|ying)(?! (access|entry|permission|visas?|
                     r"|false|fake|dismiss\w*|baseless|rumou?rs?|hoax|debunk\w*)\b", I)
 SPEC = re.compile(r"\b(could|may|might|would|if|consider\w*|weigh(s|ing)?|mull\w*|possible|potential|risk of|fears? of"
                   r"|threat of|plan(s|ning)? to|options?)\b", I)
+PAST_CAP = 44.0
+# no ultimatum given ("no deadline", «ضرب‌الاجل تعیین نکردیم»)
+NO_DEADLINE_CAP = 44.0
+_NO_DEADLINE_EN = re.compile(r"\bno (?:deadline|ultimatum|timeline)\b|\bnot (?:set|given|issued|imposed) (?:a |an |any )?"
+                             r"(?:deadline|ultimatum)|\bwithout (?:a |any )?(?:deadline|ultimatum)|\bnot an ultimatum\b"
+                             r"|\b(?:den(?:y|ies|ied)|rules? out|ruled out)\b.{0,30}\b(?:deadline|ultimatum)", I)
+_NO_DEADLINE_FA = re.compile(fa_norm("(?:ضرب الاجل|ضرب العجل|اولتیماتوم|مهلت)") + r"[^.؛!؟?/]{0,30}?"
+                             + fa_norm("(?:تعیین نکرد|تعیین نشده|تعیین نمی|نداده|ندادیم|نگذاشت|نداریم|ندارد|نیست"
+                                       "|وجود ندارد|نکردیم|نکرده)")
+                             + "|" + fa_norm("(?:هیچ|بدون|نه)\\s*(?:ضرب الاجل|ضرب العجل|اولتیماتوم|مهلت)"))
+# a strike "on the table", "military options": a threat
+TABLE_CAP = 64.0
+_TABLE_EN = re.compile(r"\bon the table\b|\b(?:military|all) options?\b|\boptions? (?:open|remain)\b", I)
+_TABLE_FA = re.compile(fa_norm("روی میز|گزینه نظامی|گزینه های نظامی|همه گزینه|تمام گزینه"))
 PAST = re.compile(r"\b(anniversary|years? ago|decades? ago|commemorat\w+|memorial|in (19|20)\d\d|recalls?|history of"
-                  r"|look back|lessons from|a year after|one year on)\b", I)
+                  r"|look back|lessons from|a year after|one year on"
+                  # "…weeks after Houthi strike on airport": told weeks after the attack it names (not "strikes weeks
+                  # after the ceasefire", where the strike itself is new)
+                  r"|(?:weeks|months|several days)\s+(?:after|since)\s+(?:the\s+|a\s+|an\s+)?(?:[\w'-]+\s+){0,3}?"
+                  r"(?:strikes?|attacks?|bombing|blasts?|explosions?|war)"
+                  r"|weeks ago|months ago)\b", I)
 OPINION = re.compile(r"^(opinion|op-ed|editorial|commentary|letters?)\b|\|\s*opinion|\bopinion:|^view:|^comment:", I)
 ANALYSIS = re.compile(r"^(analysis|explainer|explained|q&a|podcast|newsletter|the big story|in charts|fact check)\b"
                       r"|\b(what to know|what we know|why it matters|how .{3,40} could|what .{3,40} means)\b", I)
@@ -848,7 +908,7 @@ def score_en(title: str, summary: str):
         best *= 0.82
         flags.add("speculative")
     if PAST.search(t) or PAST.search(s[:160]):
-        best *= 0.6
+        best = min(best * 0.6, PAST_CAP)           # told of the past: a yellow story, never an event of now
         flags.add("past")
     if ACTOR.search(t) and flags & {"ultimatum", "kinetic_threat"}:
         best += 6
@@ -907,6 +967,7 @@ def score_en(title: str, summary: str):
 
 
 HARD_EVENTS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
+LIGHT_FLAGS = {"deploy", "ultimatum", "evac", "airspace", "oil_spike"}
 _STRONG = re.compile(r"\b(struck|bombed|killed|launch(ed|es)|fired|intercepted|intercepts|shot down|exploded|attacked"
                      r"|seized|seizes|pounded|hits|downs|downed|explosions?|sirens?|casualties|closed|closes|shut"
                      r"|blocked|announc\w+ withdrawal|withdr[ae]w)\b", I)
@@ -963,6 +1024,9 @@ def classify(item):
         return item
     if item.get("lang") == "fa":
         t, s = _head(item.get("ti") or "", strip_dateline(item.get("su") or ""))
+        multi = bool(multi_parts("fa", t))
+        if multi:
+            t = first_item("fa", t)                # several items in one headline: only the first is read
         s = _digest_part(t, s, "fa")
         sev, topics, flags = score_fa(t, s)
         en_t = en_s = ""
@@ -970,6 +1034,9 @@ def classify(item):
     else:
         en_t, en_s = _head(item.get("en_ti") or item.get("ti") or "",
                            strip_dateline(item.get("en_su") or item.get("su") or ""))
+        multi = bool(multi_parts("en", en_t))
+        if multi:
+            en_t = first_item("en", en_t)
         en_s = _digest_part(en_t, en_s, "en")
         sev, topics, flags = score_en(en_t, en_s)
         fa_t = fa_s = ""
@@ -1058,9 +1125,9 @@ def classify(item):
     if _cleric(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
         flags = set(flags) | {"cleric"}
         sev = min(sev, CLERIC_CAP)
-    if _digest(lang, fa_t or en_t):
-        # several items in one headline: a yellow story, whatever one of them tells
-        flags = (set(flags) - HARD_EVENTS) | {"digest"}
+    if multi or _digest(lang, fa_t or en_t):
+        # several items in one headline: a yellow story, whatever one of them tells; it lights no lamp
+        flags = (set(flags) - HARD_EVENTS - LIGHT_FLAGS) | {"digest"}
         sev = min(sev, DIGEST_CAP)
     if _tribute(lang, fa_t or en_t):
         # a memoir or a profile of the dead: a yellow story, whatever attack it recalls
@@ -1074,6 +1141,17 @@ def classify(item):
         # piracy off Somalia or in the Gulf of Aden: a yellow story
         flags = (set(flags) - HARD_EVENTS) | {"piracy"}
         sev = min(sev, PIRACY_CAP)
+    head = fa_t or en_t
+    if "ultimatum" in flags and (_NO_DEADLINE_FA.search(fa_norm(head)) if lang == "fa" else _NO_DEADLINE_EN.search(head)):
+        # "ونس: برای ایران ضرب‌الاجل تعیین نکردیم", "no deadline for Iran": no ultimatum was given
+        flags = set(flags) - {"ultimatum"}
+        if not set(flags) & HARD_EVENTS:
+            sev = min(sev, NO_DEADLINE_CAP)
+    if set(flags) & HARD_EVENTS and (_TABLE_FA.search(fa_norm(head)) if lang == "fa" else _TABLE_EN.search(head)) \
+            and not (STRONG_FA.search(fa_norm(head)) if lang == "fa" else _STRONG.search(head)):
+        # "Trump keeps Iran strikes on the table": a threat, not a strike
+        flags = (set(flags) - HARD_EVENTS) | {"threat", "speculative"}
+        sev = min(sev, TABLE_CAP)
     anchored = _anchor(lang, fa_t or en_t, fa_s or en_s)
     if not anchored and _far(lang, fa_t or en_t, fa_s or en_s):
         # China and India in the Himalayas, China and America over Cuba: nothing of the Middle East or of Iran's war
@@ -1095,6 +1173,14 @@ def classify(item):
             escal = flags & {"kinetic", "threat", "ultimatum", "deploy", "maritime_incident", "evac", "kinetic_threat",
                              "retaliation", "nuclear_red", "internet", "talks_fail"}
             sev = max(sev, g["sev"]) if escal else g["sev"]
+    # the lamps for a deployment and an ultimatum light only for what the headline itself tells: an MP's words about
+    # carriers "brought to the region", deep in the text, are not a deployment (index.compute_lights)
+    lf = set(flags) & {"deploy", "ultimatum"}
+    if lf:
+        tf = (score_fa(head, "") if lang == "fa" else score_en(head, ""))[2]
+        item["tf"] = sorted(lf & set(tf))
+    else:
+        item.pop("tf", None)
     item["sev"] = round(sev, 1)
     item["topics"] = sorted(topics)
     item["flags"] = sorted(flags)

@@ -184,8 +184,8 @@ _QUOTE_EN = re.compile(r"^[^:]{2,45}:|\b(says|said|told|tells|warns|warned|claim
 
 
 def unconf_kind(ms):
-    from .citation import cited                    # citation builds on this module
-    if any(cited(m) for m in ms):
+    from .citation import outlet_named             # citation builds on this module
+    if any(outlet_named(m) for m in ms):
         return "cited"
     if any(strike(m) for m in ms):
         return "event"
@@ -317,6 +317,74 @@ PHYSICAL = {"M", "K", "A", "V", "D"}            # something happened somewhere; 
 KIND = {"M": "attack", "K": "attack", "A": "attack", "V": "evac", "D": "deploy", "U": "threat", "T": "threat",
         "N": "nuclear", "S": "sanctions", "O": None}
 WINDOW = {"event": 4 * 3600, "other": 10 * 3600}
+# places within a wider one: a report of Qeshm and one of the Strait of Hormuz don't name different places
+REGION = {"qeshm": "hormuz", "abu_musa": "hormuz"}
+
+
+def _region(geo):
+    return set(geo) | {REGION[g] for g in geo if g in REGION}
+
+
+# ------------------------------------------------------------------ the same strike, told in other words
+# Two news reports (never a Telegram channel or citizen reports) are one story, though their headlines share few
+# words ("US has conducted defensive strikes in Hormuz" / "Report: U.S. struck Iran's Qeshm Island overnight"), when
+# all of these hold: both tell of an attack (not denied, past, a threat or analysis); both name who struck, the
+# same; both name the same city or island it hit (not Tehran, where several strikes a day are likely, nor a country);
+# where both name what was hit (a port, a base, an airport, an oil site, air defence or radar, boats), the same; the
+# days they give don't differ; neither says it is a new or another strike ("again", "second", «دوباره»,
+# «موج جدید»); and the report comes within twelve hours of the story's first report.
+STRIKE_WINDOW = 12 * 3600
+_ATTACKERS = {"us": r"u\.?s\.?|united states|america\w*|pentagon|centcom|washington|trump",
+              "il": r"israel\w*|idf",
+              "ir": r"iran\w*|irgc|revolutionary guards?|tehran"}
+_HIT = r"(?:strikes?|struck|attacks?|attacked|bomb\w*|hits?|raids?|carries out|carried out|conducts?|conducted|targets?|targeted)"
+_ATT_RX = {k: re.compile(r"\b(?:" + v + r")\b(?:'s)?(?:\s+[\w'‘’-]+){0,4}?\s+" + _HIT + r"\b"
+                         r"|\b(?:strikes?|attacks?|raids?|bombing)\s+(?:by|from)\s+(?:the\s+)?(?:" + v + r")\b", re.I)
+           for k, v in _ATTACKERS.items()}
+_STRIKE_CITY = re.compile(r"\b(isfahan|esfahan|tabriz|shiraz|mashhad|karaj|qom|ahvaz|ahwaz|bandar abbas|bushehr"
+                          r"|kermanshah|urmia|khorramshahr|abadan|chabahar|kish|qeshm|kerman|yazd|rasht|zahedan|hamedan"
+                          r"|arak|sanandaj|ilam|khorramabad|jask|sirik|abu musa|kharg|natanz|fordow|parchin|dezful"
+                          r"|beirut|damascus|baghdad|erbil|sanaa|hodeidah|haifa|tel aviv|eilat|dimona|riyadh|jeddah"
+                          r"|dubai|abu dhabi|doha|manama)\b", re.I)
+_TARGET_KIND = {"port": r"ports?|harbou?rs?|docks?|jett(?:y|ies)|piers?", "base": r"bases?|garrisons?|barracks|headquarters",
+                "airport": r"airports?|airfields?|air ?strips?", "oil": r"refiner(?:y|ies)|oil|fuel|depots?|terminals?",
+                "airdef": r"air defen[cs]es?|radars?|missile (?:sites?|launchers?|batter(?:y|ies))|sam sites?|launchers?",
+                "boats": r"boats?|speedboats?|vessels?|ships?|navy|naval"}
+_TARGET_RX = {k: re.compile(r"\b(?:" + v + r")\b", re.I) for k, v in _TARGET_KIND.items()}
+_NEW_EN = re.compile(r"\b(?:new|another|fresh|second|third|again|renewed|more|further|wave|round)\b", re.I)
+_NEW_FA = re.compile(fa_norm("دوباره|مجدد|جدید|تازه|دومین|سومین|بار دیگر|باز هم|موج"))
+
+
+def strike_key(m):
+    """(attacker, places hit, kinds of target) of a news report of an attack, or None (see above)."""
+    if channel(m) or m.get("wit") or event_class(m) != "K":
+        return None
+    if set(m.get("flags") or []) & {"denial", "past", "controlled", "speculative", "threat", "analysis", "opinion",
+                                    "quote", "digest", "reaction"}:
+        return None
+    t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
+    if not t or _NEW_EN.search(t) or (m.get("lang") == "fa" and _NEW_FA.search(fa_norm(m.get("ti") or ""))):
+        return None
+    who = {k for k, rx in _ATT_RX.items() if rx.search(t)}
+    if len(who) != 1:
+        return None                                 # nobody named, or two sides striking
+    places = {x.lower().replace("esfahan", "isfahan").replace("ahwaz", "ahvaz") for x in _STRIKE_CITY.findall(t)}
+    if not places:
+        return None
+    kinds = frozenset(k for k, rx in _TARGET_RX.items() if rx.search(t))
+    return who.pop(), frozenset(places), kinds
+
+
+def same_strike(a, b):
+    """Features of two news reports: the same strike, told in other words (see above)."""
+    ka, kb = a.get("sk"), b.get("sk")
+    if not ka or not kb or ka[0] != kb[0] or ka[1] != kb[1]:
+        return False
+    if ka[2] and kb[2] and not ka[2] & kb[2]:
+        return False                                # a port and an air-defence site: two targets
+    if a["days"] and b["days"] and not a["days"] & b["days"]:
+        return False
+    return True
 PLACE_TOKENS = {w for v in PLACES.values() for w in tokens(v[1]) if len(w) >= 4} - {"gulf", "island", "persian"}
 NAME_TOKENS = {w for v in PEOPLE.values() for x in v[2] if not x.startswith("re:") for w in tokens(x.rstrip("$"))
                if len(w) >= 4} - set("""minister foreign prime president leader chief commander defense defence staff
@@ -466,6 +534,7 @@ def features(m):
             "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "evac": evac.mark(m), "dup": _dup_key(m),
             "stmt": vessel.signature(m), "when": vessel.when(m) if _at_sea(m) else None,
             "inc": _incident_report(m),
+            "sk": strike_key(m),
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")}
 
 
@@ -649,7 +718,7 @@ def same_story(a, b, dt=0, rare=frozenset()):
         if not anchored or physical:
             return False
     if a["geo"] and b["geo"]:                       # where
-        if not a["geo"] & b["geo"]:
+        if not _region(a["geo"]) & _region(b["geo"]):
             return False
     elif a["ctry"] and b["ctry"]:
         if not a["ctry"] & b["ctry"]:
@@ -747,7 +816,7 @@ class Clusterer:
         ranked = []
         for cid, n in cand.items():
             c = self.byid.get(cid)
-            if c and abs(item["t"] - _since(c)) <= WINDOW["other"]:
+            if c and abs(item["t"] - _since(c)) <= (STRIKE_WINDOW if f["sk"] else WINDOW["other"]):
                 ranked.append((n, cid))
         matches = []
         for _, cid in sorted(ranked, reverse=True)[:40]:
@@ -761,6 +830,9 @@ class Clusterer:
             if self._kind_conflict(f, cid):
                 continue                                   # an Iranian statement vs an incident told independently
             feats = self.tok.get(cid, {})
+            if f["sk"] and abs(item["t"] - _since(c)) <= STRIKE_WINDOW and any(same_strike(f, mf) for mf in feats.values()):
+                matches.append((0.55, c))                  # the same strike told in other words (see same_strike)
+                continue
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
             if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"]:
                 continue                                   # when: measured from the story's first report
@@ -779,15 +851,16 @@ class Clusterer:
         for _, other in matches[1:]:
             # the report fits two stories: fold the smaller one in only if the two also match each other
             # directly (not merely through this report), remembering its id so its alert isn't sent twice
-            if len(other["m"]) > 8 or len(best["m"]) + len(other["m"]) > 60:
+            fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
+            strike_pair = any(same_strike(x, y) for x in fo.values() for y in fb.values())
+            if (len(other["m"]) > 8 and not strike_pair) or len(best["m"]) + len(other["m"]) > 60:
                 continue
             if best.get("manual") or other.get("manual"):
                 continue                               # a story put together by hand is never folded either way
             if any(self._ship_conflict(x, best["id"]) for x, _ in self.ships.get(other["id"], [])):
                 continue                               # two incidents at sea placed apart
             tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
-            fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
-            if not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
+            if not strike_pair and not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
                        for ky, y in fb.items()):
                 continue
             best["m"].extend(other["m"])

@@ -514,6 +514,10 @@ def compute_lights(clusters, av, sea, markets, t=None):
                 continue
             if c.get("unconf"):
                 continue                       # one Telegram channel's report doesn't light a lamp
+            told = flags & {"deploy", "ultimatum"}
+            if told and not any(set(m.get("tf") or []) & told and "digest" not in (m.get("flags") or [])
+                                for m in c["m"]):
+                continue                       # a deployment or an ultimatum only in the text, not in a headline
             if need_state_actor and not (set(c.get("ctry", [])) & STATE_ACTORS):
                 continue
             if "evac" in flags and any(evac.stale(m) for m in c["m"]):

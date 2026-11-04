@@ -17,8 +17,9 @@ import re
 
 from . import witness
 from . import vessel
+from .classify import _digest_part, first_item, multi_parts
 from .cluster import blast, channel
-from .util import fa_norm, truncate
+from .util import clip_sentence, fa_norm, truncate
 
 INCIDENT = 30 * 60          # one incident: the same place within half an hour
 CONFIRM_WITHIN = 30 * 60    # a news outlet's report confirms it only this soon after the first announcement
@@ -82,8 +83,8 @@ _STEPS = [
     (3, "launch", fa_norm("پرتاب موشک|شلیک موشک|موشک ها شلیک|موشک ها پرتاب|موشک پرتاب|موشک شلیک|پرتاب شد|شلیک شد"),
      r"\b(launch(ed|es|ing)?|fires?|fired|firing)\b[^.;]{0,25}\bmissiles?\b|\bmissiles?\b[^.;]{0,20}\b(launch(ed|es)?"
      r"|fired)\b|\bmissile launch(es)?\b"),
-    (2, "airdef", fa_norm("پدافند|ضدهوایی|ضد هوایی|رهگیری|رهگیر|منهدم|سرنگون"),
-     r"\b(air defen[cs]es?|anti-aircraft|intercept\w*|shot down|shoots? down|downed)\b"),
+    (2, "airdef", fa_norm("پدافند|ضدهوایی|ضد هوایی|رهگیری|رهگیر|منهدم|سرنگون|انهدام|شکار"),
+     r"\b(air defen[cs]es?|anti-aircraft|intercept\w*|shot down|shoots? down|downed|destroy(?:s|ed)?)\b"),
     (1, "jet", fa_norm("جنگنده|جت|هواپیمای نظامی|دیوار صوتی"), r"\b(fighter jets?|warplanes?|jets?|sonic boom)\b"),
     (1, "drone", fa_norm("پهپاد|ریزپرنده"), r"\b(drones?|uavs?)\b"),
     (1, "siren", fa_norm("آژیر|اژیر"), r"\bsirens?\b"),
@@ -95,9 +96,46 @@ _NOT_NOW = {"denial", "controlled", "past", "speculative", "threat", "analysis",
             "civil_drill", "exercise", "sport", "local_toll", "earnings", "piracy", "far_off"}
 _FROM_FA = re.compile(fa_norm("از"))
 # not news of something happening now: a court case, an anniversary, figures for a month, a feature
-_NOT_NOW_FA = re.compile(fa_norm("کیفرخواست|دادگاه|محاکمه|سالگرد|رکورد|آمار|تحلیل|گزارش ویژه|مستند|سال گذشته"))
+_NOT_NOW_FA = re.compile(fa_norm("کیفرخواست|دادگاه|محاکمه|سالگرد|رکورد|آمار|تحلیل|گزارش ویژه|مستند|سال گذشته|بازداشت"
+                                  "|دستگیری|جاسوس"))
 _NOT_NOW_EN = re.compile(r"\b(indictment|trial|court|anniversary|record high|record low|statistics|figures|analyst|analysis"
-                         r"|explainer|last year|in october|in september|this month|this year)\b", re.I)
+                         r"|explainer|last year|in october|in september|this month|this year|arrest\w*|spy|spies|described)\b", re.I)
+# told after the moment, not of it: a body's statement about what it did or saw ("نیروی دریایی سپاه اعلام کرد…",
+# "IRGC says it downed…", "officials tell the Post"), and a time already past in the headline or the start of the text
+# ("دیشب", "شب گذشته", "روز دوشنبه", "از ساعات ابتدایی بامداد امروز تاکنون", "overnight", "on Monday")
+_BODY_FA = fa_norm("سپاه|ارتش|نیروی دریایی|نیروی هوایی|نیروی هوافضا|قرارگاه|وزارت|سخنگو|روابط عمومی|ستاد|فرماندهی|فرمانده"
+                   "|مقام|مقامات|رسانه|رسانه ها|پنتاگون|سنتکام|کاخ سفید|دولت|استاندار|استانداری|فرماندار")
+# local sources and residents ("منابع محلی: صدای انفجار…") are the moment itself, not a statement
+_STATEMENT_FA = re.compile(r"(?:^|\s)(?:" + _BODY_FA + r")(?!\s*محلی)[^.؛!؟:]{0,50}?" + fa_norm(
+    r"(?:اعلام\s*کرد|اعلام\s*کردند|اعلام\s*شد|خبر\s*داد|خبر\s*دادند|مدعی\s*شد|مدعی\s*شدند|ادعا\s*کرد|گزارش\s*داد"
+    r"|گزارش\s*دادند|تایید\s*کرد|تأیید\s*کرد|اطلاعیه|بیانیه|می\s*گوید|می\s*گویند|گفت|گفتند)")
+    + r"|^[^:：]{0,40}(?:" + _BODY_FA + r")(?!\s*محلی)[^:：]{0,30}[:：]")
+_STATEMENT_EN = re.compile(r"\b(?:irgc|guards?|army|military|navy|ministry|spokes(?:man|woman|person)|officials?|pentagon"
+                           r"|centcom|white house|government|governor|(?<!local )media)\b[^.;:]{0,50}?\b(?:says?|said|claims?"
+                           r"|claimed|announc\w+|confirms?|confirmed|reports?|reported|tells?|told)\b"
+                           r"|\bofficials? (?:tell|told)\b", re.I)
+_PAST_FA = re.compile(fa_norm(r"دیشب|شب\s*گذشته|دیروز|روز\s*گذشته|ساعاتی\s*پیش|ساعات\s*گذشته|ساعت\s*های\s*گذشته"
+                              r"|24\s*ساعت\s*گذشته|۲۴\s*ساعت\s*گذشته|از\s*ساعات\s*ابتدایی"
+                              r"|روز\s*(?:شنبه|یکشنبه|دوشنبه|سه\s*شنبه|چهارشنبه|پنجشنبه|پنج\s*شنبه|جمعه)"))
+_PAST_EN = re.compile(r"\b(?:last night|overnight|yesterday|earlier (?:today|this week|on)|hours? ago"
+                      r"|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|since (?:dawn|early|the early))\b",
+                      re.I)
+
+
+def told_later(m):
+    """A report told after the moment rather than of it: a body's statement, an outlet a channel relays, a time
+    already past."""
+    from .citation import outlet_named         # citation builds on cluster, as this module does
+    fa = m.get("lang") == "fa"
+    t = fa_norm(m.get("ti") or "") if fa else (m.get("en_ti") or m.get("ti") or "")
+    su = fa_norm((m.get("su") or "")[:200]) if fa else (m.get("en_su") or m.get("su") or "")[:200]
+    if channel(m) and outlet_named(m):
+        return True                         # a channel relaying an outlet's report ("وال‌استریت ژورنال گزارش داد…")
+    if (_STATEMENT_FA if fa else _STATEMENT_EN).search(t):
+        return True
+    return bool((_PAST_FA if fa else _PAST_EN).search(t) or (_PAST_FA if fa else _PAST_EN).search(su))
+
+
 # a statement ("Iran FM: …", "… says"): the general names (Iran, Israel) don't make it news of a place
 _SAID_FA = re.compile(r"^[^:：]{2,45}[:：]|" + fa_norm("گفت|اعلام کرد|مدعی شد|ادعا"))
 _SAID_EN = re.compile(r"^[^:]{2,45}:|\b(says?|said|claims?|claimed|told)\b", re.I)
@@ -407,6 +445,8 @@ def events(m):
         return out
     if flags & _NOT_NOW or "digest" in flags or not flags & {"kinetic", "maritime_incident", "airspace"} or blast(m):
         return []
+    if told_later(m):
+        return []                           # told after the moment: a statement, a relayed outlet, a past time
     fa_t, en_t = _main_part(fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else "",
                             m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or "")
     if (fa_t and _NOT_NOW_FA.search(fa_t)) or (en_t and _NOT_NOW_EN.search(en_t)):
@@ -464,6 +504,10 @@ def _detail(ev, m, fa_story=None):
         txt = m.get("su") or ""
     elif m.get("lang") == "fa":
         ti, su = (m.get("ti") or "").strip(), (m.get("su") or "").strip()
+        if multi_parts("fa", ti):
+            ti, su = first_item("fa", ti).strip(), ""    # several items in one headline: the first alone
+        elif len(re.split(r"(?<![0-9۰-۹])\s*/\s*(?![0-9۰-۹])", su)) > 1:
+            su = _digest_part(ti, su, "fa")              # a text of several items: the one about the headline
         if su and fa_norm(su).startswith(fa_norm(ti)[:40]):
             txt = su                        # the text goes on from the headline
         elif su and len(ti) < 160:
@@ -481,7 +525,7 @@ def _detail(ev, m, fa_story=None):
         txt = ""
     if not txt and not prev:
         return "", ""
-    return truncate(txt, DETAIL), truncate(prev, DETAIL // 2)
+    return clip_sentence(txt, DETAIL, 420), truncate(prev, DETAIL // 2)
 
 
 _FOLLOWS = re.compile(r"\s*\((?:در ادامهٔ|following):\s*(.+)\)\s*$")
@@ -518,7 +562,11 @@ def _message(ev, m, kind_of_alert, fa_story=None):
 NEWS_REPEAT = 6 * 3600
 _NEWS_NOT = {"analysis", "speculative", "quote", "reaction", "denial", "past", "opinion", "digest", "controlled",
              "verbal", "threat"}
-_LIVE_HEAD = re.compile(r"\blive\b|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b|\bmore on\b", re.I)
+_LIVE_HEAD = re.compile(r"\blive\b|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b|\bmore on\b"
+                        r"|\bquestions?\b|\bwhat(?:'s| is) (?:ahead|next)\b|\bwhat (?:it|this) means\b|^\W*(?:watch|video)\b",
+                        re.I)
+# a video of the moment published later ("ببینید/ لحظه رهگیری…", "فیلم/ …")
+_VIDEO_FA = re.compile(r"^\W*" + fa_norm("(?:ببینید|فیلم|ویدئو|ویدیو|ویدئوی|کلیپ|تصاویر|تصویری|تصویر|عکس|لحظه)"))
 _PREP_EN = r"(?:in|at|near|over|off|outside|across|around|into|onto|towards?|on|of|hit|hits|struck|strikes? on|attacks? on)"
 _PREP_FA = fa_norm("(?:در|به|نزدیک|بر فراز|حوالی|اطراف|سمت|سوی|شهر|جزیره|بندر|تنگه|آسمان|انفجار|حمله|اصابت|پایگاه)")
 
@@ -563,6 +611,11 @@ def _news_ok(m, ev, story, log_, now_t, new_line=True):
     head = m.get("en_ti") or m.get("ti") or ""
     if "?" in head or "؟" in (m.get("ti") or "") or _LIVE_HEAD.search(head):
         return False
+    if m.get("lang") == "fa" and _VIDEO_FA.search(fa_norm(m.get("ti") or "")):
+        return False
+    if _SAYS_EN.match(m.get("en_ti") or "") or _SAYS_FA.search(fa_norm(m.get("ti") or "")) \
+            or (m.get("lang") != "fa" and _SAID_EN.search(m.get("en_ti") or m.get("ti") or "")):
+        return False                        # an outlet retelling what a side says: a recap, not the moment
     w = vessel.when(m)
     if w and w[1] < now_t - NEWS_REPEAT:
         return False
@@ -570,9 +623,6 @@ def _news_ok(m, ev, story, log_, now_t, new_line=True):
         return False
     if not new_line:
         return True
-    if story and story.get("n", 2) < 2 and (_SAYS_EN.match(m.get("en_ti") or "")
-                                            or _SAYS_FA.search(fa_norm(m.get("ti") or "")[:40])):
-        return False                        # one outlet retelling what a side says: a recap, not the moment
     if story and ev["place"] not in story.get("places", ()):
         return False
     for x in log_:
@@ -623,6 +673,8 @@ def process(state, items, now_t, story_start=None, quiet=False, fa_story=None, s
         news = not channel(m)
         live = False                        # part of an incident a channel or citizen reports announced
         st = story.get(m["k"])
+        if not news and not m.get("wit") and st and st.get("news0") is not None and st["news0"] < m["t"]:
+            continue                        # a channel's post of what a news outlet already reported: a retelling
         for ev in evs:
             p, t = ev["place"], ev["t"]
             if news and not _news_ok(m, ev, st, log_, now_t, new_line=False):

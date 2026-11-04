@@ -24,14 +24,19 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Main loop, order of steps, migrations (`misc[...]`), lite files, story map for the panel | `run_news.py` → `main`, `news_round`, `lite` |
 | Collecting feeds, Telegram pages, replies/admin comments | `collect.py` → `collect_all`, `_tg_parse`, `follow_up_comment` |
 | Severity / tiers (red ≥70, orange ≥45), yellow caps (`*_CAP`), Persian rules | `classify.py` (caps block in `classify()`), `classify_fa.py` → `score_fa` |
+| Multi-item headlines ("A/ B", "A; B; C") → yellow, first item only; past ("weeks after"), no-deadline, "on the table" | `classify.py` → `multi_parts`, `PAST`, `_NO_DEADLINE_*`, `_TABLE_*` |
 | Admin opinion/what-if on channels (به نظرم، اگر…، فرض کنید) | `classify.py` → `aside` |
 | Mediators visiting Tehran → orange | `classify.py` → `_mediator_visit` |
 | Clustering, same-story rules, story-level caps, channel rules | `cluster.py` → `features`, `same_story`, `Clusterer`, scoring block after `ch_strike` |
+| Same strike in other words (news only, same attacker + city, 12 h, no "new/again") | `cluster.py` → `strike_key`, `same_strike` |
+| "Source not stated" vs relayed outlet (unknown outlets, «روزنامه آمریکایی X») | `citation.py` → `outlet_named`, `OTHER` |
 | Ships/tankers: marks, time, Iranian statements | `vessel.py` (`mark`, `when`, `statement`, `signature`) |
 | Deployments (count, kind, destination) | `deploy.py` |
 | Evacuation orders (one story per order, 7 days; stale "effective <date>") | `evac.py` |
 | Telegram red alerts, sea rules, lights, late-report rule | `alerts.py` → `run`, `_sea_pick`, `_late` |
 | Main-front panel + instant Telegram alerts (flash), "not confirmed" mark | `flash.py` → `events`, `process`, `_news_ok`, `mark_denied` |
+| Not of the moment: statements, relayed outlets, past times, videos, a channel retelling the news | `flash.py` → `told_later`, `_news_ok`, `news0` in `process` |
+| Lights: deployment/ultimatum only from a headline (`tf`) | `index.py` → `compute_lights`; `classify.py` sets `item["tf"]` |
 | Tension index, direct strikes, lights | `index.py` → `index_value`, `direct_strikes`, `pressure`, `compute_lights` |
 | Citizen reports (witness), cities | `witness.py` |
 | X posts (manual screenshots in `engine/xmanual/posts.json`) | `xposts.py` |

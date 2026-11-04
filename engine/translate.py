@@ -18,6 +18,20 @@ EN_PRE = [
     # "Putin to meet Iran's Pezeshkian, Qatar's emir" came out as "the emir of Qatar of Iran"
     (re.compile(r"\bIran's (?:President )?Pezeshkian\b"), "Iranian President Pezeshkian"),
     (re.compile(r"\bQatar's [Ee]mir\b"), "the Emir of Qatar"),
+    # terse headlines Google reads wrongly: the source named last ("Ship attacked near Hormuz: maritime agency" came
+    # out as "the maritime agency was attacked"), "Tug Struck" read as active ("the tug struck"), "Hit 72 Nautical
+    # Miles Off Saudi Arabia" as "hit Saudi Arabia with 72 miles"
+    (re.compile(r"^(?P<what>.{12,}?)\s*(?::|\s[—–-])\s*(?P<who>(?:(?:the\s)?UK\s|British\s)?(?:maritime|navy|naval|security)"
+                r"\s(?:agency|monitor|firm|sources?)|UKMTO|Ambrey|Vanguard)\s*$", re.I),
+     lambda m: m.group("who")[:1].upper() + m.group("who")[1:] + " says: " + m.group("what")),
+    (re.compile(r"\b(Tankers?|Vessels?|Ships?|Tugs?|Tugboats?|Boats?|Ferr(?:y|ies)|Freighters?|Dhows?|Carriers?"
+                r"|Cargo [Ss]hips?)\s+(Hit|Struck|Attacked|Seized|Targeted|Damaged)\b"),
+     lambda m: m.group(1) + (" were " if m.group(1).endswith(("s", "ies")) else " was ") + m.group(2).lower()),
+    (re.compile(r"\b(\d+)\s+[Nn]autical\s+[Mm]iles\s+[Oo]ff\s+(?:the\s+)?(?!coast)"),
+     r"\1 nautical miles off the coast of "),
+    # the company, not the alphabet
+    (re.compile(r"\bAlphabet(?=\s+(?:Inc|Opens|Sells|Shares|Stock|Bonds?|Plans|Says|Reports|Earnings|Profit|Revenue)"
+                r"|'s|\s+and\s+Google)"), "Alphabet Inc."),
 ]
 
 FA_POST = [
@@ -56,6 +70,7 @@ _MINING_SRC = re.compile(r"\b(mining|miners?|ores?|quarr\w*|mineral\w*|coal|copp
 _STRIKE_SRC = re.compile(r"\bstrik(e|es|ing)\b|\bstruck\b", re.I)
 _LABOUR_SRC = re.compile(r"\b(workers?|unions?|labou?r|wages?|teachers|drivers|truckers|bazaar\w*|merchants|shopkeepers"
                          r"|employees|walkouts?|hunger strike|general strike|on strike|went on strike|strikers)\b", re.I)
+_ALPHABET_SRC = re.compile(r"\bAlphabet\b(?!\s+(?:soup|of|letters?)\b)")
 _PICKAXE_SRC = re.compile(r"pick-?\s?axe", re.I)
 _PICKAXE_FA = re.compile(r"پیک\s*[\u200c]?\s*اکس|پیککس|پیکاکس|پیکس(?=\s|$)")
 # Persian names that are fixed regardless of the source (also applied to stored translations)
@@ -104,6 +119,9 @@ def fix_terms(src, out, tl):
         out = out.replace("اعتصابات", "حملات").replace("اعتصاب", "حمله")
     if _DIRECTOR_SRC.search(src) and _FILM_SRC.search(src) and "مدیر" in out:
         out = re.sub(r"مدیر(?=\s|$|،)", "کارگردان", out).replace("مدیران", "کارگردانان")
+    if _ALPHABET_SRC.search(src):
+        out = re.sub(r"(?<![\u0600-\u06FF])(?:الفبا|الفبای)(?![\u0600-\u06FF])", "آلفابت", out)
+        out = out.replace("آلفابت اینک", "آلفابت").replace("آلفابت شرکت", "شرکت آلفابت")
     if _PICKAXE_SRC.search(src):
         out = _PICKAXE_FA.sub("کلنگ", out).replace("کوه تبر", "کوه کلنگ")
     for a, b in FA_ALWAYS:

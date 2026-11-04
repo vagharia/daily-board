@@ -118,6 +118,17 @@ BROKEN_FA = r"نقض|شکست|فروپاشی|پایان\s*آتش\s*بس|آتش\s
 BROKEN_EN = r"\b(?:violat\w*|breach\w*|collaps\w*|broke down|breaks down|shatter\w*|ends? (?:the )?(?:cease-?fire|truce))\b"
 
 
+# meeting one's own forces ("Khamenei meets military brass", «دیدار رهبر انقلاب با فرماندهان»)
+_OWN_SIDE_EN = re.compile(r"\b(?:met|meet|meets|meeting)\b(?:\s+(?:with|the|his|its|top|senior|iran's|israel's))*\s+"
+                          r"(?:military|army|armed forces|commanders?|brass|generals?|officers|troops|forces|cabinet"
+                          r"|security council|war cabinet|irgc|guards)\b", re.I)
+_OWN_SIDE_FA = re.compile(fa_norm("(?:دیدار|ملاقات|نشست|جلسه)\\s*(?:\\S+\\s+){0,4}?با\\s*(?:جمعی\\s*از\\s*)?"
+                                  "(?:فرماندهان|فرمانده|نیروهای\\s*مسلح|نظامیان|ارتش|سپاه|کابینه|شورای\\s*عالی\\s*امنیت)"))
+# attacks told in the same headline
+_ESCAL_EN = re.compile(r"\b(?:strikes?|struck|attacks?|attacked|bomb\w*|missiles?|plot\w*|war plans?|raids?)\b", re.I)
+_ESCAL_FA = re.compile(fa_norm("حمله|حملات|ضربه|بمباران|موشک|توطئه|طرح حمله"))
+
+
 def _rx(p, flags=0):
     return re.compile(p, flags)
 
@@ -164,6 +175,10 @@ def grade(lang, title, summary="", rel=0.6, channel=False):
         # something still to come: an agreed ceasefire starting tomorrow stays agreed (4); talks or an offer to come
         # are only a contact
         stage = 4 if stage >= 4 else min(stage, 1)
+    if stage == 3 and (_OWN_SIDE_FA if lang == "fa" else _OWN_SIDE_EN).search(t):
+        stage = 1                                    # a leader meeting his own commanders is not talks
+    if stage in (2, 3) and (_ESCAL_FA if lang == "fa" else _ESCAL_EN).search(t):
+        stage = 1                                    # "… as U.S. said to plot strikes": the headline tells of attacks
     both = bool(X["ir"].search(t)) and bool(X["us"].search(t))         # in the headline itself
     direct = both and not (X["other"].search(t) and not X["ir"].search(t))
     if stage >= 2 and not core:

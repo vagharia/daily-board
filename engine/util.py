@@ -84,6 +84,29 @@ def truncate(s: str, n: int) -> str:
     return cut.rstrip(" ,،;:-") + "…"
 
 
+def clip_sentence(s: str, n: int, hard: int = 0) -> str:
+    """Text for a message, never left mid-sentence: whole sentences up to n characters; one long sentence may run to
+    `hard` characters, or ends at its last clause (after a comma or semicolon) with a full stop."""
+    s = re.sub(r"\s+", " ", (s or "").strip())
+    hard = hard or int(n * 1.75)
+    if len(s) <= n:
+        return s
+    ends = [m.end() for m in re.finditer(r"[.!?؟](?=\s|$)", s)]
+    fit = [e for e in ends if e <= n]
+    if fit and fit[-1] >= n * 0.4:
+        return s[:fit[-1]].strip()
+    longer = [e for e in ends if e <= hard]
+    if longer:
+        return s[:longer[0]].strip()
+    if len(s) <= hard:
+        return s
+    cut = s[:hard]
+    k = max(cut.rfind("، "), cut.rfind("؛ "), cut.rfind(", "), cut.rfind("; "))
+    if k >= n * 0.5:
+        return cut[:k].rstrip(" ،,;؛") + "."
+    return truncate(s, hard)
+
+
 def first_sentences(s: str, max_chars: int = 320) -> str:
     """Keep the first one or two sentences of a summary."""
     s = (s or "").strip()

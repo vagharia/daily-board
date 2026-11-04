@@ -15,7 +15,7 @@ import time
 import re
 
 from . import evac, http, vessel
-from .util import fa_norm, log, now, truncate
+from .util import clip_sentence, fa_norm, log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
 
@@ -149,7 +149,7 @@ def send_all(state, token, subs, messages):
 def _story(c):
     fa = c.get("fa") or {}
     title = html.escape(fa.get("ti") or c.get("en", {}).get("ti", ""))
-    summ = html.escape(truncate(fa.get("su") or "", 230))
+    summ = html.escape(clip_sentence(fa.get("su") or "", 230, 420))
     names = []
     for m in c["m"]:
         n = m.get("sn_fa") or m.get("sn")
