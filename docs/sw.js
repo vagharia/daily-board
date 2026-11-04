@@ -1,5 +1,5 @@
 /* Offline shell + last-known data. */
-var SHELL = 'shell-v32';
+var SHELL = 'shell-v33';
 var DATA = 'data-v1';
 var ASSETS = ['./', 'index.html', 'app.css?v=32', 'app.js?v=32', 'icons.js?v=32', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/apple-touch-icon.png'];

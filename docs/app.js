@@ -28,7 +28,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 23;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 32;
+  var APP_BUILD = 33;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -62,7 +62,7 @@
       usSen: 'سنا', usHouse: 'کنگره (مجلس نمایندگان)', usHouseShort: 'کنگره', usDem: 'دموکرات‌ها', usGop: 'جمهوری‌خواهان', usOth: 'دیگران',
       usSenMaj: '۵۱ کرسی برای اکثریت؛ با ۵۰ کرسی، رأی معاون رئیس‌جمهور (جمهوری‌خواه) تعیین‌کننده است', usHouseMaj: '{n} کرسی برای اکثریت',
       usCalled: '{c} از {n} رقابت اعلام شده', usHeld: 'کرسی‌های بدون انتخابات امسال', usWon: 'برده در این انتخابات', usOpen: 'هنوز اعلام نشده',
-      usFlips: '{n} کرسی دست‌به‌دست شد', usMapH: 'نتیجه در هر ایالت', usMapNote: 'روی هر ایالت بزنید تا جزئیات را ببینید.',
+      usFlips: '{n} کرسی دست‌به‌دست شد', usLeadN: 'جلو در {n} رقابت اعلام‌نشده:', usIfHold: 'اگر همین بماند', usMapH: 'نتیجه در هر ایالت', usMapNote: 'روی هر ایالت بزنید تا جزئیات را ببینید.',
       usLgDD: 'دموکرات‌ها: سنا و کنگره', usLgDS: 'دموکرات‌ها فقط سنا؛ کنگره با جمهوری‌خواهان', usLgRR: 'جمهوری‌خواهان: سنا و کنگره',
       usLgRS: 'جمهوری‌خواهان فقط سنا؛ کنگره با دموکرات‌ها', usLgDH: 'بی‌رقابت سنا؛ کنگره با دموکرات‌ها', usLgRH: 'بی‌رقابت سنا؛ کنگره با جمهوری‌خواهان',
       usLgMix: 'دو کرسی سنا، هر کدام برای یک حزب', usLgTie: 'کنگره مساوی', usLgPend: 'هنوز همه چیز اعلام نشده', usLgNa: 'بدون انتخابات سنا و کنگره',
@@ -137,7 +137,7 @@
       usSen: 'Senate', usHouse: 'House of Representatives', usHouseShort: 'House', usDem: 'Democrats', usGop: 'Republicans', usOth: 'Others',
       usSenMaj: '51 seats for a majority; at 50 the vice president (a Republican) breaks ties', usHouseMaj: '{n} seats for a majority',
       usCalled: '{c} of {n} races called', usHeld: 'Seats not up this year', usWon: 'Won in this election', usOpen: 'Not called yet',
-      usFlips: '{n} seats changed hands', usMapH: 'Result by state', usMapNote: 'Tap a state for its races.',
+      usFlips: '{n} seats changed hands', usLeadN: 'Leading in {n} uncalled races:', usIfHold: 'if leads hold', usMapH: 'Result by state', usMapNote: 'Tap a state for its races.',
       usLgDD: 'Democrats: Senate and House', usLgDS: 'Democrats: Senate only; House to Republicans', usLgRR: 'Republicans: Senate and House',
       usLgRS: 'Republicans: Senate only; House to Democrats', usLgDH: 'No Senate race; House to Democrats', usLgRH: 'No Senate race; House to Republicans',
       usLgMix: 'Two Senate seats, one each', usLgTie: 'House seats split evenly', usLgPend: 'Not all called yet', usLgNa: 'No Senate or House vote',
@@ -885,6 +885,19 @@
       [['dem', 'usDem'], ['gop', 'usGop']].filter(function (x) { return f[x[0]]; })
         .map(function (x) { return '<span style="color:' + UCOL[x[0]] + '">' + esc(t(x[1])) + ' ' + nfmt(f[x[0]]) + '</span>'; }).join('، ') + ')';
   }
+  // races not called yet, by who is ahead in the count, and the seats each party would have if those leads hold
+  function usLeads(d, ch, seats) {
+    var n = { dem: 0, gop: 0, oth: 0 }, k = 0;
+    Object.keys(d.states || {}).forEach(function (c) {
+      ((d.states[c] || {})[ch] || []).forEach(function (r) { if (!r.win && r.lead) { n[r.lead] = (n[r.lead] || 0) + 1; k++; } });
+    });
+    if (!k) return '';
+    var part = function (p, lab, v) { return '<span style="color:' + UCOL[p] + '">' + esc(t(lab)) + ' ' + nfmt(v) + '</span>'; };
+    return '<br>' + esc(t('usLeadN').replace('{n}', nfmt(k))) + ' ' + part('dem', 'usDem', n.dem) + usSep() + part('gop', 'usGop', n.gop) +
+      (n.oth ? usSep() + '<span style="color:' + UCOL.oth + '">' + nfmt(n.oth) + '</span>' : '') +
+      ' (' + esc(t('usIfHold')) + ': <span style="color:' + UCOL.dem + '">' + nfmt(seats.dem + n.dem) + '</span> – <span style="color:' + UCOL.gop + '">' +
+      nfmt(seats.gop + n.gop) + '</span>)';
+  }
   function usRaceRow(r) {
     return r.c.map(function (c) {
       var col = UCOL[c.p] || UCOL.oth;
@@ -946,12 +959,12 @@
       '<button class="sv-x" data-us="close" aria-label="' + esc(t('close')) + '">' + ic('x') + '</button></div>';
     h += '<h2 class="us-h">' + esc(t('usH')) + '</h2>';
     h += usChamber(t('usSen'), x.sen, d.senate.total, d.senate.maj, d.senate.held,
-      esc(t('usCalled').replace('{c}', nfmt(d.senate.called)).replace('{n}', nfmt(d.senate.races))) + usFlips(d.senate.flips || {}),
+      esc(t('usCalled').replace('{c}', nfmt(d.senate.called)).replace('{n}', nfmt(d.senate.races))) + usFlips(d.senate.flips || {}) + usLeads(d, 's', x.sen),
       t('usSenMaj'));
     h += '<div class="us-key"><span><i class="held" style="--c:#8C99B8"></i>' + esc(t('usHeld')) + '</span><span><i style="background:#8C99B8"></i>' + esc(t('usWon')) +
       '</span><span><i class="gap"></i>' + esc(t('usOpen')) + '</span></div>';
     h += usChamber(t('usHouse'), x.house, d.house.total, d.house.maj, null,
-      esc(t('usCalled').replace('{c}', nfmt(d.house.called)).replace('{n}', nfmt(d.house.races))) + usFlips(d.house.flips || {}),
+      esc(t('usCalled').replace('{c}', nfmt(d.house.called)).replace('{n}', nfmt(d.house.races))) + usFlips(d.house.flips || {}) + usLeads(d, 'h', x.house),
       t('usHouseMaj').replace('{n}', nfmt(d.house.maj)));
     // the map: what each state did in both races
     var used = {};
