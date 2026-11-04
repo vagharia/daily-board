@@ -25,6 +25,9 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Severity / tiers (red ≥70, orange ≥45), yellow caps (`*_CAP`), Persian rules | `classify.py` (caps block in `classify()`), `classify_fa.py` → `score_fa` |
 | Admin opinion/what-if on channels (به نظرم، اگر…، فرض کنید) | `classify.py` → `aside` |
 | Mediators visiting Tehran → orange | `classify.py` → `_mediator_visit` |
+| Sistan-Baluchestan insurgent attacks: the attack orange (max 60, never red), casualty report/funeral yellow, ≥5 killed orange; Israel/US/Pakistan in headline → normal rules | `classify.py` → `_domestic_attack` (+ `_DOM_*`, `_many_dead`) |
+| Yellow: commemorations (۱۳ آبان، به مناسبت…), "despite sanctions", funerals, civil drills (relief, disease, farms), English life-in-war features | `classify.py` → `_commemoration`, `_resilience`, `_tribute`, `_civil_drill`, `_feature` |
+| Persian sanctions: orange only for an action (اعمال/تمدید/لغو/کاهش/تحریم کرد…), bare mention 30; drill vs. strike (`DRILL`); "ترور" whole word | `classify_fa.py` → sanctions `P(...)`, `DRILL`, `FEAR_OF_WAR` |
 | Clustering, same-story rules, story-level caps, channel rules | `cluster.py` → `features`, `same_story`, `Clusterer`, scoring block after `ch_strike` |
 | Ships/tankers: marks, time, Iranian statements | `vessel.py` (`mark`, `when`, `statement`, `signature`) |
 | Deployments (count, kind, destination) | `deploy.py` |
