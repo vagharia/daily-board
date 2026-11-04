@@ -17,6 +17,8 @@
   var BASE = dataBase();
   // the election results live on a branch of their own (engine/election.py)
   var ELEC_URL = /^https:\/\/raw\.githubusercontent\.com\//.test(BASE) ? BASE.replace(/\/data\/$/, '/election/') + 'election.json' : BASE + 'election.json';
+  // the US midterm results too (engine/uselection.py)
+  var USE_URL = /^https:\/\/raw\.githubusercontent\.com\//.test(BASE) ? BASE.replace(/\/data\/$/, '/uselection/') + 'uselection.json' : BASE + 'uselection.json';
 
   // ------------------------------------------------------------------ storage
   var store = {
@@ -26,7 +28,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 22;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 30;
+  var APP_BUILD = 31;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -56,6 +58,18 @@
       elecEst: 'حدود {p} آرا شمرده شده', elecEstTag: 'تخمینی', elecAll: 'همه‌ی آرا شمرده شده', elecAsOf: 'نتایج تا ساعت {h}', vs: 'در برابر', blocBibi: 'ائتلاف نتانیاهو', blocArab: 'احزاب عربی',
       blocChange: 'جبهه‌ی آیزنکوت', elecMaj: '{n} کرسی برای اکثریت', seatsW: 'کرسی', votesW: 'رأی',
       elecBelow: 'زیر حد نصاب {p}٪:',
+      usH: 'نتایج زنده‌ی انتخابات میان‌دوره‌ای آمریکا', usShort: 'انتخابات آمریکا', usFinal: 'همه‌ی رقابت‌ها اعلام شد',
+      usSen: 'سنا', usHouse: 'کنگره (مجلس نمایندگان)', usHouseShort: 'کنگره', usDem: 'دموکرات‌ها', usGop: 'جمهوری‌خواهان', usOth: 'دیگران',
+      usSenMaj: '۵۱ کرسی برای اکثریت؛ با ۵۰ کرسی، رأی معاون رئیس‌جمهور (جمهوری‌خواه) تعیین‌کننده است', usHouseMaj: '{n} کرسی برای اکثریت',
+      usCalled: '{c} از {n} رقابت اعلام شده', usHeld: 'کرسی‌های بدون انتخابات امسال', usWon: 'برده در این انتخابات', usOpen: 'هنوز اعلام نشده',
+      usFlips: '{n} کرسی دست‌به‌دست شد', usMapH: 'نتیجه در هر ایالت', usMapNote: 'روی هر ایالت بزنید تا جزئیات را ببینید.',
+      usLgDD: 'دموکرات‌ها: سنا و کنگره', usLgDS: 'دموکرات‌ها فقط سنا؛ کنگره با جمهوری‌خواهان', usLgRR: 'جمهوری‌خواهان: سنا و کنگره',
+      usLgRS: 'جمهوری‌خواهان فقط سنا؛ کنگره با دموکرات‌ها', usLgDH: 'بی‌رقابت سنا؛ کنگره با دموکرات‌ها', usLgRH: 'بی‌رقابت سنا؛ کنگره با جمهوری‌خواهان',
+      usLgMix: 'دو کرسی سنا، هر کدام برای یک حزب', usLgTie: 'کنگره مساوی', usLgPend: 'هنوز همه چیز اعلام نشده', usLgNa: 'بدون انتخابات سنا و کنگره',
+      usNoSen: 'امسال انتخابات سنا ندارد', usCounted: '{p} آرای پیش‌بینی‌شده شمرده شده', usWin: 'برنده', usLead: 'پیشتاز',
+      usSeats: '{n} کرسی', usPendN: '{n} در انتظار', usFlip: 'دست‌به‌دست', usSpecial: 'میان‌دوره‌ای', usIsrael: 'نتایج انتخابات کنست اسرائیل',
+      usSrc: 'منبع: خبرگزاری آسوشیتدپرس (AP)، شمارش آرا و اعلام برنده؛ ایالت‌ها نتایج رسمی را هفته‌ها بعد تأیید می‌کنند.',
+      usAsOf: 'به‌روزرسانی {h}', usDistrict: 'حوزه‌ی {n}', usAtLarge: 'تک‌حوزه‌ای',
       storiesH: 'استوری خبرها', fullStory: 'خبر کامل', close: 'بستن', srcLabel: 'منبع:', prev: 'قبلی', next: 'بعدی',
       noData: 'هنوز داده‌ای ساخته نشده. موتور هر چند دقیقه اجرا می‌شود؛ کمی بعد دوباره سر بزن.',
       offline: 'اتصال برقرار نیست؛ آخرین داده ذخیره‌شده نمایش داده می‌شود.',
@@ -119,6 +133,18 @@
       elecEst: 'About {p} of the vote counted', elecEstTag: 'estimate', elecAll: 'All votes counted', elecAsOf: 'Results as of {h}', vs: 'vs', blocBibi: "Netanyahu's bloc", blocArab: 'Arab parties',
       blocChange: "Eisenkot's bloc", elecMaj: '{n} seats for a majority', seatsW: 'Seats', votesW: 'Votes',
       elecBelow: 'Below the {p}% threshold:',
+      usH: 'US midterm election live results', usShort: 'US election', usFinal: 'All races called',
+      usSen: 'Senate', usHouse: 'House of Representatives', usHouseShort: 'House', usDem: 'Democrats', usGop: 'Republicans', usOth: 'Others',
+      usSenMaj: '51 seats for a majority; at 50 the vice president (a Republican) breaks ties', usHouseMaj: '{n} seats for a majority',
+      usCalled: '{c} of {n} races called', usHeld: 'Seats not up this year', usWon: 'Won in this election', usOpen: 'Not called yet',
+      usFlips: '{n} seats changed hands', usMapH: 'Result by state', usMapNote: 'Tap a state for its races.',
+      usLgDD: 'Democrats: Senate and House', usLgDS: 'Democrats: Senate only; House to Republicans', usLgRR: 'Republicans: Senate and House',
+      usLgRS: 'Republicans: Senate only; House to Democrats', usLgDH: 'No Senate race; House to Democrats', usLgRH: 'No Senate race; House to Republicans',
+      usLgMix: 'Two Senate seats, one each', usLgTie: 'House seats split evenly', usLgPend: 'Not all called yet', usLgNa: 'No Senate or House vote',
+      usNoSen: 'No Senate race this year', usCounted: '{p} of the expected vote counted', usWin: 'Winner', usLead: 'Leading',
+      usSeats: '{n} seats', usPendN: '{n} pending', usFlip: 'flip', usSpecial: 'special', usIsrael: 'Israel Knesset election results',
+      usSrc: 'Source: The Associated Press (AP), vote count and race calls; states certify official results weeks later.',
+      usAsOf: 'Updated {h}', usDistrict: 'District {n}', usAtLarge: 'At large',
       storiesH: 'News stories', fullStory: 'Full story', close: 'Close', srcLabel: 'Source:', prev: 'Previous', next: 'Next',
       noData: 'No data yet. The engine runs every few minutes; check back shortly.',
       offline: 'You are offline; showing the last saved data.',
@@ -562,11 +588,11 @@
     if (f && !f.classList.contains('noimg')) { f.classList.add('noimg'); f.insertAdjacentHTML('afterbegin', ic('news', 'sty-ic')); }
   };
   function renderStories() {
-    var box = $('#stories'), list = S.lite ? [] : storyList(), el = S.lite ? null : elecLive();
+    var box = $('#stories'), list = S.lite ? [] : storyList(), el = S.lite ? null : usLive();
     if (!list.length && !el) { box.hidden = true; box.innerHTML = ''; return; }
     box.hidden = false;
     box.setAttribute('aria-label', t('storiesH'));
-    box.innerHTML = (el ? elecTile(el) : '') + list.map(function (c, i) {
+    box.innerHTML = (el ? usTile(el) : '') + list.map(function (c, i) {
       var x = txt(c), seen = S.storySeen.has(c.id);
       var pic = c.img ? '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(c.img) + '" alt="" onerror="styFail(this)">'
         : ic('news', 'sty-ic');
@@ -614,8 +640,10 @@
       '<span class="ef-bar">' + seg('bibi') + seg('arab') + seg('change') + '</span>' +
       '<span class="sty-t">' + esc(t('elecShort')) + '</span></span></button>';
   }
+  function elecAny() { var d = ELEC.d; return d && d.lists && d.lists.length ? d : null; }
   function openElection() {
-    if (ELEC.el || !elecLive()) return;
+    if (ELEC.el) return;
+    if (!elecAny()) { loadElection(true).then(function () { if (elecAny()) openElection(); }); return; }
     var el = document.createElement('div');
     el.className = 'elx';             // not 'ev': that is the lamps' evidence rows
     el.setAttribute('role', 'dialog');
@@ -644,13 +672,13 @@
     clearInterval(ELEC.timer);
     ELEC.el.remove();
     ELEC.el = null;
-    document.body.classList.remove('sv-on');
+    if (!US.el) document.body.classList.remove('sv-on');
     if (!keepHistory && history.state && history.state.ev) { try { history.back(); } catch (e) { /* ignore */ } }
   }
-  window.addEventListener('popstate', function () { if (ELEC.el) closeElection(true); });
+  window.addEventListener('popstate', function () { if (ELEC.el && !(history.state && history.state.ev)) closeElection(true); });
   document.addEventListener('keydown', function (e) { if (ELEC.el && e.key === 'Escape') closeElection(); });
   function drawElection() {
-    var d = elecLive(), el = ELEC.el;
+    var d = elecAny(), el = ELEC.el;
     if (!el) return;
     if (!d) { closeElection(); return; }
     var b = d.blocs || {}, tot = d.seats_total || 120, maj = d.majority || 61;
@@ -703,6 +731,243 @@
     if (below.length) h += '<div class="ev-below">' + esc(t('elecBelow').replace('{p}', nfmt(d.threshold || 3.25, 2))) + ' ' +
       below.map(function (r) { return esc(eshort(r)) + ' ' + pctStr(r.pct); }).join(L() === 'fa' ? '، ' : ', ') + '</div>';
     el.innerHTML = '<div class="ev-in">' + h + '</div>';
+  }
+
+  // ------------------------------------------------------------------ the US midterms: a pinned live story
+  // First in the tray and always "unread" while the count goes on; it goes a day after the last race is called
+  // (uselection.json "until"). The Senate and the House as seats each party holds, and a map of the states.
+  var US = { d: null, t: 0, el: null, sel: null, timer: null, map: null };
+  var UCOL = { dem: '#3D7BFF', gop: '#EF3E4A', oth: '#A58BFF' };
+  // a state: who took its Senate race(s) and the most of its House seats; two blues, two reds
+  var UCAT = {
+    dd: { c: '#2D66F0', k: 'usLgDD' }, ds: { c: '#9CBEFF', k: 'usLgDS' },
+    rr: { c: '#DE2F3C', k: 'usLgRR' }, rs: { c: '#FFA3A8', k: 'usLgRS' },
+    dh: { c: 'url(#usHatchD)', sw: '#4F86FF', k: 'usLgDH' }, rh: { c: 'url(#usHatchR)', sw: '#F2575F', k: 'usLgRH' },
+    mix: { c: '#A07CFF', k: 'usLgMix' }, tie: { c: '#B9A4E8', k: 'usLgTie' },
+    pend: { c: '#2C3754', k: 'usLgPend' }, na: { c: '#141D33', k: 'usLgNa' }
+  };
+  var USTATE = { AL: 'آلاباما', AK: 'آلاسکا', AZ: 'آریزونا', AR: 'آرکانزاس', CA: 'کالیفرنیا', CO: 'کلرادو', CT: 'کنتیکت', DE: 'دلاور',
+    DC: 'واشینگتن دی‌سی', FL: 'فلوریدا', GA: 'جورجیا', HI: 'هاوایی', ID: 'آیداهو', IL: 'ایلینوی', IN: 'ایندیانا', IA: 'آیووا', KS: 'کانزاس',
+    KY: 'کنتاکی', LA: 'لوئیزیانا', ME: 'مین', MD: 'مریلند', MA: 'ماساچوست', MI: 'میشیگان', MN: 'مینه‌سوتا', MS: 'میسیسیپی', MO: 'میزوری',
+    MT: 'مونتانا', NE: 'نبراسکا', NV: 'نوادا', NH: 'نیوهمپشر', NJ: 'نیوجرسی', NM: 'نیومکزیکو', NY: 'نیویورک', NC: 'کارولینای شمالی',
+    ND: 'داکوتای شمالی', OH: 'اوهایو', OK: 'اوکلاهما', OR: 'اورگن', PA: 'پنسیلوانیا', RI: 'رودآیلند', SC: 'کارولینای جنوبی',
+    SD: 'داکوتای جنوبی', TN: 'تنسی', TX: 'تگزاس', UT: 'یوتا', VT: 'ورمانت', VA: 'ویرجینیا', WA: 'واشینگتن', WV: 'ویرجینیای غربی',
+    WI: 'ویسکانسین', WY: 'وایومینگ' };
+  function usSep() { return L() === 'fa' ? '، ' : ' · '; }
+  function usLive() {
+    var d = US.d;
+    if (!d || !d.senate || !d.house) return null;
+    if (d.until && Date.now() / 1000 > d.until) return null;
+    return d;
+  }
+  function loadUS(force) {
+    if (S.lite) return Promise.resolve();
+    if (!force && Date.now() - US.t < 90 * 1000) return Promise.resolve();
+    US.t = Date.now();
+    return fetch(USE_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return;
+        var changed = !US.d || US.d.updated !== j.updated;
+        US.d = j;
+        if (changed) { renderStories(); if (US.el) drawUS(); }
+      }).catch(function () { /* keep the last copy */ });
+  }
+  function loadUSMap() {
+    if (US.map) return Promise.resolve(US.map);
+    return fetch('us-states.json?v=1').then(function (r) { return r.json(); }).then(function (j) { US.map = j; return j; });
+  }
+  // seats each party has: the Senate's seats not up this year and the races called; the House's races called
+  function usSeats(d) {
+    var s = d.senate, h = d.house, hd = s.held || {};
+    return {
+      sen: { dem: (hd.dem || 0) + (s.won.dem || 0), gop: (hd.gop || 0) + (s.won.gop || 0), oth: s.won.oth || 0 },
+      house: { dem: h.won.dem || 0, gop: h.won.gop || 0, oth: h.won.oth || 0 }
+    };
+  }
+  function usCat(st) {
+    if (!st) return 'na';
+    var h = st.h || [], s = st.s || [];
+    var n = h.length, hd = 0, hr = 0, ho = 0;
+    h.forEach(function (r) { if (r.win === 'dem') hd++; else if (r.win === 'gop') hr++; else if (r.win) ho++; });
+    var k = n - hd - hr - ho, house = null;
+    if (n) house = hd > hr + k + ho ? 'dem' : hr > hd + k + ho ? 'gop' : (!k && hd === hr) ? 'tie' : 'pend';
+    var sen = null;
+    if (s.length) {
+      if (s.some(function (r) { return !r.win; })) sen = 'pend';
+      else sen = s.every(function (r) { return r.win === s[0].win; }) ? s[0].win : 'split';
+    }
+    if (!sen) return house === 'dem' ? 'dh' : house === 'gop' ? 'rh' : house === 'tie' ? 'tie' : house ? 'pend' : 'na';
+    if (sen === 'pend' || house === 'pend') return 'pend';
+    if (sen === 'split') return 'mix';
+    if (sen === 'dem') return house === 'dem' || !house ? 'dd' : 'ds';
+    if (sen === 'gop') return house === 'gop' || !house ? 'rr' : 'rs';
+    return 'mix';
+  }
+  function usBar(seats, total, held, maj) {
+    // held seats (Senate) lighter, seats won this year solid; the gap is what is not called yet
+    held = held || {};
+    var w = function (n) { return (100 * n / total).toFixed(2) + '%'; };
+    var dWon = seats.dem - (held.dem || 0), gWon = seats.gop - (held.gop || 0);
+    return '<div class="us-bar">' +
+      (held.dem ? '<i class="held" style="width:' + w(held.dem) + ';--c:' + UCOL.dem + '"></i>' : '') +
+      '<i style="width:' + w(dWon) + ';background:' + UCOL.dem + '"></i>' +
+      (seats.oth ? '<i style="width:' + w(seats.oth) + ';background:' + UCOL.oth + '"></i>' : '') +
+      '<i class="gap" style="flex:1"></i>' +
+      '<i style="width:' + w(gWon) + ';background:' + UCOL.gop + '"></i>' +
+      (held.gop ? '<i class="held" style="width:' + w(held.gop) + ';--c:' + UCOL.gop + '"></i>' : '') +
+      '<em style="inset-inline-start:' + w(maj - 0.5) + '"></em><em style="inset-inline-end:' + w(maj - 0.5) + '"></em></div>';
+  }
+  function usTile(d) {
+    var x = usSeats(d);
+    var row = function (lab, s, tot) {
+      return '<span class="uf-row"><span class="uf-l">' + esc(lab) + '</span><b style="color:' + UCOL.dem + '">' + nfmt(s.dem) + '</b>' +
+        '<span class="uf-b"><i style="width:' + (100 * s.dem / tot).toFixed(1) + '%;background:' + UCOL.dem + '"></i><i style="flex:1"></i>' +
+        '<i style="width:' + (100 * s.gop / tot).toFixed(1) + '%;background:' + UCOL.gop + '"></i></span><b style="color:' + UCOL.gop + '">' + nfmt(s.gop) + '</b></span>';
+    };
+    return '<button class="sty sty-elec sty-us" role="listitem" data-use="1" aria-label="' + esc(t('usH')) + '">' +
+      '<span class="sty-f ef uf"><span class="ef-live"><i></i>' + esc(d.done ? t('usFinal') : t('live')) + '</span>' +
+      row(t('usSen'), x.sen, d.senate.total) + row(t('usHouseShort'), x.house, d.house.total) +
+      '<span class="sty-t">' + esc(t('usShort')) + '</span></span></button>';
+  }
+  function openUS() {
+    if (US.el || !usLive()) return;
+    var el = document.createElement('div');
+    el.className = 'elx usx';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', t('usH'));
+    document.body.appendChild(el);
+    document.body.classList.add('sv-on');
+    US.el = el;
+    US.sel = null;
+    try { history.pushState({ us: 1 }, ''); } catch (e) { /* ignore */ }
+    var y0 = null;
+    el.addEventListener('pointerdown', function (e) { y0 = e.clientY; });
+    el.addEventListener('pointerup', function (e) { if (y0 != null && e.clientY - y0 > 90 && el.scrollTop <= 0) closeUS(); y0 = null; });
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-us]');
+      if (!b) return;
+      var v = b.getAttribute('data-us');
+      if (v === 'close') closeUS();
+      else if (v === 'israel') openElection();
+      else { US.sel = US.sel === v ? null : v; drawUS(); var c = el.querySelector('.us-card'); if (c && US.sel) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    });
+    drawUS();
+    loadUSMap().then(function () { if (US.el) drawUS(); }).catch(function () { /* the map waits for the next try */ });
+    loadUS(true);
+    loadElection();
+    US.timer = setInterval(function () { if (!document.hidden) loadUS(true); }, 60 * 1000);
+  }
+  function closeUS(keepHistory) {
+    if (!US.el) return;
+    if (ELEC.el) closeElection(true);
+    clearInterval(US.timer);
+    US.el.remove();
+    US.el = null;
+    document.body.classList.remove('sv-on');
+    if (!keepHistory && history.state && history.state.us) { try { history.back(); } catch (e) { /* ignore */ } }
+  }
+  window.addEventListener('popstate', function () { if (US.el && !(history.state && (history.state.us || history.state.ev))) closeUS(true); });
+  document.addEventListener('keydown', function (e) { if (US.el && !ELEC.el && e.key === 'Escape') closeUS(); });
+  function usChamber(title, seats, total, maj, held, info, note) {
+    return '<section class="us-ch"><h3>' + esc(title) + '</h3>' +
+      '<div class="us-duel"><div class="us-side"><b style="color:' + UCOL.dem + '">' + nfmt(seats.dem) + '</b><span>' + esc(t('usDem')) + '</span></div>' +
+      '<div class="us-maj">' + nfmt(maj) + '<span>' + esc(L() === 'fa' ? 'اکثریت' : 'majority') + '</span></div>' +
+      '<div class="us-side"><b style="color:' + UCOL.gop + '">' + nfmt(seats.gop) + '</b><span>' + esc(t('usGop')) + '</span></div></div>' +
+      usBar(seats, total, held, maj) +
+      '<div class="us-info">' + info + '</div>' + (note ? '<div class="us-note">' + esc(note) + '</div>' : '') + '</section>';
+  }
+  function usFlips(f) {
+    var n = (f.dem || 0) + (f.gop || 0) + (f.oth || 0);
+    if (!n) return '';
+    return usSep() + esc(t('usFlips').replace('{n}', nfmt(n))) + ' (' +
+      [['dem', 'usDem'], ['gop', 'usGop']].filter(function (x) { return f[x[0]]; })
+        .map(function (x) { return '<span style="color:' + UCOL[x[0]] + '">' + esc(t(x[1])) + ' ' + nfmt(f[x[0]]) + '</span>'; }).join('، ') + ')';
+  }
+  function usRaceRow(r) {
+    return r.c.map(function (c) {
+      var col = UCOL[c.p] || UCOL.oth;
+      return '<div class="us-cand' + (c.w ? ' w' : '') + '"><i style="background:' + col + '"></i><span class="nm" dir="ltr">' + esc((c.f ? c.f + ' ' : '') + c.n) + '</span>' +
+        (c.i ? '<em>' + esc(L() === 'fa' ? 'فعلی' : 'inc.') + '</em>' : '') +
+        '<span class="pc">' + pctStr(c.pct, 1) + '</span>' + (c.w ? '<span class="ok">' + ic('check') + '</span>' : '') + '</div>';
+    }).join('');
+  }
+  function usCard(code, st) {
+    var name = L() === 'fa' ? (USTATE[code] || code) : ((st && st.name) || code);
+    var h = '<div class="us-card"><div class="us-ct"><b>' + esc(name) + '</b><button data-us="' + esc(code) + '" aria-label="' + esc(t('close')) + '">' + ic('x') + '</button></div>';
+    var s = (st && st.s) || [];
+    h += '<h4>' + esc(t('usSen')) + '</h4>';
+    if (!s.length) h += '<p class="us-none">' + esc(t('usNoSen')) + '</p>';
+    s.forEach(function (r) {
+      h += '<div class="us-race">' + (/Unexpired/i.test(r.name || '') ? '<span class="us-tag">' + esc(t('usSpecial')) + '</span>' : '') +
+        usRaceRow(r) + '<div class="us-cnt">' + esc(t('usCounted').replace('{p}', pctStr(r.e, 0))) +
+        (r.flip ? ' · <span class="us-fl">' + esc(t('usFlip')) + '</span>' : '') + '</div></div>';
+    });
+    var hs = (st && st.h) || [];
+    if (hs.length) {
+      var n = { dem: 0, gop: 0, oth: 0, k: 0 };
+      hs.forEach(function (r) { if (r.win) n[r.win] = (n[r.win] || 0) + 1; else n.k++; });
+      h += '<h4>' + esc(t('usHouseShort')) + ' <span class="us-hn"><span style="color:' + UCOL.dem + '">' + nfmt(n.dem) + '</span> – <span style="color:' + UCOL.gop + '">' + nfmt(n.gop) + '</span>' +
+        (n.k ? usSep() + esc(t('usPendN').replace('{n}', nfmt(n.k))) : '') + '</span></h4><div class="us-dists">' +
+        hs.map(function (r) {
+          var p = r.win || r.lead, col = UCOL[p] || '#5B6680';
+          var lab = hs.length === 1 ? t('usAtLarge') : t('usDistrict').replace('{n}', nfmt(+r.seat || 0));
+          var top = r.c[0];
+          return '<span class="us-d' + (r.win ? ' w' : '') + (r.flip ? ' f' : '') + '" style="--c:' + col + '" title="' + esc(lab) + '">' +
+            '<b>' + nfmt(+r.seat || 1) + '</b>' + (top && !r.win ? '<em>' + esc(pctStr(r.e, 0)) + '</em>' : '') + '</span>';
+        }).join('') + '</div>';
+    }
+    return h + '</div>';
+  }
+  function usMap(d) {
+    var m = US.map;
+    if (!m) return '<div class="us-map us-map-wait"></div>';
+    var vb = m.vb.join(' ');
+    var paths = Object.keys(m.p).map(function (k) {
+      var cat = usCat(d.states[k]), u = UCAT[cat];
+      var st = d.states[k] || {}, ring = '';
+      if (cat === 'pend' && st.s && st.s.length && st.s.every(function (r) { return r.win; })) ring = UCOL[st.s[0].win];
+      return '<path d="' + m.p[k] + '" fill="' + u.c + '" data-us="' + k + '" class="' + (US.sel === k ? 'on' : '') + '"' +
+        (ring ? ' style="stroke:' + ring + ';stroke-width:2.2"' : '') + '><title>' + esc(L() === 'fa' ? (USTATE[k] || k) : k) + '</title></path>';
+    }).join('');
+    var defs = '<defs>' +
+      '<pattern id="usHatchD" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#17305f"/><rect width="3.2" height="7" fill="#4F86FF"/></pattern>' +
+      '<pattern id="usHatchR" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#4a1a24"/><rect width="3.2" height="7" fill="#F2575F"/></pattern></defs>';
+    return '<div class="us-map"><svg viewBox="' + vb + '" role="img" aria-label="' + esc(t('usMapH')) + '">' + defs + paths + '</svg></div>';
+  }
+  function drawUS() {
+    var d = usLive(), el = US.el;
+    if (!el) return;
+    if (!d) { closeUS(); return; }
+    var x = usSeats(d);
+    var h = '<div class="ev-top"><span class="ev-live"><i></i>' + esc(d.done ? t('usFinal') : t('live')) + '</span>' +
+      '<span class="ev-when">' + (d.asof ? esc(t('usAsOf').replace('{h}', clock(d.asof))) : '') + '</span>' +
+      '<button class="sv-x" data-us="close" aria-label="' + esc(t('close')) + '">' + ic('x') + '</button></div>';
+    h += '<h2 class="us-h">' + esc(t('usH')) + '</h2>';
+    h += usChamber(t('usSen'), x.sen, d.senate.total, d.senate.maj, d.senate.held,
+      esc(t('usCalled').replace('{c}', nfmt(d.senate.called)).replace('{n}', nfmt(d.senate.races))) + usFlips(d.senate.flips || {}),
+      t('usSenMaj'));
+    h += '<div class="us-key"><span><i class="held" style="--c:#8C99B8"></i>' + esc(t('usHeld')) + '</span><span><i style="background:#8C99B8"></i>' + esc(t('usWon')) +
+      '</span><span><i class="gap"></i>' + esc(t('usOpen')) + '</span></div>';
+    h += usChamber(t('usHouse'), x.house, d.house.total, d.house.maj, null,
+      esc(t('usCalled').replace('{c}', nfmt(d.house.called)).replace('{n}', nfmt(d.house.races))) + usFlips(d.house.flips || {}),
+      t('usHouseMaj').replace('{n}', nfmt(d.house.maj)));
+    // the map: what each state did in both races
+    var used = {};
+    Object.keys(US.map ? US.map.p : {}).forEach(function (k) { used[usCat(d.states[k])] = 1; });
+    var order = ['dd', 'ds', 'dh', 'rr', 'rs', 'rh', 'mix', 'tie', 'pend', 'na'];
+    h += '<section class="us-mapbox"><h3>' + esc(t('usMapH')) + '</h3>' + usMap(d) +
+      '<div class="us-lg">' + order.filter(function (k) { return used[k] || ['dd', 'ds', 'rr', 'rs', 'dh', 'rh', 'pend'].indexOf(k) >= 0; }).map(function (k) {
+        var u = UCAT[k];
+        return '<span><i style="background:' + (u.sw ? 'repeating-linear-gradient(45deg,' + u.sw + ' 0 3px,transparent 3px 6px)' : u.c) + '"></i>' + esc(t(u.k)) + '</span>';
+      }).join('') + '</div>' +
+      (US.sel ? usCard(US.sel, d.states[US.sel]) : '<p class="us-tap">' + esc(t('usMapNote')) + '</p>') + '</section>';
+    h += '<button class="us-il" data-us="israel">' + esc(t('usIsrael')) + ic('chev') + '</button>';
+    h += '<p class="us-src">' + esc(t('usSrc')) + '</p>';
+    var sc = el.scrollTop;
+    el.innerHTML = '<div class="ev-in">' + h + '</div>';
+    el.scrollTop = sc;
   }
 
   function openStories(i) {
@@ -1645,6 +1910,7 @@
     var el;
     if ((el = e.target.closest('[data-close]'))) { closeSheet(); return; }
     if ((el = e.target.closest('[data-elec]'))) { openElection(); return; }
+    if ((el = e.target.closest('[data-use]'))) { openUS(); return; }
     if ((el = e.target.closest('[data-sty]'))) { openStories(+el.dataset.sty); return; }
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
@@ -1722,7 +1988,7 @@
     var keys = ['ticker', 'signals', 'news24', 'x', 'stories', 'econ', 'front'];
     if (S.range === 'week' || S.d.newsWeek) keys.push('newsWeek');
     S.econAt = nowS();
-    loadElection(fresh);
+    loadUS(fresh);
     return load(keys, fresh).then(function (ch) {
       S.loaded = true; S.econTried = true;
       if (ch.news24) trackNew(!!S.firstDone);
@@ -1735,7 +2001,7 @@
     load(['ticker']).then(function (ch) { if (ch.ticker) { renderMarkets(); renderHeader(); } });
   }
   function tickNews() {
-    loadElection();
+    loadUS();
     if (S.lite) {
       if (nowS() - (S.liteAt || 0) < 280) return;  // one small file every five minutes
       S.liteAt = nowS();
