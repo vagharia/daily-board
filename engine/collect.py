@@ -98,6 +98,8 @@ def make_items(src, entries, via, T, gn_source=None):
             continue
         if src["lang"] != "fa" and has_fa(title):
             continue                     # Arabic-language items from Arab outlets (we read their English output)
+        if src["lang"] != "fa" and not_english(title):
+            continue                     # French/Spanish/German headlines (L'Orient-Le Jour via Google News): English rules misread them
         m = _OLD_DATE.search(title)
         if m and int(m.group(1)) < time.gmtime(T).tm_year:
             continue                     # "June 17, 2024 - Israel-Gaza news": an old live page
@@ -128,6 +130,28 @@ def make_items(src, entries, via, T, gn_source=None):
             **({k: e[k] for k in ("wit", "en_ti", "en_su")} if e.get("wit") else {}),
         })
     return out
+
+
+# A Latin-script headline in another language: "Vance met la gifle électorale sur le compte de la guerre en Iran"
+# ("met" = puts) was read as "Vance met …" = talks held. Two function words of one language, or one plus an accent.
+_FOREIGN = (
+    r"le|la|et|un|en|les|des|du|sur|dans|pour|avec|une|est|aux|qui|selon|contre|après|où|pas|ce|cette|leur|il|elle|ils|sont|été",
+    r"los|las|del|para|con|una|según|tras|contra|sobre|está|son|por|como|más",
+    r"der|die|das|und|nicht|mit|für|auf|ist|dem|den|ein|eine|nach|gegen|wird|über",
+)
+_FOREIGN_RE = [re.compile(r"(?<![\w'’])(?:" + w + r")(?![\w'’])", re.I) for w in _FOREIGN]
+_ACCENT = re.compile(r"[éèêëàâçîïôùûœñ¿¡äöüß]", re.I)
+_ELISION = re.compile(r"\b[ldjnsqu]{1,2}['’](?=[aeiouhéè])", re.I)
+
+
+def not_english(title):
+    t = title.replace("’", "'")
+    acc = bool(_ACCENT.search(t)) or bool(_ELISION.search(re.sub(r"\b[A-Z]['’]", "", t)))
+    for rx in _FOREIGN_RE:
+        n = len({m.group(0).lower() for m in rx.finditer(t)})
+        if n >= 3 or (n >= 2 and acc):
+            return True
+    return False
 
 
 # ------------------------------------------------------------------ Telegram channels (public web preview)
