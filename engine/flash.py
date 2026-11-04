@@ -106,9 +106,10 @@ _NOT_NOW_EN = re.compile(r"\b(indictment|trial|court|anniversary|record high|rec
 _BODY_FA = fa_norm("سپاه|ارتش|نیروی دریایی|نیروی هوایی|نیروی هوافضا|قرارگاه|وزارت|سخنگو|روابط عمومی|ستاد|فرماندهی|فرمانده"
                    "|مقام|مقامات|رسانه|رسانه ها|پنتاگون|سنتکام|کاخ سفید|دولت|استاندار|استانداری|فرماندار")
 # local sources and residents ("منابع محلی: صدای انفجار…") are the moment itself, not a statement
-_STATEMENT_FA = re.compile(r"(?:^|\s)(?:" + _BODY_FA + r")(?!\s*محلی)[^.؛!؟:]{0,50}?" + fa_norm(
+_STATEMENT_FA = re.compile(r"(?:^|\s)(?:" + _BODY_FA + r")(?!\s*محلی)[^.؛!؟:]{0,80}?" + fa_norm(
     r"(?:اعلام\s*کرد|اعلام\s*کردند|اعلام\s*شد|خبر\s*داد|خبر\s*دادند|مدعی\s*شد|مدعی\s*شدند|ادعا\s*کرد|گزارش\s*داد"
-    r"|گزارش\s*دادند|تایید\s*کرد|تأیید\s*کرد|اطلاعیه|بیانیه|می\s*گوید|می\s*گویند|گفت|گفتند)")
+    r"|گزارش\s*دادند|تایید\s*کرد|تأیید\s*کرد|اطلاعیه|بیانیه|می\s*گوید|می\s*گویند|گفت|گفتند|منتشر\s*کرد"
+    r"|منتشر\s*کردند|منتشر\s*شد)")
     + r"|^[^:：]{0,40}(?:" + _BODY_FA + r")(?!\s*محلی)[^:：]{0,30}[:：]")
 _STATEMENT_EN = re.compile(r"\b(?:irgc|guards?|army|military|navy|ministry|spokes(?:man|woman|person)|officials?|pentagon"
                            r"|centcom|white house|government|governor|(?<!local )media)\b[^.;:]{0,50}?\b(?:says?|said|claims?"
@@ -565,8 +566,9 @@ _NEWS_NOT = {"analysis", "speculative", "quote", "reaction", "denial", "past", "
 _LIVE_HEAD = re.compile(r"\blive\b|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b|\bmore on\b"
                         r"|\bquestions?\b|\bwhat(?:'s| is) (?:ahead|next)\b|\bwhat (?:it|this) means\b|^\W*(?:watch|video)\b",
                         re.I)
-# a video of the moment published later ("ببینید/ لحظه رهگیری…", "فیلم/ …")
-_VIDEO_FA = re.compile(r"^\W*" + fa_norm("(?:ببینید|فیلم|ویدئو|ویدیو|ویدئوی|کلیپ|تصاویر|تصویری|تصویر|عکس|لحظه)"))
+# a video of the moment published later ("ببینید/ لحظه رهگیری…", "فیلم/ …", "سپاه ویدئوی لحظه انهدام… را منتشر کرد")
+_VIDEO_FA = re.compile(r"^\W*" + fa_norm("(?:ببینید|فیلم|ویدئو|ویدیو|ویدئوی|کلیپ|تصاویر|تصویری|تصویر|عکس|لحظه)")
+                       + "|" + fa_norm("(?:ویدئو|ویدیو|فیلم|تصاویر|کلیپ)\\S*\\s+(?:\\S+\\s+){0,1}لحظه"))
 _PREP_EN = r"(?:in|at|near|over|off|outside|across|around|into|onto|towards?|on|of|hit|hits|struck|strikes? on|attacks? on)"
 _PREP_FA = fa_norm("(?:در|به|نزدیک|بر فراز|حوالی|اطراف|سمت|سوی|شهر|جزیره|بندر|تنگه|آسمان|انفجار|حمله|اصابت|پایگاه)")
 
