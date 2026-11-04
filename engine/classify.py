@@ -148,6 +148,9 @@ PATTERNS = [
     P(r"\b(threat(en|ens|ened|ening)?|warn(s|ed|ing)?|vow(s|ed|ing)?|pledg\w+ to (respond|retaliate|strike))\b", 52,
       ["statement"], ["threat"]),
     P(r"\bsanction\w*\b", 52, ["economy"], ["sanctions"]),
+    # ships told to keep out of Hormuz or the Gulf
+    P(r"\b(avoid|stay (away|clear)|steer clear|keep (away|out))\b.{0,40}\b(hormuz|the strait|persian gulf|gulf of oman)\b",
+      56, ["maritime"], []),
     P(r"\b(designat\w+ .{0,30}terror\w*|blacklist\w*)\b", 52, ["economy"], ["sanctions"]),
     P(r"\b((military|naval|air) )?(drills?|exercises?|war ?games|maneuvers?)\b", 50, ["military"], ["exercise"]),
     P(r"\b(militia|proxy|proxies)\b", 48, ["military"], []),
@@ -423,7 +426,15 @@ TRIBUTE_CAP = 40.0
 _TRIB_FA = re.compile(fa_norm("ناگفته") + "|" + fa_norm("(?:همسر|مادر|پدر|فرزند|فرزندان|خانواده|دختر|پسر)")
                       + r"\s*(?:" + fa_norm("پاسدار") + r"\s*)?" + fa_norm("شهید") + "|"
                       + fa_norm("زندگی") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("سیره") + r"\s*" + fa_norm("شهید")
-                      + "|" + fa_norm("وصیت") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("خاطرات"))
+                      + "|" + fa_norm("وصیت") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("خاطرات")
+                      # a funeral: "مراسم وداع مردم زابل با شهید…"، "تشییع پیکر…"، "به خاک سپرده شد"
+                      + "|" + fa_norm("مراسم") + r"\s*(?:" + fa_norm("وداع|تشییع|خاکسپاری|بزرگداشت|ترحیم") + ")"
+                      + "|" + fa_norm("تشییع") + r"\s*" + fa_norm("پیکر") + "|" + fa_norm("پیکر") + r"\s*(?:"
+                      + fa_norm("شهید|شهدا|مطهر") + ")" + "|" + fa_norm("خاکسپاری") + "|" + fa_norm("خاک") + r"\s*"
+                      + fa_norm("سپرده") + "|" + fa_norm("وداع با"))
+# an attack on a funeral is an attack, not a funeral
+_TRIB_ATTACK_FA = re.compile(fa_norm("(?:حمله|حملات|انفجار|اصابت|بمباران|شلیک|تیراندازی)") + r"[^.؛]{0,30}"
+                             + fa_norm("(?:به|در|علیه)") + r"\s*(?:\S+\s+){0,2}" + fa_norm("(?:مراسم|تشییع|خاکسپاری)"))
 _REL_EN = (r"(?:family|families|wife|husband|children|child|sons?|daughters?|parents|mother|father|brothers?|sisters?"
            r"|relatives|loved ones|fianc[eé]e?)")
 _TRIB_EN = re.compile(r"\b(untold stor\w*|widow of|tribute to|remembering)\b"
@@ -438,7 +449,10 @@ _TRIB_EN = re.compile(r"\b(untold stor\w*|widow of|tribute to|remembering)\b"
 
 def _tribute(lang, t):
     fa = lang == "fa"
-    return bool((_TRIB_FA if fa else _TRIB_EN).search(fa_norm(t) if fa else (t or "")))
+    if fa:
+        t = fa_norm(t)
+        return bool(_TRIB_FA.search(t)) and not _TRIB_ATTACK_FA.search(t)
+    return bool(_TRIB_EN.search(t or ""))
 
 
 # hijab and dress-code enforcement inside Iran (a prosecutor calling on the IRGC to enforce it, arrests over it): a
@@ -554,13 +568,121 @@ def _other_market(lang, t):
     return bool((_MKT_FA if fa else _MKT_EN).search(fa_norm(t) if fa else (t or "")))
 
 
+# insurgents' attacks inside Sistan and Baluchestan (Jaish al-Adl, "گروهک‌های تروریستی", "اشرار"), with neither
+# Israel, America nor Pakistan in them: the attack itself is orange (never red, never a strike on the main front),
+# however many killed; a report of its dead (a martyr named, "X در حمله تروریستی… به شهادت رسید", a funeral) is
+# yellow, unless five or more were killed
+DOMESTIC_EVENT_SEV, DOMESTIC_EVENT_CAP, DOMESTIC_TOLL_CAP = 50.0, 60.0, 40.0
+_SE_FA = re.compile(fa_norm("سیستان|بلوچستان|زاهدان|سراوان|ایرانشهر|راسک|میرجاوه|نیکشهر|چابهار|زابل|سرباز|سرآوان|کنارک"
+                            "|دشتیاری|مهرستان|سیب و سوران|جکیگور|پیشین|جنوب شرق|جنوب‌شرق|جنوب شرقی|جیش الظلم|جیش العدل")
+                    + r"|(?<![؀-ۿ])" + fa_norm("خاش") + r"(?![؀-ۿ])")
+_SE_EN = re.compile(r"\b(sistan|zahedan|saravan|iranshahr|khash|rask|mirjaveh|nikshahr|chabahar|zabol"
+                    r"|jaish al-?(adl|zolm)|south-?east(ern)? iran|iran'?s? (south-?east|(sistan[- ]and[- ])?baluchestan"
+                    r"|balochistan|baluchistan))\b", re.I)
+_INSURGENT_FA = re.compile(fa_norm("تروریست|اشرار|گروهک|جیش الظلم|جیش العدل|افراد مسلح|مسلحین|عناصر مسلح|معاند|تیراندازی"
+                                   "|کمین|مسلحانه|ضدانقلاب|ضد انقلاب|تکفیری"))
+_INSURGENT_EN = re.compile(r"\b(terror\w*|militants?|gunmen|armed (men|group)|insurgen\w*|jaish|ambush\w*|separatists?"
+                           r"|rebels?)\b", re.I)
+_DOM_ATTACK_FA = re.compile(fa_norm("حمله|حملات|تیراندازی|گلوله|کمین|انفجار|بمب|درگیری|شلیک|ترور شد|ترور کرد|هدف قرار"))
+_DOM_ATTACK_EN = re.compile(r"\b(attack\w*|ambush\w*|shoot\w*|shot|gunmen|clash\w*|bomb\w*|blast|explosion|fired)\b", re.I)
+_FOREIGN_FA = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|موساد|آمریکا|امریکا|پاکستان|سیا|آمریکایی"))
+_FOREIGN_EN = re.compile(r"\b(israel\w*|zionist|mossad|u\.?s\.?|america\w*|cia|pakistan\w*)\b", re.I)
+# the headline is about the dead of an attack, not the attack: "شهادت ستوان‌یکم…"، "… در حمله تروریستی … شهید شد"
+_DOM_TOLL_FA = re.compile(r"^\W*" + fa_norm("(?:شهادت|شهید|شهدای|پیکر|تشییع|وداع|مراسم|خاکسپاری|هویت|خانواده)")
+                          + "|" + fa_norm("(?:شهادت|شهید|کشته|زخمی|مجروح|جان باخت|مصدوم)") + r"[^.؛]{0,40}"
+                          + fa_norm("(?:در|طی|در پی|بر اثر|به دنبال)") + r"\s*(?:\S+\s+){0,1}"
+                          + fa_norm("(?:حمله|حملات|درگیری|تیراندازی|انفجار|کمین)")
+                          + "|" + fa_norm("پیکر|تشییع|وداع|خاکسپاری|خاک سپرده|مراسم|یادبود|سالگرد|چهلم"))
+_DOM_TOLL_EN = re.compile(r"^\W*(funeral|mourn\w*|burial)\b|\b(killed|martyred|dead|died|wounded|injured)\b[^.;]{0,30}"
+                          r"\b(in|during|after|by)\b[^.;]{0,20}\b(attack|ambush|clash\w*|shooting)\b"
+                          r"|\b(funeral|laid to rest|buried|mourn\w*)\b", re.I)
+_DEAD_FA = fa_norm("(?:کشته|شهید|شهادت|جان باخت|جان‌باخت)")
+_MANY_DEAD_FA = re.compile(r"(?<!\d)(\d{1,4})\s*(?:\S+\s+){0,3}?" + _DEAD_FA
+                           + "|" + _DEAD_FA + r"\s*(?:\S+\s+){0,1}?(\d{1,4})(?!\d)"
+                           + "|" + r"(?<![؀-ۿ])" + fa_norm("(?:پنج|شش|هفت|هشت|ده|یازده|دوازده|سیزده|چهارده"
+                           "|پانزده|بیست|سی|ده ها|دهها|صدها)") + r"\s+(?:\S+\s+){0,3}?" + _DEAD_FA)
+_MANY_DEAD_EN = re.compile(r"\b(\d{1,4})\s+(?:[\w'-]+\s+){0,4}?(killed|dead|died|martyred)\b"
+                           r"|\b(five|six|seven|eight|nine|ten|eleven|twelve|dozens|scores)\s+(?:[\w'-]+\s+){0,4}?"
+                           r"(killed|dead|died|martyred)\b", re.I)
+
+
+def _many_dead(fa, text):
+    m = (_MANY_DEAD_FA if fa else _MANY_DEAD_EN).search(text)
+    if not m:
+        return False
+    n = next((g for g in m.groups() if g and g.isdigit()), None)
+    return n is None or int(n) >= 5
+
+
+def _domestic_attack(lang, t, s):
+    """Insurgents inside Sistan and Baluchestan: 'event' (an attack told in the headline), 'toll' (a report of its
+    dead), 'big' (five or more killed), 'other' (arrests, weapons found, a cell broken up), or None."""
+    fa = lang == "fa"
+    head = to_latin_digits(fa_norm(t or "") if fa else (t or ""))
+    lead = head + " " + to_latin_digits(fa_norm(first_sentences(s or "", 220)) if fa else first_sentences(s or "", 220))
+    if not (_SE_FA if fa else _SE_EN).search(lead) or not (_INSURGENT_FA if fa else _INSURGENT_EN).search(lead):
+        return None
+    if (_FOREIGN_FA if fa else _FOREIGN_EN).search(head):
+        return None                              # Israel's or America's hand, or Pakistan across the border: as it is
+    if _many_dead(fa, lead):
+        return "big"
+    if (_DOM_TOLL_FA if fa else _DOM_TOLL_EN).search(head):
+        return "toll"
+    return "event" if (_DOM_ATTACK_FA if fa else _DOM_ATTACK_EN).search(head) else "other"
+
+
+# a commemoration (the 13th of Aban, an anniversary, a statement "on the occasion of"): told for the day, not news,
+# unless the Leader or the president speaks
+COMMEMORATION_CAP = 40.0
+_COMMEM_FA = re.compile(fa_norm("یوم الله|یوم‌الله|سالروز|به مناسبت|گرامیداشت|روز ملی مبارزه با استکبار|روز دانش آموز"
+                                "|هفته دفاع مقدس|فرارسیدن")
+                        + r"|(?<!\d)13\s*" + fa_norm("آبان"))
+_COMMEM_TOP_FA = re.compile(fa_norm("رهبر انقلاب|رهبری|خامنه|پزشکیان|رئیس جمهور|رییس جمهور"))
+
+
+def _commemoration(lang, t):
+    if lang != "fa":
+        return False
+    t = to_latin_digits(fa_norm(t or ""))
+    return bool(_COMMEM_FA.search(t)) and not _COMMEM_TOP_FA.search(t)
+
+
+# getting by despite the sanctions or the war ("موفقیت ایران در تأمین امنیت غذایی با وجود تحریم‌ها"،
+# "راهکارهای صیانت از هوانوردی در برابر تحریم‌ها"): a yellow story
+RESILIENCE_CAP = 40.0
+_RESIL_FA = re.compile(fa_norm("(?:با وجود|علیرغم|علی رغم|به رغم|در برابر|در شرایط|در سایه|عبور از)") + r"\s*(?:\S+\s+){0,2}"
+                       + fa_norm("تحریم"))
+_RESIL_EN = re.compile(r"\b(despite|in the face of|under|amid|weather\w*|surviv\w+|beat\w*|cope with|coping with)\s+"
+                       r"(the |years of |western |us |u\.s\. )?sanctions\b|\bsanctions-hit\b", re.I)
+_RESIL_NEWS_EN = re.compile(r"\b(new|impos\w+|announc\w+|lift\w*|eas\w+|extend\w*|tighten\w*|slap\w*|target\w*)\b", re.I)
+
+
+def _resilience(lang, t):
+    if lang == "fa":
+        return bool(_RESIL_FA.search(fa_norm(t or "")))
+    return bool(_RESIL_EN.search(t or "")) and not _RESIL_NEWS_EN.search(t or "")
+
+
+# a feature on how people live with the war ("Fear of Renewed War Reshapes Housing Choices…", "Nepali workers stranded
+# as attacks disrupt flights"): a yellow story when the headline tells of no attack
+FEATURE_CAP = 44.0
+_FEATURE_EN = re.compile(r"\b(stranded|plight|in limbo|livelihoods?|housing|rents?|tenants|homeowners|daily life"
+                         r"|everyday life|way of life|emergency kits?|stock(ing|s)? up|hoard\w*|panic[- ]buy\w*)\b", re.I)
+
+
+def _feature(lang, t, flags):
+    return lang != "fa" and bool(_FEATURE_EN.search(t or "")) and not _STRONG.search(t or "")
+
+
 CIVIL_DRILL_CAP = 35.0
 _CIVIL_FA = re.compile(r"خدمت\s*فاطمی|درمان|پزشک|دندان|سلامت|بهداشت|امداد|هلال\s*احمر|آتش\s*نشان|اطفا|زلزله|سیل|"
-                       r"مدیریت\s*بحران|اورژانس|بیمارستان|جهادی|محرومیت|کمک\s*مومنانه|خدمت\s*رسانی|دانش\s*آموز|مدارس")
+                       r"مدیریت\s*بحران|اورژانس|بیمارستان|جهادی|محرومیت|کمک\s*مومنانه|خدمت\s*رسانی|دانش\s*آموز|مدارس"
+                       r"|بیماری|واگیر|اپیدمی|آنفلوانزا|میگو|آبزی|شیلات|دامپزشک|دامداری|طیور|کشاورز|خوراک|حوادث|آتش\s*سوزی")
 _MIL_FA = re.compile(r"نیروی\s*(?:زمینی|دریایی|هوایی|هوافضا)|ارتش|موشک|پهپاد|ناو|جنگنده|توپخانه|تانک|زرهی|تکاور|رزمی"
                      r"|پدافند\s*هوایی|اقتدار|ذوالفقار|پیامبر\s*اعظم|سپاه\s*پاسداران|قرارگاه|نظامی")
 _CIVIL_EN = re.compile(r"\b(medical|health|clinic\w*|dental|emergency services|fire\s?fighters?|fire brigade|earthquake|"
-                       r"disaster|rescue|red crescent|hospital\w*|relief)\b", re.I)
+                       r"disaster|rescue|red crescent|hospital\w*|relief|disease|outbreak|livestock|shrimp|farms?|schools?|students)\b",
+                       re.I)
 _MIL_EN = re.compile(r"\b(military|naval|navy|army|air force|missiles?|drones?|warships?|irgc|troops|combat|war ?games|"
                      r"live[- ]fire|fighter|tanks?|artillery)\b", re.I)
 
@@ -694,6 +816,11 @@ def aside(text):
     return bool(_ASIDE_FA.search(fa_norm(t)) or _ASIDE_EN.search(t))
 
 
+DRILL_EN = re.compile(r"\b(drills?|war ?games|(military|naval|air|joint|live[- ]fire|defen[cs]e|missile|army)"
+                      r" exercises?)\b", I)
+_DRILL_HURT_EN = re.compile(r"\b(killed|dead|died|wounded|injured|casualt\w+|crash\w*)\b", I)
+
+
 def score_en(title: str, summary: str):
     t, s = title or "", summary or ""
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
@@ -744,6 +871,9 @@ def score_en(title: str, summary: str):
         flags -= HARD_EVENTS
     if title_best < 45:
         best = min(best, 52)                       # nothing notable in the headline itself
+    if DRILL_EN.search(t) and flags & HARD_EVENTS and not _DRILL_HURT_EN.search(t):
+        best = min(best, 55)                       # "drill against bombing": a drill, not a strike
+        flags = (flags - HARD_EVENTS) | {"exercise"}
     if MEDIA_CITE.search(t):
         best = min(best, 56)
         flags.add("analysis")
@@ -875,7 +1005,7 @@ def classify(item):
             sev = max(sev, CABLE_ATTACK_SEV if cb == "attack" else CABLE_CUT_SEV)
     if "exercise" in flags and _civil_drill(lang, fa_t or en_t, fa_s or en_s):
         # a medical, relief or fire-brigade drill (free clinics, earthquake or chemical-spill rescue): not military
-        flags = (set(flags) - {"exercise"}) | {"civil_drill"}
+        flags = (set(flags) - {"exercise"} - HARD_EVENTS) | {"civil_drill"}
         topics = set(topics) - {"military"}
         sev = min(sev, CIVIL_DRILL_CAP)
     if _local_toll(lang, fa_t or en_t, fa_s or en_s):
@@ -897,6 +1027,26 @@ def classify(item):
     if _hijab(lang, fa_t or en_t):
         flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
         sev = min(sev, HIJAB_CAP)
+    dom = _domestic_attack(lang, fa_t or en_t, fa_s or en_s)
+    if dom:
+        # insurgents in Sistan and Baluchestan: the attack is orange, the report of its dead yellow (unless five or
+        # more were killed); never red, never a strike of the war
+        flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"domestic_attack"}
+        if dom == "toll":
+            sev = min(sev, DOMESTIC_TOLL_CAP)
+        else:
+            sev = min(sev, DOMESTIC_EVENT_CAP)
+            if dom in ("event", "big") and not set(flags) & {"analysis", "speculative"}:
+                sev = max(sev, DOMESTIC_EVENT_SEV)
+    if _commemoration(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
+        flags = set(flags) | {"commemoration"}
+        sev = min(sev, COMMEMORATION_CAP)
+    if _resilience(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
+        flags = (set(flags) - {"sanctions"}) | {"resilience"}
+        sev = min(sev, RESILIENCE_CAP)
+    if _feature(lang, en_t, flags):
+        flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"feature"}
+        sev = min(sev, FEATURE_CAP)
     if _mediator_visit(lang, fa_t or en_t) and not set(flags) & {"speculative", "analysis", "opinion", "past",
                                                                      "denial", "reaction"}:
         # mediators who have come to Tehran in person (Qatar, Oman, Saudi Arabia, Pakistan, Russia, China…): orange
