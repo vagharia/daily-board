@@ -424,7 +424,9 @@ def _piracy(lang, t):
 # the event, not an event. Read in the headline only.
 TRIBUTE_CAP = 40.0
 _TRIB_FA = re.compile(fa_norm("ناگفته") + "|" + fa_norm("(?:همسر|مادر|پدر|فرزند|فرزندان|خانواده|دختر|پسر)")
-                      + r"\s*(?:" + fa_norm("پاسدار") + r"\s*)?" + fa_norm("شهید") + "|"
+                      # a count between them: "مادر ۸ شهید"، "پدر سه شهید" (the mother of the dead, not a toll)
+                      + r"\s*(?:(?:[0-9۰-۹٠-٩]+|" + fa_norm("یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده") + r")\s*)?"
+                      + r"(?:" + fa_norm("پاسدار") + r"\s*)?" + fa_norm("شهید") + "|"
                       + fa_norm("زندگی") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("سیره") + r"\s*" + fa_norm("شهید")
                       + "|" + fa_norm("وصیت") + r"\s*" + fa_norm("نامه") + "|" + fa_norm("خاطرات")
                       # a funeral: "مراسم وداع مردم زابل با شهید…"، "تشییع پیکر…"، "به خاک سپرده شد"
