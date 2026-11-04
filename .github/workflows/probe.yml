@@ -13,13 +13,14 @@ jobs:
     steps:
       - run: |
           mkdir out; cd out
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
           B=https://interactives.apelections.org/election-results/data-live/2026-11-03/results/national
-          for f in progress metadata bop balance-of-power summary calls; do curl -s -o $f.json -w "$f %{http_code} %{size_download}\n" $B/$f.json; done
-          for f in results/national/S results/national/H results/national/senate results/national/house results/US/bop; do n=$(echo $f | tr / _); curl -s -o $n.json -w "$f %{http_code} %{size_download}\n" https://interactives.apelections.org/election-results/data-live/2026-11-03/$f.json; done
-          curl -s -o npr_bop.json -w "npr %{http_code}\n" https://apps.npr.org/2026-election-results/data/bop.json
-          curl -s -o carto.json https://interactives.apelections.org/election-results/data-live/cycle-2026/maps/US/state/carto.json
-          curl -sI https://interactives.apelections.org/election-results/data-live/2026-11-03/results/national/progress.json | grep -i "cache-control\|access-control\|last-modified"
+          for f in progress metadata; do curl -s -A "$UA" -H "Referer: https://apnews.com/" -H "Origin: https://apnews.com" -o $f.json -w "$f %{http_code} %{size_download}\n" $B/$f.json || true; done
+          curl -s -o npr_bop.json -w "npr %{http_code}\n" https://apps.npr.org/2026-election-results/data/bop.json || true
+          curl -sI -A "$UA" -H "Referer: https://apnews.com/" $B/progress.json | head -20 || true
+          ls -la
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: feeds
           path: out
