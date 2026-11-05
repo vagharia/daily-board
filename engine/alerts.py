@@ -177,16 +177,28 @@ def _fa_num(n):
 # ------------------------------------------------------------------ incidents at sea: one alert each
 # Reports of one incident at sea come from many outlets over many hours and form many stories; an Iranian claim
 # about tankers is published again and again. Telegram gets: one alert per incident (and at most one update when a
-# report adds something important: a sinking, people hurt, who did it, how), no alert for a claim already
+# report adds something important: a sinking, people hurt, who did it, a seizure), no alert for a claim already
 # announced, none for live pages and recaps. The bulletin is not affected.
+# An incident is told apart by where (distance and bearing from a port or headland, else the sea area: the strait,
+# the Persian Gulf, the Arabian Sea, the Red Sea), when (the time the reports give) and which ship (its kind, flag
+# and name, vessel.ship_id): a report of a container ship is never the tanker's incident announced before.
 SEA_KEEP = 24 * 3600         # an incident placed by distance and bearing is remembered this long
 SEA_VAGUE = 6 * 3600         # a report that gives no place counts as the incident announced in that sea area this soon
-CLAIM_KEEP = 36 * 3600       # an Iranian claim already announced is not announced again within this
+CLAIM_KEEP = 36 * 3600       # an Iranian claim with a count of ships already announced is not announced again within this
+CLAIM_VAGUE = 12 * 3600      # nor one with no count ("a tanker caught fire") after a claim about that sea within this
+CLAIM_MORE = 6 * 3600        # nor "another tanker" after a claim of another ship within this
+CLAIM_OTHER = 12 * 3600      # the army and the IRGC giving the same count within this: one claim told twice
 SEA_UPDATES = 1
+SEA_NEWS = {"sank", "hurt", "who", "seized"}   # what makes an update: not how it was hit (a mine, a drone, a projectile)
 _RECAP_EN = re.compile(r"\blive\b|\bmore on\b|\blatest:|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b"
                        r"|\bwatch:|\bday \d+\b|\bas (?:\w+ ){0,3}(?:attacks?|tensions?|incidents?|strikes?) "
-                       r"(?:escalate|mount|intensify|persist|grow|rise)", re.I)
-_RECAP_FA = re.compile(fa_norm("لحظه به لحظه|جمع بندی|مروری بر|گزارش زنده|پخش زنده|اطلاعات بیشتر در مورد|جزئیات بیشتر"))
+                       r"(?:escalate|mount|intensify|persist|grow|rise)"
+                       r"|\band other (?:\w+ ){0,2}news\b|\bnews (?:digest|briefing|summary)\b|\bmorning brief\b"
+                       r"|\bwhat to know\b|\bkey (?:events|developments)\b|\btakeaways\b|\bfactbox\b|\btimeline\b"
+                       r"|\bin pictures\b|\bat a glance\b", re.I)
+_RECAP_FA = re.compile(fa_norm("لحظه به لحظه|جمع بندی|مروری بر|گزارش زنده|پخش زنده|اطلاعات بیشتر در مورد|جزئیات بیشتر"
+                               "|و دیگر اخبار|و سایر اخبار|و اخبار دیگر|مهم ترین اخبار|مهمترین اخبار|خلاصه اخبار"
+                               "|گزیده اخبار|اخبار مهم|تیتر اخبار|تیترهای|گاهشمار|روزشمار"))
 
 
 def _heads(c):
@@ -204,22 +216,64 @@ def _recap(c):
     return bool(_RECAP_EN.search(en) or _RECAP_FA.search(fa))
 
 
+def _claim_key(x):
+    return "|".join([x["who"], ",".join(str(n) for n in x["nums"]), "S" if x["super"] else "", "T" if x["stop"] else "",
+                     str(x["ord"] or ""), ",".join(x.get("kd") or ()), "A" if x.get("ano") else "", x.get("area") or ""])
+
+
+def _claim_of(k):
+    p = (k.split("|") + [""] * 8)[:8]
+    return {"who": p[0], "nums": [int(n) for n in p[1].split(",") if n], "super": p[2] == "S", "stop": p[3] == "T",
+            "ord": int(p[4]) if p[4] else None, "kd": [x for x in p[5].split(",") if x], "ano": p[6] == "A",
+            "area": p[7] or None}
+
+
 def _claims(c):
     """Keys of the Iranian statements about ships a story's reports tell: who, how many, a super tanker, ships stopped,
-    "the third" ("irgc|3|||": the IRGC's three tankers)."""
+    "the third", the kinds of ship, "another", the sea area (see _claim_key)."""
     out = set()
     for m in c["m"]:
         x = vessel.signature(m)
         if x:
-            out.add("|".join([x["who"], ",".join(str(n) for n in x["nums"]), "S" if x["super"] else "",
-                              "T" if x["stop"] else "", str(x["ord"] or "")]))
+            out.add(_claim_key(x))
     return out
 
 
-def _repeatable(k):
-    """Only a statement with a count and no "second", "third" can be a repeat: "IRGC: 3 tankers" told again."""
-    who, nums, sup, stop, ord_ = k.split("|")
-    return bool(nums) and not ord_
+def _claim_told(x, said, first, w=None):
+    """True if the claim x (a signature) was already announced: a claim told again by other outlets or other words.
+    said: key -> when announced. With a count of ships: the same count from the same body (or "Iran") within 36 hours,
+    or from the other body within 12; "the third": the same; "another ship": another ship already told within 6 hours;
+    with neither: any claim about that sea and that kind of ship within 12 hours. Counts must be the same: "two
+    tankers" is not the "two stopped, four destroyed" of the day before. A super tanker or ships stopped
+    never told before is new; so is a claim whose report places what it tells (w: when, vessel.when) after the
+    earlier claim was announced."""
+    for k, t0 in said.items():
+        if w and w[0] > t0 + 3600:
+            continue                                 # it tells of what happened after that claim: another one
+        y = _claim_of(k)
+        dt = abs(first - t0)                         # a claim announced a little before or after this story began
+        if x.get("area") and y.get("area") and x["area"] != y["area"]:
+            continue
+        if not vessel.kinds_fit(frozenset(x.get("kd") or ()), frozenset(y.get("kd") or ())):
+            continue
+        who = x["who"] == y["who"] or "iran" in (x["who"], y["who"])
+        if (x["super"] and not y["super"]) or (x["stop"] and not y["stop"]):
+            continue
+        if x.get("ord"):
+            if y.get("ord") == x["ord"] and who and dt <= CLAIM_KEEP:
+                return True
+            continue
+        if x["nums"]:
+            if set(x["nums"]) == set(y["nums"]) and dt <= (CLAIM_KEEP if who else CLAIM_OTHER):
+                return True
+            continue
+        if x.get("ano"):
+            if y.get("ano") and dt <= CLAIM_MORE:
+                return True
+            continue
+        if dt <= CLAIM_VAGUE:
+            return True
+    return False
 
 
 def _head_claim(c):
@@ -230,13 +284,48 @@ def _head_claim(c):
                                                      and not vessel.statement(m)) for m in c["m"])
 
 
-SEA_FRESH = 6 * 3600         # an incident the reports place in time earlier than this is not announced
+SEA_FRESH = 9 * 3600         # an incident the reports place in time earlier than this is not announced
 
 
 def _old(c, t):
-    """True if the reports say when it happened and that is more than six hours ago."""
-    ws = [w for w in (vessel.when(m) for m in c["m"]) if w]
+    """True if the reports say when it happened and that is more than nine hours ago."""
+    ws = [w for w in (vessel.when(m, fine=True) for m in c["m"]) if w]
     return bool(ws) and max(w[1] for w in ws) < t - SEA_FRESH
+
+
+def _ships(c):
+    """The kinds, flags, names and owners of ship a story's reports tell of: {"kd": [...], "fl": [...],
+    "nm": [[lang, name]], "ow": [...]}."""
+    kd, fl, nm, ow = set(), set(), set(), set()
+    for m in c["m"]:
+        if not vessel.SHIP_EN.search(vessel._head(m)[0]) and not vessel.SHIP_FA.search(vessel._head(m)[1] or ""):
+            continue
+        x = vessel.ship_id(m)
+        kd |= x["kd"]
+        if x["fl"]:
+            fl.add(x["fl"])
+        if x["nm"]:
+            nm.add(x["nm"])
+        if x["ow"]:
+            ow.add(x["ow"])
+    return {"kd": sorted(kd), "fl": sorted(fl), "nm": sorted(list(n) for n in nm), "ow": sorted(ow)}
+
+
+def _ships_fit(a, b):
+    """An incident's ships (_ships) and a story's can be the same ship."""
+    if a.get("kd") and b.get("kd") and not vessel.kinds_fit(frozenset(a["kd"]), frozenset(b["kd"])):
+        return False
+    if a.get("fl") and b.get("fl") and not set(a["fl"]) & set(b["fl"]):
+        return False
+    if a.get("ow") and b.get("ow") and not set(a["ow"]) & set(b["ow"]):
+        return False
+    na = {tuple(n) for n in a.get("nm") or []}
+    nb = {tuple(n) for n in b.get("nm") or []}
+    for lang in ("en", "fa"):
+        xa, xb = {n for n in na if n[0] == lang}, {n for n in nb if n[0] == lang}
+        if xa and xb and not xa & xb:
+            return False
+    return True
 
 
 def _incident(c):
@@ -247,6 +336,8 @@ def _incident(c):
     mk = marked[0][1] if marked else None
     mt = marked[-1][0]["t"] if marked else None
     ar = mk["area"] if mk else next((a for a in (vessel.area(m, head=True) for m in ms) if a), None)
+    if not ar:
+        ar = next((a for a in (vessel.area(m) for m in ms) if a), None)     # the sea named only in the text
     fx = set().union(*(vessel.facts(m) for m in ms)) if ms else set()
     another = vessel.another({"en_ti": _heads(c)[0], "ti": (c.get("fa") or {}).get("ti") or "", "lang": "fa"})
     return mk, ar, fx, another, mt
@@ -259,7 +350,8 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
     """'send', 'update' or None (not announced) for a red story about ships; records what was announced.
     t: now (or, for a story already announced, its latest report); first: when the story was first reported.
     A report that gives no place counts as an incident in that sea area if it comes within six hours of the latest
-    report that placed the incident (or of its first report), and within a day of its first report."""
+    report that placed the incident (or of its first report), and within a day of its first report; never if it tells
+    of another kind of ship, another flag or another name."""
     first = t if first is None else first
     claims = sea.setdefault("claims", {})
     incs = sea.setdefault("inc", [])
@@ -267,35 +359,44 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
         return None
     if _old(c, t):
         return None                                  # the reports place it hours ago: told again, not new
-    keys = _claims(c)
-    if _head_claim(c) and keys:
-        new = {k for k in keys if not _repeatable(k) or first - claims.get(k, -1e12) > CLAIM_KEEP}
-        for k in keys:
+    sigs = [(x, m) for x, m in ((vessel.signature(m), m) for m in c["m"]) if x]
+    if _head_claim(c) and sigs:
+        new = [x for x, m in sigs if not _claim_told(x, claims, first, vessel.when(m, fine=True))]
+        for x, _ in sigs:
+            k = _claim_key(x)
             claims[k] = max(claims.get(k, 0), t)
         return "send" if new and not quiet else None
     mk, ar, fx, another, mt = _incident(c)
+    sh = _ships(c)
     inc = None
     if mk:
-        inc = next((i for i in incs if i.get("mk") and vessel.same(i["mk"], mk) and first - i["t"] <= SEA_KEEP), None)
+        inc = next((i for i in incs if i.get("mk") and vessel.same(i["mk"], mk) and first - i["t"] <= SEA_KEEP
+                    and _ships_fit(i.get("sh") or {}, sh)), None)
         if not inc:
             inc = next((i for i in reversed(incs) if not i.get("mk") and i.get("area") == ar and ar
-                        and 0 <= first - i["t0"] <= SEA_ADOPT), None)
+                        and 0 <= first - i["t0"] <= SEA_ADOPT and _ships_fit(i.get("sh") or {}, sh)), None)
             if inc:
                 inc["mk"] = mk                       # the place the first, vague report didn't give
     elif ar and not another:
         inc = next((i for i in reversed(incs) if i.get("area") == ar and first - i.get("tm", i["t0"]) <= SEA_VAGUE
-                    and first - i["t0"] <= SEA_KEEP), None)
+                    and first - i["t0"] <= SEA_KEEP and _ships_fit(i.get("sh") or {}, sh)), None)
     if inc:
         inc["t"] = max(inc["t"], t)
         if mt:
             inc["tm"] = max(inc.get("tm", inc["t0"]), mt)
-        new = fx - set(inc.get("fx", []))
+        old = inc.get("sh") or {}
+        inc["sh"] = {"kd": sorted(set(old.get("kd") or []) | set(sh["kd"])),
+                     "fl": sorted(set(old.get("fl") or []) | set(sh["fl"])),
+                     "ow": sorted(set(old.get("ow") or []) | set(sh["ow"])),
+                     "nm": sorted({tuple(n) for n in (old.get("nm") or [])} | {tuple(n) for n in sh["nm"]})}
+        inc["sh"]["nm"] = [list(n) for n in inc["sh"]["nm"]]
+        new = (fx - set(inc.get("fx", []))) & SEA_NEWS
         inc["fx"] = sorted(set(inc.get("fx", [])) | fx)
         if new and inc.get("upd", 0) < SEA_UPDATES and not quiet:
             inc["upd"] = inc.get("upd", 0) + 1
             return "update"
         return None
-    incs.append({"t0": first, "t": t, "tm": mt or first, "mk": mk, "area": ar, "fx": sorted(fx), "upd": 0})
+    incs.append({"t0": first, "t": t, "tm": mt or first, "mk": mk, "area": ar, "fx": sorted(fx), "upd": 0, "sh": sh})
     return None if quiet else "send"
 
 
@@ -303,6 +404,9 @@ def _sea_state(state, clusters, sent, t):
     """The memory of incidents and claims at sea; the first time, made from the red stories about ships already
     announced in the last day."""
     sea = state.setdefault("sea", {})
+    if sea.get("v") != 2:                            # claims kept in the older form: rebuilt below from the stories
+        sea["claims"] = {}
+        sea["v"] = 2
     sea["inc"] = [i for i in sea.get("inc", []) if t - i["t"] <= SEA_KEEP]
     for i in sea["inc"]:
         if i.get("mk"):

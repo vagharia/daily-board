@@ -31,7 +31,9 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Same strike in other words (news only, same attacker + city, 12 h, no "new/again") | `cluster.py` → `strike_key`, `same_strike` |
 | Qeshm, Kish, Abu Musa: places of their own; Qeshm and Abu Musa within the Hormuz area for matching | `lexicon.py` → `PLACES`; `cluster.py` → `REGION` |
 | "Source not stated" vs relayed outlet (unknown outlets, «روزنامه آمریکایی X») | `citation.py` → `outlet_named`, `OTHER` |
-| Ships/tankers: marks, time, Iranian statements | `vessel.py` (`mark`, `when`, `statement`, `signature`) |
+| Ships/tankers: marks (distance + bearing from ports in Hormuz, Persian Gulf, Arabian Sea, Red Sea), sea areas, time (`when(fine=True)`: «بامداد امروز», "3 hours ago", local clock), kind of ship (tanker/super/LNG/container…), flag, owner, name, ship counts, Iranian statements | `vessel.py` (`REFS`, `AREAS`, `mark`, `area`, `when`, `kinds`, `flag`, `owner`, `name`, `ship_id`, `counts`, `statement`, `signature`) |
+| Same ship/incident in the bulletin: kind/flag/owner/name must fit; same owner + kind + area joins | `cluster.py` → `same_story` (sid), `_ship_misfit`, `_own_matches` |
+| Telegram: one alert per incident at sea, repeated Iranian claims, update only for sinking/casualties/who/seizure | `alerts.py` → `_sea_pick`, `_claim_told`, `SEA_NEWS` |
 | Deployments (count, kind, destination) | `deploy.py` |
 | Evacuation orders (one story per order, 7 days; stale "effective <date>") | `evac.py` |
 | Telegram red alerts, sea rules, lights, late-report rule | `alerts.py` → `run`, `_sea_pick`, `_late` |

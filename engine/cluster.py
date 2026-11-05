@@ -532,7 +532,8 @@ def features(m):
             "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
             "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE,
             "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "evac": evac.mark(m), "dup": _dup_key(m),
-            "stmt": vessel.signature(m), "when": vessel.when(m) if _at_sea(m) else None,
+            "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
+            "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
             "sk": strike_key(m),
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")}
@@ -542,6 +543,20 @@ def _at_sea(m):
     en = m.get("en_ti") or m.get("ti") or ""
     return bool(vessel.SHIP_EN.search(en) or (m.get("lang") == "fa" and vessel.SHIP_FA.search(fa_norm(m.get("ti") or "")))
                 or "maritime_incident" in (m.get("flags") or []))
+
+
+def _ship_id(m):
+    """The kind, flag, owner and name of the ship a report about ships tells of (vessel.ship_id), or None if none."""
+    if not _at_sea(m):
+        return None
+    x = vessel.ship_id(m)
+    return x if (x["kd"] or x["fl"] or x["nm"] or x["ow"]) else None
+
+
+def _own_key(f):
+    """(whose ship, sea area) of a report that tells both, else None."""
+    sid = f.get("sid")
+    return (sid["ow"], f["sarea"]) if sid and sid.get("ow") and f.get("sarea") else None
 
 
 def _general(m):
@@ -675,6 +690,14 @@ def same_story(a, b, dt=0, rare=frozenset()):
         return False                                # an Iranian statement and an incident told independently
     if a.get("when") and b.get("when") and not vessel.overlap(a["when"], b["when"]):
         return False                                # at sea, the times the reports give don't meet
+    if a.get("sid") and b.get("sid"):              # at sea: another kind of ship, another flag, another name
+        if not vessel.ships_fit(a["sid"], b["sid"]):
+            return False
+        if vessel.same_ship(a["sid"], b["sid"]):
+            return 0.6
+        if a["sid"].get("ow") and a["sid"]["ow"] == b["sid"].get("ow") and a["sid"]["kd"] and b["sid"]["kd"] \
+                and a.get("sarea") and a["sarea"] == b.get("sarea") and dt <= SHIP_OWNER:
+            return 0.5                              # "Qatari LNG tanker" and "Qatar's LNG carrier" in the Gulf the same day
     if a.get("stmt") and b.get("stmt"):             # an Iranian statement about ships (vessel.py)
         if vessel.same_statement(a["stmt"], b["stmt"]):
             return 0.6
@@ -763,6 +786,8 @@ class Clusterer:
         self.ships = {}                                   # story id -> [(place of an incident at sea, time)]
         self.stmts = {}                                   # story id -> [(Iranian statement about ships, when, time)]
         self.incs = {}                                    # story id -> [(when, time)] of incidents at sea told independently
+        self.sids = {}                                    # story id -> [kind, flag and name of the ship a report tells of]
+        self.owns = {}                                    # (whose ship, sea area) -> story ids
         self.deps = {}                                    # (count, kind, destination) of a deployment -> story ids
         self.evacs = {}                                   # (who, country, how far) of an order to leave -> story ids
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
@@ -783,6 +808,10 @@ class Clusterer:
                     self.stmts.setdefault(c["id"], []).append((feats[m["k"]]["stmt"], feats[m["k"]]["when"], m["t"]))
                 if feats[m["k"]].get("inc"):
                     self.incs.setdefault(c["id"], []).append((feats[m["k"]]["when"], m["t"]))
+                if feats[m["k"]].get("sid"):
+                    self.sids.setdefault(c["id"], []).append(feats[m["k"]]["sid"])
+                if _own_key(feats[m["k"]]):
+                    self.owns.setdefault(_own_key(feats[m["k"]]), set()).add(c["id"])
                 if feats[m["k"]].get("dep"):
                     self.deps.setdefault(feats[m["k"]]["dep"], set()).add(c["id"])
                 if feats[m["k"]].get("evac"):
@@ -829,6 +858,8 @@ class Clusterer:
                 continue                                   # an incident at sea placed elsewhere
             if self._kind_conflict(f, cid):
                 continue                                   # an Iranian statement vs an incident told independently
+            if self._ship_misfit(f, cid):
+                continue                                   # another kind of ship, another flag or another name
             feats = self.tok.get(cid, {})
             if f["sk"] and abs(item["t"] - _since(c)) <= STRIKE_WINDOW and any(same_strike(f, mf) for mf in feats.values()):
                 matches.append((0.55, c))                  # the same strike told in other words (see same_strike)
@@ -841,7 +872,8 @@ class Clusterer:
                         default=0.0)
             if score:
                 matches.append((score, c))
-        for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f):
+        for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
+                + self._own_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches):
@@ -852,13 +884,17 @@ class Clusterer:
             # the report fits two stories: fold the smaller one in only if the two also match each other
             # directly (not merely through this report), remembering its id so its alert isn't sent twice
             fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
-            strike_pair = any(same_strike(x, y) for x in fo.values() for y in fb.values())
+            strike_pair = any(same_strike(x, y) for x in fo.values() for y in fb.values()) or bool(
+                {_own_key(x) for x in fo.values()} & {_own_key(y) for y in fb.values()} - {None})
             if (len(other["m"]) > 8 and not strike_pair) or len(best["m"]) + len(other["m"]) > 60:
                 continue
             if best.get("manual") or other.get("manual"):
                 continue                               # a story put together by hand is never folded either way
             if any(self._ship_conflict(x, best["id"]) for x, _ in self.ships.get(other["id"], [])):
                 continue                               # two incidents at sea placed apart
+            if self.sids.get(other["id"]) and self.sids.get(best["id"]) and not any(
+                    vessel.ships_fit(x, y) for x in self.sids[other["id"]] for y in self.sids[best["id"]]):
+                continue                               # two stories about different ships
             tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
             if not strike_pair and not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
                        for ky, y in fb.items()):
@@ -894,6 +930,25 @@ class Clusterer:
         marks = [x for x, _ in self.ships.get(cid, [])]
         return bool(marks) and not any(vessel.same(mark, x) for x in marks) and any(vessel.differ(mark, x) for x in marks)
 
+    def _own_matches(self, item, f):
+        """The story of one country's ship hit in one sea area ("Qatari LNG carrier struck in the Gulf", «قطر حمله به
+        کشتی خود در خلیج فارس را تأیید کرد»), for a day after its latest report, if its kind of ship fits."""
+        out = []
+        for cid in self.owns.get(_own_key(f), ()) if _own_key(f) else ():
+            c = self.byid.get(cid)
+            if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= SHIP_KEEP and not self._ship_misfit(f, cid) \
+                    and not self._kind_conflict(f, cid):
+                out.append((0.55, c))
+        return out
+
+    def _ship_misfit(self, f, cid):
+        """True if the report names a kind of ship, a flag or a name that fits none of the story's reports that name
+        one (a container ship's report never joins a tanker's story)."""
+        if not f.get("sid"):
+            return False
+        xs = self.sids.get(cid)
+        return bool(xs) and not any(vessel.ships_fit(f["sid"], x) for x in xs)
+
     def _ship_matches(self, item, f):
         """Stories of the same incident at sea, beyond the usual time window: a report placing it at the same
         distance and bearing from the same point joins its story for a day after that story's latest report; a
@@ -904,7 +959,8 @@ class Clusterer:
             for cid, marks in self.ships.items():
                 c = self.byid.get(cid)
                 if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= SHIP_KEEP \
-                        and any(vessel.same(f["ship"], x) for x, _ in marks) and not self._kind_conflict(f, cid):
+                        and any(vessel.same(f["ship"], x) for x, _ in marks) and not self._kind_conflict(f, cid) \
+                        and not self._ship_misfit(f, cid):
                     out.append((0.6, c))
         elif f.get("sgen"):
             cands = []
@@ -912,7 +968,8 @@ class Clusterer:
                 c = self.byid.get(cid)
                 first, latest = min(t for _, t in marks), max(t for _, t in marks)
                 if c and len(c["m"]) < 60 and marks[0][0]["area"] == f["sgen"] and 0 <= item["t"] - first <= SHIP_KEEP \
-                        and item["t"] - latest <= SHIP_FRESH and not self._kind_conflict(f, cid):
+                        and item["t"] - latest <= SHIP_FRESH and not self._kind_conflict(f, cid) \
+                        and not self._ship_misfit(f, cid):
                     cands.append((c, marks))
             if cands and all(any(vessel.same(x, y) for x, _ in cands[0][1] for y, _ in mk) for _, mk in cands):
                 out.append((0.45, max(cands, key=lambda x: len(x[0]["m"]))[0]))
@@ -942,7 +999,7 @@ class Clusterer:
             return out
         for cid, sts in self.stmts.items():
             c = self.byid.get(cid)
-            if not c or len(c["m"]) >= 60 or abs(item["t"] - c["u"]) > STMT_KEEP:
+            if not c or len(c["m"]) >= 60 or abs(item["t"] - c["u"]) > STMT_KEEP or self._ship_misfit(f, cid):
                 continue
             if any(vessel.same_statement(f["stmt"], x) and (not f.get("when") or not w or vessel.overlap(f["when"], w))
                    for x, w, _ in sts):
@@ -969,6 +1026,7 @@ class Clusterer:
         return out
 
 
+SHIP_OWNER = 12 * 3600     # reports of one country's ship of one kind in one sea area this close are one incident
 STMT_KEEP = 12 * 3600      # reports of the same Iranian statement join its story this long after its latest report
 EVAC_KEEP = 7 * 86400      # reports of the same order to leave a country join its story this long after its latest report
 DEP_KEEP = 24 * 3600       # reports of the same deployment join its story this long after its latest report
@@ -996,7 +1054,7 @@ def _at_sea_vague(m):
 def _vague_at_sea(ms):
     if not any(_at_sea_vague(m) for m in ms):
         return False
-    if any(vessel.statement(m) or vessel.mark(m) or vessel.when(m) for m in ms):
+    if any(vessel.statement(m) or vessel.mark(m) or vessel.when(m, fine=True) for m in ms):
         return False
     return len({(m.get("s") or "").split(":")[0] for m in ms}) < 2
 
