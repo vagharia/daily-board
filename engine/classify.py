@@ -10,7 +10,7 @@ import re
 
 from . import config, deesc, sport, witness
 from .classify_fa import STRONG as STRONG_FA, score_fa
-from .fronts import saudi_houthi
+from .fronts import SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
 from .util import fa_norm, first_sentences, strip_dateline, to_latin_digits
@@ -401,9 +401,15 @@ _EARN_NOT_EN = re.compile(r"\b(iran\w*|irgc|nioc|sanction\w*|hormuz|attack\w*|st
 _EARN_NOT_FA = re.compile(fa_norm("ایران|سپاه|تحریم|هرمز|حمله|موشک|پهپاد|انفجار|توقیف"))
 
 
+_DESPITE_EN = re.compile(r"\b(despite|in spite of|amid|after|even as)\b[^.;:]*", re.I)
+_DESPITE_FA = re.compile(fa_norm("(با وجود|علیرغم|علی رغم|به رغم|پس از|در پی)[^.؛:]*"))
+
+
 def _earnings(lang, t):
     fa = lang == "fa"
     t = fa_norm(t) if fa else (t or "")
+    # "Aramco profit jumps despite attacks on its oil sites": the results are the news, the attacks a reason
+    t = (_DESPITE_FA if fa else _DESPITE_EN).sub(" ", t)
     return bool((_EARN_FA if fa else _EARN_EN).search(t)) and not (_EARN_NOT_FA if fa else _EARN_NOT_EN).search(t)
 
 
@@ -1051,9 +1057,16 @@ def classify(item):
     topics |= set(title_topics) | set(body_topics)
     if "statement" in topics and not ({"statement"} & set(title_topics)) and "threat" not in flags:
         topics.discard("statement")
-    if saudi_houthi(fa_t if item.get("lang") == "fa" else en_t, item.get("lang") or "en", flags) == "secondary":
-        flags = set(flags) | {"secondary"}       # on the Saudi-Houthi front only direct attacks are red
-        sev = min(sev, 69.0)
+    item.pop("front", None)
+    sf = side_front(fa_t if item.get("lang") == "fa" else en_t, item.get("lang") or "en", flags)
+    if sf:
+        # the side fronts (the Saudi-Houthi war, Israel and Hezbollah in Lebanon): red only for a big turn (fronts.py)
+        item["front"] = sf[0]
+        if sf[1] == "secondary":
+            flags = set(flags) | {"secondary"}
+            sev = min(sev, SECONDARY_CAP)
+        else:
+            flags = set(flags) | {"side_major"}
     net = internet("fa", fa_t, fa_s) if item.get("lang") == "fa" else internet("en", en_t, en_s)
     if net and "opinion" not in flags:
         flags = set(flags) | {"internet"}        # Iran's internet cut, throttled or restored: an orange story

@@ -13,9 +13,10 @@ Four parts, each 0-100, over the last 24 hours (newer stories weigh more, 6h hal
                    a jump in Brent.
 
 Who is involved sets the weight: Iran against America or Israel counts in full, Iran and the Persian Gulf states
-at 70%, the other fronts (the Houthis and Saudi Arabia, Hezbollah, Iraq's militias) at 35%. Those fronts matter
-because they are fought for Iran, but on their own they can take the index to "high tension", never to "critical":
-above 75 only Iran, America and Israel count.
+at 70%, the side fronts (the Houthis and Saudi Arabia, Hezbollah and Israel in Lebanon, Iraq's militias) at 25%,
+and their everyday reports ("secondary", fronts.py) at a quarter of that. The side fronts count in "spread" only for
+a big turn there. On their own they can take the index to "moderate tension" at most: above 50 only the main front
+counts (Iran, America, Israel and the Persian Gulf), above 75 only Iran against America or Israel.
 
 Not counted: one Telegram channel's unconfirmed report, denials, analysis and opinion, past events, Putin on trade.
 
@@ -131,13 +132,16 @@ PROXY_GEO = {"baghdad", "erbil", "ain_asad", "sanaa", "hodeidah", "red_sea", "ba
 FRONTS = {"ir": "iran", "il": "israel", "gulf": "gulf", "lebanon": "lebanon", "iraq": "iraq", "yemen": "yemen",
           "syria": "syria"}
 CRITICAL = 75
+MAIN_ONLY = 50          # above this only the main front counts (theatre >= 0.5)
+SIDE_W = 0.25           # a side front's weight (Yemen and Saudi Arabia, Lebanon, Iraq's militias, Syria)
+SIDE_SECONDARY = 0.25   # a side front's everyday report, on top of that
 K_ACTS, K_THREATS, K_SPREAD = 4.0, 3.0, 3.0
 
 
 def theatre(c):
     """How much a story is about the Iran-America-Israel war: 1 (Iran against America or Israel), 0.7 (Iran alone, Iran
     and the Persian Gulf states, or America and Israel in the region with no other front named), 0.5 (Iran's name
-    next to another front: "US strikes Iran-backed militia in Iraq"), 0.35 (another front)."""
+    next to another front: "US strikes Iran-backed militia in Iraq"), SIDE_W (another front)."""
     ctry, geo = set(c.get("ctry", [])), set(c.get("geo", []))
     iran = "ir" in ctry or bool(geo & (IR_LAND | IR_SEA))
     us_il = bool(ctry & {"us", "il"})
@@ -148,7 +152,7 @@ def theatre(c):
         return 1.0 if us_il else 0.7
     if us_il and not proxy:
         return 0.7
-    return 0.35
+    return SIDE_W
 
 
 def _counted(c, t, pre=None):
@@ -170,8 +174,9 @@ def _saturate(x, k):
     return 100.0 * (1 - math.exp(-x / k))
 
 
-def pillars(clusters, av, sea, markets, t, direct_only=False, pre=None):
-    """The four parts of the index; direct_only leaves out everything that isn't Iran against America or Israel."""
+def pillars(clusters, av, sea, markets, t, direct_only=False, pre=None, min_w=0.0):
+    """The four parts of the index; direct_only leaves out everything that isn't Iran against America or Israel,
+    min_w every story weighed below it (the side fronts)."""
     acts = threats = 0.0
     fronts = {}
     for c in clusters:
@@ -180,15 +185,17 @@ def pillars(clusters, av, sea, markets, t, direct_only=False, pre=None):
             continue
         fl, decay = got
         w = theatre(c)
-        if direct_only and w < 1:
+        if (direct_only and w < 1) or w < min_w:
             continue
+        sec = SIDE_SECONDARY if "secondary" in fl and w < 0.5 else 1.0
         s = c["sev"]
         # serious events count far more than borderline ones: ((sev - floor) / 30)^2
         if fl & ACT_FLAGS and s >= 60:
-            acts += ((s - 55) / 30) ** 2 * decay * w * w * (0.5 if "secondary" in fl else 1.0)
+            acts += ((s - 55) / 30) ** 2 * decay * w * w * sec
         elif fl & THREAT_FLAGS and s >= 50:
-            threats += ((s - 45) / 30) ** 2 * decay * w * w
-        if s >= 60 and fl & (ACT_FLAGS | THREAT_FLAGS):
+            threats += ((s - 45) / 30) ** 2 * decay * w * w * sec
+        if s >= 60 and fl & (ACT_FLAGS | THREAT_FLAGS) and (w >= 0.5 or (s >= 70 and "secondary" not in fl)):
+            # a side front is hot only for a big turn there, not for its everyday strikes
             for k in set(c.get("ctry", [])) & set(FRONTS):
                 if not direct_only or k in ("ir", "il"):
                     fronts[FRONTS[k]] = max(fronts.get(FRONTS[k], 0), decay * (1.0 if s >= 70 else 0.5) * (1.0 if w >= 0.7 else 0.5))
@@ -337,7 +344,8 @@ def pressure(clusters, t, pre=None):
             where = frozenset(c.get("geo", [])) or frozenset(c.get("ctry", []))
             if not any(abs(c["u"] - u) <= 6 * 3600 and where & pl for u, pl in seen_acts):
                 seen_acts.append((c["u"], where))
-                acts += (1.5 if iran_side(c) else 1.0) * k
+                # a big turn on a side front counts as half an attack
+                acts += (1.5 if iran_side(c) else 1.0 if w >= 0.5 else 0.5) * k
         elif age <= 24 * 3600 and fl & (THREAT_FLAGS - {"deploy"}) and s >= 55 and w >= 0.7:
             threats += (1.5 if w >= 1 else 1.0) * k
         elif age <= 24 * 3600 and "statement" in c.get("topics", []) and s >= 55 and w >= 0.7:
@@ -399,6 +407,13 @@ def index_value(clusters, av, sea, markets, t):
     if peace.get("talks"):
         p["threats"] = round(p["threats"] * TALKS_THREATS, 1)
     v = combine(p)
+    if v >= MAIN_ONLY:
+        # the side fronts can make it "moderate tension", only the main front more
+        m, _ = pillars(clusters, av, sea, markets, t, pre=pre, min_w=0.5)
+        if peace.get("talks"):
+            m["threats"] = round(m["threats"] * TALKS_THREATS, 1)
+        m["signals"] = p["signals"]
+        v = max(MAIN_ONLY - 1, min(v, combine(m)))
     if v >= CRITICAL:
         # the other fronts can make it "high tension", only Iran, America and Israel "critical"
         d, _ = pillars(clusters, av, sea, markets, t, direct_only=True, pre=pre)

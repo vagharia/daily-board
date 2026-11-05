@@ -7,6 +7,7 @@ from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .relevance import FA_CITY, FA_IRAN
 from .sources import BY_ID
+from .fronts import SECONDARY_CAP
 from .sport import CAP as SPORT_CAP
 from .util import fa_norm, sha
 
@@ -1177,10 +1178,14 @@ def refresh(c):
     if not set(top.get("flags", [])) & EVENT_FLAGS:
         # many outlets repeating a threat or a plan make it a big story, not a strike
         c["sev"] = min(c["sev"], 69.0)
-    if "secondary" in top.get("flags", []):
-        # its strongest report is a casualty count, a reaction or fighting inside Yemen: many outlets repeating it
-        # don't make it red
-        c["sev"] = min(c["sev"], 69.0)
+    if "secondary" in top.get("flags", []) or (any("secondary" in m.get("flags", []) for m in ms)
+                                               and not any("side_major" in m.get("flags", []) for m in ms)
+                                               and all(m.get("front") or e < 45
+                                                       for e, m in zip(eff, ms))):
+        # a side front's everyday report (Yemen and Saudi Arabia, Lebanon): many outlets repeating it don't make
+        # it red, nor does one outlet's wording that the rules didn't place on that front
+        c["sev"] = min(c["sev"], SECONDARY_CAP)
+        claim = min(claim, SECONDARY_CAP)
     if c["ns"] == 1 and max_rel < CORROBORATE_BELOW:
         # a single less reliable outlet (state media, partisan or Telegram channels) can't make a red story
         # on its own; it turns red once another source reports it

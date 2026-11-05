@@ -25,6 +25,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Collecting feeds, Telegram pages, replies/admin comments, foreign (Arabic/French…) headlines dropped | `collect.py` → `collect_all`, `_tg_parse`, `follow_up_comment`, `not_english` |
 | Severity / tiers (red ≥70, orange ≥45), yellow caps (`*_CAP`), Persian rules | `classify.py` (caps block in `classify()`), `classify_fa.py` → `score_fa` |
 | Multi-item headlines ("A/ B", "A; B; C") → yellow, first item only; past ("weeks after"), no-deadline, "on the table" | `classify.py` → `multi_parts`, `PAST`, `_NO_DEADLINE_*`, `_TABLE_*` |
+| Side fronts (Saudi–Houthi, Israel–Hezbollah in Lebanon): red only for a big turn (Saudi oil/energy hit, US sites in Saudi, wide airport damage, Red Sea ships; Hezbollah firing at Israel, Beirut struck, senior leader killed, invasion/offensive), else orange ≤64 (`secondary`); index weighs them 25%, above 50 only the main front | `fronts.py` → `saudi_houthi`, `israel_lebanon`; `classify.py` (`side_front`); `cluster.py` (`SECONDARY_CAP`); `index.py` → `SIDE_W`, `MAIN_ONLY` |
 | Admin opinion/what-if on channels (به نظرم، اگر…، فرض کنید) | `classify.py` → `aside` |
 | Mediators visiting Tehran → orange | `classify.py` → `_mediator_visit` |
 | Clustering, same-story rules, story-level caps, channel rules | `cluster.py` → `features`, `same_story`, `Clusterer`, scoring block after `ch_strike` |
