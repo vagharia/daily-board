@@ -368,6 +368,10 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
         return "send" if new and not quiet else None
     mk, ar, fx, another, mt = _incident(c)
     sh = _ships(c)
+    en, fa = _heads(c)
+    if not mk and ar and (vessel._PLURAL_EN.search(en) or vessel._PLURAL_FA.search(fa)) and not another \
+            and any(_claim_of(k).get("area") in (ar, None) and abs(first - t0) <= CLAIM_VAGUE for k, t0 in claims.items()):
+        return None                                  # "Tankers hit in Hormuz as Iran keeps up pressure": the claims retold
     inc = None
     if mk:
         inc = next((i for i in incs if i.get("mk") and vessel.same(i["mk"], mk) and first - i["t"] <= SEA_KEEP
