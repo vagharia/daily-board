@@ -1058,7 +1058,8 @@ def classify(item):
     if "statement" in topics and not ({"statement"} & set(title_topics)) and "threat" not in flags:
         topics.discard("statement")
     item.pop("front", None)
-    sf = side_front(fa_t if item.get("lang") == "fa" else en_t, item.get("lang") or "en", flags)
+    sf = side_front(fa_t if item.get("lang") == "fa" else en_t, item.get("lang") or "en", flags,
+                    item.get("s") or "", fa_s if item.get("lang") == "fa" else en_s)
     if sf:
         # the side fronts (the Saudi-Houthi war, Israel and Hezbollah in Lebanon): red only for a big turn (fronts.py)
         item["front"] = sf[0]

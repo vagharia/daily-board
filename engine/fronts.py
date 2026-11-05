@@ -7,7 +7,8 @@ On these fronts a report is red only when it is a big turn ("major"); everything
 Saudi-Houthi, major: a Houthi attack that hits Saudi oil or energy sites (Aramco, refineries, oil terminals,
 pipelines, power and desalination plants), an attack on America's interests in Saudi Arabia (its bases, troops,
 embassy or consulates), wide damage to a Saudi airport (on fire, destroyed, closed), attacks on shipping in the Red
-Sea and Bab el-Mandeb, and staff told to leave. Not major: missiles and drones intercepted, airports and cities
+Sea and Bab el-Mandeb held to the Hormuz rules (a ship hit, on fire, sunk or seized, told by someone other than the
+Houthis: UKMTO, Ambrey, a navy, the owner), and staff told to leave. Not major: missiles and drones intercepted, airports and cities
 "targeted" with no damage told, the Houthi spokesman's claims alone, Saudi or coalition strikes on Yemen, fighting
 inside Yemen, counts of attacks, casualty figures, statements, talks, markets. A report that names Israel or Iran,
 or America striking, is left to the general rules.
@@ -46,9 +47,11 @@ _EN_ATTACK = re.compile(r"\b(attack\w*|strik\w*|struck|hit|hits|target\w*|launch
                         r"|drones?|rockets?|ballistic|intercept\w*|downs?|downed|shoots? down|shot down|raids?"
                         r"|bomb\w*|shell\w*|airstrikes?|air strikes?|explosions?|blasts?|debris|shrapnel"
                         r"|impact\w*|ablaze)\b", _I)
+_EN_SEAS = (r"red sea|bab[- ]el[- ]mandeb|bab al[- ]mandab|gulf of aden|hodeidah|hudaydah|hodeida|mokha|mocha|salif"
+            r"|ras isa|kamaran|perim|djibouti|assab|nishtun|mukalla|aden|yanbu|off (the coast of )?yemen")
 _EN_SEA = re.compile(r"\b(ships?|vessels?|tankers?|freighters?|bulk carrier|container ship|merchant)\b.{0,80}"
-                     r"\b(red sea|bab[- ]el[- ]mandeb|bab al[- ]mandab|gulf of aden)\b"
-                     r"|\b(red sea|bab[- ]el[- ]mandeb|bab al[- ]mandab|gulf of aden)\b.{0,80}"
+                     r"\b(" + _EN_SEAS + r")\b"
+                     r"|\b(" + _EN_SEAS + r")\b.{0,80}"
                      r"\b(ships?|vessels?|tankers?|freighters?|bulk carrier|container ship|merchant)\b", _I)
 _EN_TOLL = re.compile(r"^\W*([^:]{2,40}:\s*)?(\d[\d,]*|two|three|four|five|six|seven|eight|nine|ten|dozens|scores"
                       r"|hundreds|several)\b[^.;:]{0,30}?\b(killed|dead|die[ds]?|injured|wounded|hurt|martyr\w*"
@@ -79,8 +82,8 @@ _FA_SAUDI = re.compile(fa_norm("عربستان|سعودی|ریاض|جده|مکه
                                "|راس تنوره|ابقیق|ینبع|آرامکو|ائتلاف"))
 _FA_ATTACK = re.compile(fa_norm("حمله|حملات|هدف قرار|اصابت|شلیک|پرتاب|موشک|پهپاد|رهگیری|رهگیر|سرنگون|منهدم|انهدام"
                                 "|بمباران|انفجار|آوار|بقایای موشک|ترکش|آتش سوزی|عملیات"))
-_FA_SEA = re.compile(fa_norm("(کشتی|نفتکش|شناور)[^.؛]{0,60}(دریای سرخ|باب المندب|خلیج عدن)"
-                             "|(دریای سرخ|باب المندب|خلیج عدن)[^.؛]{0,60}(کشتی|نفتکش|شناور)"))
+_FA_SEAS = "دریای سرخ|باب المندب|خلیج عدن|حدیده|الحدیده|مخا|صلیف|راس عیسی|کمران|میون|جیبوتی|عصب|نشطون|مکلا|عدن|ینبع|سواحل یمن"
+_FA_SEA = re.compile(fa_norm("(کشتی|نفتکش|شناور)[^.؛]{0,60}(" + _FA_SEAS + ")|(" + _FA_SEAS + ")[^.؛]{0,60}(کشتی|نفتکش|شناور)"))
 _FA_TOLL = re.compile(fa_norm(r"^\W*([^:]{2,40}:\s*)?(\d+|ده ها|دهها|صدها|چند|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)"
                               r"\s*(تن|نفر|شهید|کشته|زخمی|مجروح|غیرنظامی|کودک|زن)"
                               r"|(آوار|ترکش|بقایای)[^.؛]{0,50}(زخمی|مجروح|کشته)"
@@ -149,6 +152,47 @@ _FA_SAUDI_PLACE = re.compile(fa_norm("ریاض|جده|مکه|مدینه|طائف
                                      "|(به|علیه)\\s*(عربستان|سعودی)"))
 
 
+# Ships in the Red Sea, Bab el-Mandeb and the Gulf of Aden, held to the rules of ships in Hormuz: red only for an
+# incident that happened (a ship hit, on fire, damaged, sunk, seized), told by someone other than the attacker. Not
+# the Houthis' own claims ("we targeted the ship X"), nor an Iranian outlet's report that cites no one else, nor a
+# tally of ships or something past. (A lone report with no time or place stays orange too: cluster._vague_at_sea.)
+_EN_SEA_DONE = re.compile(r"\b(hit|hits|struck|ablaze|on fire|fire|burning|blaze|explosions?|exploded|blasts?|damag\w*"
+                          r"|disabled|adrift|sank|sinks|sinking|sunk|capsiz\w*|seiz\w*|hijack\w*|boarded|taken over"
+                          r"|crew (killed|injured|hurt|evacuated|abandon\w*)|abandon\w* ship|projectile)\b", _I)
+_FA_SEA_DONE = re.compile(fa_norm("اصابت|آتش گرفت|آتش سوزی|در آتش|شعله|انفجار|منفجر|آسیب|خسارت|غرق|توقیف|ربوده|تصرف"
+                                  "|از کار افتاد|خدمه[^.؛]{0,20}(کشته|زخمی|مجروح|تخلیه)"))
+_EN_SEA_INDEP = re.compile(r"\b(ukmto|u\.?k\.? maritime|ambrey|vanguard|centcom|aspides|eunavfor|atalanta|maritime security"
+                           r"|(ship|vessel|tanker)'s (owner|operator|manager)|owner|operator|shipping (company|firm)|maersk"
+                           r"|lloyd'?s|windward|confirm\w*|coast ?guard|navy|naval)\b", _I)
+_FA_SEA_INDEP = re.compile(fa_norm("ukmto|عملیات تجارت دریایی|آمبری|وانگارد|سنتکام|اسپیدس|آتالانتا|امنیت دریایی|مالک کشتی"
+                                   "|شرکت کشتیرانی|اپراتور|مرسک|لویدز|تایید کرد|تأیید کرد|گارد ساحلی|نیروی دریایی"))
+_EN_SEA_CLAIM = re.compile(r"\b(saree|sarea|houthis? (say|says|said|claim\w*)|claims?|claimed|(yemeni|houthi) (armed forces"
+                           r"|army|military|navy|naval forces|spokes\w*)|ansar ?allah|al-?masirah|we (targeted|struck|hit)"
+                           r"|targeted)\b", _I)
+_FA_SEA_CLAIM = re.compile(fa_norm("یحیی سریع|سخنگوی (نیروهای مسلح|ارتش) یمن|نیروهای مسلح یمن|ارتش یمن|نیروی دریایی یمن"
+                                   "|انصارالله|المسیره|ادعا|مدعی|هدف قرار دادیم|هدف قرار داد|هدف قرار گرفت"))
+_EN_SEA_RECAP = re.compile(r"\b(\d+|dozens|several|multiple|scores|hundreds) (\w+ ){0,2}(ships|vessels|tankers|attacks)\b"
+                           r"|\bsince\b|\b(last|past|previous) (week|month|year)|\bearlier this (week|month)|\bin \d{4}\b", _I)
+_FA_SEA_RECAP = re.compile(fa_norm(r"(\d+|ده ها|دهها|چندین|صدها)\s*(فروند|کشتی|نفتکش|شناور|حمله)|از زمان|از ابتدای"
+                                   r"|هفته گذشته|ماه گذشته|سال گذشته"))
+_IR_OUTLETS = {"irna", "fars", "isna", "mehr", "iribnews", "nournews", "defapress", "tasnim", "presstv", "khabaronline",
+               "entekhab", "masirah", "almasirah", "saba"}
+
+
+def _red_sea(t, fa, src="", text=""):
+    """"major" for a ship attack in the Red Sea that may be red (see above), else "secondary"."""
+    done, indep, claim, recap = ((_FA_SEA_DONE, _FA_SEA_INDEP, _FA_SEA_CLAIM, _FA_SEA_RECAP) if fa
+                                 else (_EN_SEA_DONE, _EN_SEA_INDEP, _EN_SEA_CLAIM, _EN_SEA_RECAP))
+    told = t + " " + (text or "")[:400]
+    if recap.search(t) or not done.search(t):
+        return "secondary"               # a tally, something past, or only "targeted" / "attacked" with nothing hit
+    if indep.search(told):
+        return "major"                   # UKMTO, Ambrey, a navy, the ship's owner…
+    if claim.search(t) or (src or "").split(":")[0] in _IR_OUTLETS:
+        return "secondary"               # the Houthis' own account, or an outlet of their side citing no one
+    return "major"
+
+
 def _sh_rx(fa):
     if fa:
         return dict(front2=_FA_FRONT2, place2=_FA_SAUDI, front=_FA_FRONT, main=_FA_MAIN, us=_FA_US, proxy=_FA_PROXY, saudi=_FA_SAUDI, attack=_FA_ATTACK,
@@ -161,7 +205,7 @@ def _sh_rx(fa):
                 hit=_EN_HIT, hclaim=_EN_HCLAIM, intercept=_EN_INTERCEPT, yemen=_EN_YEMEN_SITE, place=_EN_SAUDI_PLACE)
 
 
-def saudi_houthi(title, lang="en", flags=()):
+def saudi_houthi(title, lang="en", flags=(), src="", text=""):
     """None when the report is not on the Saudi-Houthi front (or names Israel or Iran, or America striking),
     "major" for what may be red there (see the module's text), "secondary" for everything else on that front."""
     fa = lang == "fa"
@@ -171,7 +215,7 @@ def saudi_houthi(title, lang="en", flags=()):
         return None
     if "evac" in flags and (r["front"].search(t) or r["place2"].search(t)):
         return "major"                   # staff told to leave Saudi Arabia or an oil city is itself an event
-    if not (r["front"].search(t) or r["front2"].search(t)
+    if not (r["front"].search(t) or r["front2"].search(t) or r["sea"].search(t)
             or (r["attack"].search(t) and r["place"].search(r["proxy"].sub(" ", t)))):
         return None                      # (a missile or drone on a Saudi city, airport or site: this front)
     us = r["us"].search(t)
@@ -193,7 +237,7 @@ def saudi_houthi(title, lang="en", flags=()):
     claim = bool(r["hclaim"].search(t))
     caught = bool(r["intercept"].search(t))
     if r["sea"].search(t):
-        return "major"                   # ships attacked in the Red Sea or Bab el-Mandeb
+        return _red_sea(t, fa, src, fa_norm(text or "") if fa else text)   # ships in the Red Sea: strict
     if r["us_site"].search(t):
         return "major" if not caught or r["hit"].search(t) else "secondary"   # America's bases, troops or embassy
     if r["energy"].search(t) and in_saudi:
@@ -290,10 +334,11 @@ def israel_lebanon(title, lang="en", flags=()):
     return "secondary"                   # the daily strikes, drone strikes and shelling in the south and the Bekaa
 
 
-def side_front(title, lang="en", flags=()):
-    """(front, grade) of a report on a side front ("saudi_houthi" or "lebanon"; "major" or "secondary"), or None."""
-    for name, fn in (("saudi_houthi", saudi_houthi), ("lebanon", israel_lebanon)):
-        g = fn(title, lang, flags)
-        if g:
-            return name, g
-    return None
+def side_front(title, lang="en", flags=(), src="", text=""):
+    """(front, grade) of a report on a side front ("saudi_houthi" or "lebanon"; "major" or "secondary"), or None.
+    src (the outlet) and text (the summary) tell who a ship attack in the Red Sea is told by."""
+    g = saudi_houthi(title, lang, flags, src, text)
+    if g:
+        return "saudi_houthi", g
+    g = israel_lebanon(title, lang, flags)
+    return ("lebanon", g) if g else None
