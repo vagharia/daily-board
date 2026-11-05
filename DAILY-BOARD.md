@@ -23,6 +23,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 |---|---|
 | Main loop, order of steps, migrations (`misc[...]`), lite files, story map for the panel | `run_news.py` → `main`, `news_round`, `lite` |
 | Collecting feeds, Telegram pages, replies/admin comments | `collect.py` → `collect_all`, `_tg_parse`, `follow_up_comment` |
+| Foreign headlines from non-Persian sources (Arabic; French/Spanish/German, e.g. L'Orient-Le Jour) dropped | `collect.py` → `has_fa` check, `not_english` |
 | Severity / tiers (red ≥70, orange ≥45), yellow caps (`*_CAP`), Persian rules | `classify.py` (caps block in `classify()`), `classify_fa.py` → `score_fa` |
 | Multi-item headlines ("A/ B", "A; B; C") → yellow, first item only; past ("weeks after"), no-deadline, "on the table" | `classify.py` → `multi_parts`, `PAST`, `_NO_DEADLINE_*`, `_TABLE_*` |
 | Admin opinion/what-if on channels (به نظرم، اگر…، فرض کنید) | `classify.py` → `aside` |
