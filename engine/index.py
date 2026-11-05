@@ -570,12 +570,19 @@ def compute_lights(clusters, av, sea, markets, t=None):
 
 
 def hotspots(clusters, t, window):
+    from .cluster import REGION             # cluster builds on classify; imported here, where it is used
     acc = {}
     rank = {"yellow": 0, "orange": 1, "red": 2}
     for c in clusters:
         if t - c["u"] > window:
             continue
+        # on the map an island in the strait is drawn as the strait: Qeshm's dot would sit under Hormuz's
+        geos = []
         for g in c.get("geo", [])[:3]:
+            g = REGION.get(g, g)
+            if g not in geos:
+                geos.append(g)
+        for g in geos:
             if g not in PLACES:
                 continue
             fa, en, lat, lon = PLACES[g][:4]
