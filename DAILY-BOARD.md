@@ -29,6 +29,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Mediators visiting Tehran → orange | `classify.py` → `_mediator_visit` |
 | Clustering, same-story rules, story-level caps, channel rules | `cluster.py` → `features`, `same_story`, `Clusterer`, scoring block after `ch_strike` |
 | Same strike in other words (news only, same attacker + city, 12 h, no "new/again") | `cluster.py` → `strike_key`, `same_strike` |
+| Qeshm, Kish, Abu Musa: places of their own; Qeshm and Abu Musa within the Hormuz area for matching | `lexicon.py` → `PLACES`; `cluster.py` → `REGION` |
 | "Source not stated" vs relayed outlet (unknown outlets, «روزنامه آمریکایی X») | `citation.py` → `outlet_named`, `OTHER` |
 | Ships/tankers: marks, time, Iranian statements | `vessel.py` (`mark`, `when`, `statement`, `signature`) |
 | Deployments (count, kind, destination) | `deploy.py` |
