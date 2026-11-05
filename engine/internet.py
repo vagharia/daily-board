@@ -57,6 +57,13 @@ CRIME_FA = re.compile(F("کلاهبرداری", "کلاه برداری", "فیش
                         "جرائم سایبری", "جرایم سایبری", "خرید اینترنتی", "فروش اینترنتی", "فروشگاه اینترنتی",
                         "بانکداری اینترنتی", "درگاه", "وجه", "شاکی", "مالباخته", "سرقت", "دستگیری", "دستگیر",
                         "قمار", "شرط بندی", "مجرمانه"))
+# a plan for a cut that may come, or a hope it won't: no cut has happened
+MAYBE_FA = re.compile(R("(?:برای|در)\\s*(?:زمان|صورت|روز|مواقع|شرایط)\\s*(?:احتمالی\\s*)?(?:قطع|قطعی|اختلال|محدودیت)", "|",
+                        "(?:احتمال|احتمالی|امکان|نگرانی\\s*از|سناریوی?|آمادگی\\s*برای)\\s*(?:قطع|قطعی|اختلال|محدودیت)", "|",
+                        "اگر\\s*اینترنت", "|", "اینترنت", _ANY % 15, "قطع\\s*نشود"))
+# a weekly round-up of an outlet's culture or arts desk: the internet line is one item among many
+ROUNDUP_FA = re.compile(F("اخبار این هفته", "از جمله اخبار", "مهم ترین اخبار هفته", "مرور اخبار", "هفته فرهنگی",
+                          "فرهنگی هنری"))
 CRIME_EN = re.compile(r"\b(?:fraud\w*|scam\w*|phishing|cyber ?crime\w*|online (?:shopping|banking|gambling|betting)"
                       r"|e-?commerce|arrest\w*|stolen|theft)\b", re.I)
 
@@ -66,6 +73,8 @@ def internet(lang, title, summary=""):
     if lang == "fa":
         t, s = fa_norm(title or ""), fa_norm(summary or "")[:300]
         if not (DOWN_FA.search(t) or UP_FA.search(t)) or PRICE_FA.search(t) or CRIME_FA.search(t):
+            return None
+        if MAYBE_FA.search(t) or ROUNDUP_FA.search(fa_norm(summary or "")):
             return None
         if ABROAD_FA.search(t) and not IRAN_FA.search(t):
             return None
