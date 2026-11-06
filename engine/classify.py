@@ -534,6 +534,35 @@ def _road(lang, t):
     return bool(_ROAD_EN.search(t or "")) and not _WAR_EN.search(t or "")
 
 
+# a fire or a gas blast in a home, a shop or a block of flats, put out by firefighters ("مهار آتش‌سوزی منزل مسکونی در
+# اصفهان پیش از وقوع انفجار", "انفجار کپسول گاز در …"): an accident, a yellow story, never a strike; a refinery, a
+# port, a base or any word of the war keeps it as it is
+HOME_FIRE_CAP = 38.0
+_FIRE_FA = re.compile(fa_norm("آتش سوزی|آتش گرفت|حریق|انفجار|شعله|دود"))
+_HOME_FA = re.compile(fa_norm("منزل|خانه|مسکونی|آپارتمان|ساختمان|مغازه|واحد تجاری|پاساژ|انبار کالا|کارگاه|رستوران|هتل"
+                              "|آتش نشان|آتش نشانی|بک درفت|بکدرفت|نشت گاز|انفجار گاز|گاز شهری|کپسول گاز|سیلندر گاز"
+                              "|پیک نیک|بخاری|شومینه|اتصال برق|اتصالی برق|کولر"))
+_HOME_NOT_FA = re.compile(fa_norm("حمله|پهپاد|موشک|بمب|ترور|اصابت|شلیک|پدافند|جنگنده|تیراندازی|مسلح|خرابکار|عملیات تروریستی"
+                                  "|پالایشگاه|پتروشیمی|نیروگاه|پادگان|پایگاه|سپاه|ارتش|نظامی|هسته ای|غنی سازی|سایت|تاسیسات"
+                                  "|تأسیسات|بندر|اسکله|کشتی|نفتکش|خط لوله|انبار مهمات|مهمات|اسرائیل|آمریکا|صهیونیست"))
+_HOME_FIRE_EN = re.compile(r"\b((house|home|residential|apartment|flat|building|shop|restaurant|hotel|warehouse) (fire|blaze)"
+                           r"|fire ?fighters?|fire (brigade|department|service)|backdraft|gas (leak|cylinder|canister)"
+                           r"|(gas|boiler|cylinder|heater) (explosion|blast))\b", re.I)
+_HOME_NOT_EN = re.compile(r"\b(attack\w*|strike\w*|drones?|missiles?|bomb\w*|shell\w*|gunmen|sabotage|refiner\w*"
+                          r"|petrochemical|power (plant|station)|base|military|nuclear|port|ship|tanker|pipeline|depot"
+                          r"|ammunition|israel\w*|u\.?s\.?|america\w*|irgc)\b", re.I)
+
+
+def _home_fire(lang, t, s):
+    """A household or shop fire or gas blast (title, and the first sentence for who put it out)."""
+    if lang == "fa":
+        t = fa_norm(t)
+        lead = t + " " + fa_norm(first_sentences(s or "", 220))
+        return bool(_FIRE_FA.search(t)) and bool(_HOME_FA.search(lead)) and not _HOME_NOT_FA.search(lead)
+    lead = (t or "") + " " + first_sentences(s or "", 220)
+    return bool(_HOME_FIRE_EN.search(t or "")) and not _HOME_NOT_EN.search(lead)
+
+
 HIJAB_CAP = 40.0
 _HIJAB_FA = re.compile(fa_norm("حجاب|عفاف|بدحجاب|بی حجاب|کشف حجاب|گشت ارشاد|پلیس اخلاق|قانون پوشش|پوشش اسلامی"))
 _HIJAB_EN = re.compile(r"\b(hijab|headscarf|headscarves|morality police|dress code|chastity)\b", re.I)
@@ -568,6 +597,16 @@ def _digest(lang, t):
 _MULTI_FA = re.compile(r"(?<![0-9۰-۹])\s*/\s*(?![0-9۰-۹])")
 _MULTI_EN = re.compile(r"\s+/\s+")
 _MULTI_SEMI = re.compile(r";\s+")
+# a podcast or round-up headline listing its items with commas and a final "and" ("Iran sends nuclear proposal to US,
+# Asian stock markets plunge and Abu Dhabi-OpenAI deal bears fruit"): three items or more, each of three words or
+# more, the later ones with a subject of their own ("…, says talks are over and warns of strikes" is one story)
+_LIST_COMMA = re.compile(r",\s+")
+_LIST_AND = re.compile(r"\s+(?:and|And|AND)\s+")
+_LIST_VERB = re.compile(r"^(?:says?|said|warns?|vows?|adds?|calls?|urges?|threatens?|tells?|claims?|denies|denied"
+                        r"|insists?|accuses?|signals?|hints?|plans?|seeks?|wants?|offers?|pledges?|promises?|rejects?"
+                        r"|accepts?|blames?|praises?|slams?|hails?|reports?|confirms?|announces?|reveals?|is|was|has|had"
+                        r"|will|would|could|may|might|can|cannot|then|but|while|as|amid|after|before|with|without|to|in"
+                        r"|on|at|for|from|of|by|who|which|that)$", re.I)
 # an item is a sentence of its own: someone speaking ("ونس: …") or a verb at its end; a lead-in before "/" is not
 _SENTENCE_FA = re.compile(r"[:：]|(?:کرد|کردند|کرده|شد|شدند|شده|داد|دادند|داده|است|اند|هستند|نیست|نیستند|دارد|ندارد|دارند"
                           r"|ندارند|داریم|نداریم|گفت|گفتند|رسید|رسیدند|کند|کنند|نکند|شود|شوند|نشود|بود|بودند|خواهد|خواهند"
@@ -589,7 +628,29 @@ def multi_parts(lang, t):
         return items
     parts = [x.strip() for x in _MULTI_SEMI.split(t)]
     items = [x for x in parts if len(x.split()) >= 2]
-    return items if len(items) >= 3 else []
+    if len(items) >= 3:
+        return items
+    return _comma_list(t)
+
+
+def _comma_list(t):
+    """The items of "A, B and C" when each is a news item of its own, else []."""
+    parts = [x.strip() for x in _LIST_COMMA.split(t)]
+    if len(parts) < 2:
+        return []
+    tail = _LIST_AND.split(parts[-1])
+    if len(tail) != 2:
+        return []
+    items = parts[:-1] + [x.strip() for x in tail]
+    if len(items) < 3 or any(len(x.split()) < 3 for x in items):
+        return []
+    if _LIST_VERB.match(items[0].split()[0]) or items[0][0] in "'\"‘“" or re.search(r"\bamid\b", t, re.I):
+        return []                           # "As diplomacy inches forward, Iran threatens …", "'Adapt…', UN warns amid …"
+    for x in items[1:]:
+        w = x.split()[0]
+        if _LIST_VERB.match(w) or (w.islower() and re.search(r"(?:s|ed|ing)$", w) and len(w) > 3):
+            return []                       # a verb with no subject of its own: the same story goes on
+    return items
 
 
 def first_item(lang, t):
@@ -1109,6 +1170,11 @@ def classify(item):
         flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"domestic"}
         topics = set(topics) - {"military"}
         sev = min(sev, ROAD_CAP)
+    if _home_fire(lang, fa_t or en_t, fa_s or en_s):
+        # a fire or a gas blast in a home or a shop: an accident, never a strike
+        flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"domestic", "accident"}
+        topics = set(topics) - {"military"}
+        sev = min(sev, HOME_FIRE_CAP)
     if _hijab(lang, fa_t or en_t):
         flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
         sev = min(sev, HIJAB_CAP)
