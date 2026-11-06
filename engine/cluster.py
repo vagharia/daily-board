@@ -791,6 +791,7 @@ EV_FIRST = 6 * 3600          # the first report of an event comes out within thi
 EV_FRESH = 12 * 3600         # a first-hand report that gives no time tells of something within this before it
 EV_SLACK = 2 * 3600
 EV_EXTEND = 48 * 3600
+EV_CLOCK = 4 * 3600          # a clock time ("at 2 a.m.", "3 hours ago") is narrower than any part of the day
 EV_NARROW = 18 * 3600        # a time the headline gives counts only if it is this narrow ("Friday", not "this week")
 _NOT_NOW_EN = re.compile(r"\b(video|watch|footage|images?|photos?|pictures|recap|timeline|explainer|what we know)\b", re.I)
 _NOT_NOW_FA = re.compile(fa_norm("فیلم|تصاویر|ویدئو|ویدیو|عکس|جمع بندی|مروری بر|روایت"))
@@ -823,18 +824,61 @@ def _first_hand(m, f):
 EV_ANCHOR, EV_INFER, EV_TOLD = 0, 1, 2       # how a time is known: a story's first report, a first-hand report, told
 
 
+# parts of the day a headline names, in Tehran's time: (words, days back, from hour, to hour). Only for the
+# bulletin's time labels; the Telegram rules read times through vessel.when as before.
+_PART = [(fa_norm(w), d, a, b) for w, d, a, b in [
+    ("بامداد دیروز|دیروز بامداد", 1, 0, 5), ("صبح دیروز|دیروز صبح", 1, 5, 12), ("ظهر دیروز|دیروز ظهر", 1, 11, 15),
+    ("عصر دیروز|دیروز عصر|بعد از ظهر دیروز|بعدازظهر دیروز", 1, 14, 19), ("شب دیروز|دیروز شب", 1, 19, 24),
+    ("دیشب|شب گذشته|نیمه شب گذشته|شامگاه دیروز", 0, -5, 5), ("بامداد|سحرگاه|سپیده دم|نیمه شب", 0, 0, 5),
+    ("صبح امروز|امروز صبح|صبحگاه", 0, 5, 12), ("ظهر امروز|امروز ظهر", 0, 11, 15),
+    ("عصر امروز|امروز عصر|بعد از ظهر امروز|بعدازظهر امروز", 0, 14, 19), ("امشب|شامگاه|شب امروز", 0, 18, 24)]]
+_PART_EN = [(re.compile(r, re.I), d, a, b) for r, d, a, b in [
+    (r"\b(early (\w+ )?morning|pre-?dawn|before dawn|at dawn|overnight)\b", 0, 0, 5),
+    (r"\b(last night|late (yesterday|last night))\b", 0, -5, 5),
+    (r"\b(this morning)\b", 0, 5, 12), (r"\b(this afternoon)\b", 0, 12, 18),
+    (r"\b(this evening|tonight)\b", 0, 18, 24), (r"\b(yesterday morning)\b", 1, 5, 12),
+    (r"\b(yesterday afternoon)\b", 1, 12, 18), (r"\b(yesterday evening)\b", 1, 18, 24)]]
+
+
+def _part_of_day(m):
+    """(earliest, latest) of the part of the day the headline names («بامداد امروز»: midnight to 5 a.m.), or None."""
+    en, fa = vessel._head(m)
+    t, d0 = m["t"], vessel._day0(m["t"])
+    for rx, d, a, b, txt in [(re.compile(w), d, a, b, fa) for w, d, a, b in _PART] + \
+                            [(rx, d, a, b, en) for rx, d, a, b in _PART_EN]:
+        if txt and rx.search(txt):
+            lo, hi = d0 - d * 86400 + a * 3600, min(t, d0 - d * 86400 + b * 3600)
+            if lo > t and d == 0:                       # "this morning" before dawn, "dawn" said in the evening: today
+                return None
+            return (lo, hi) if lo < hi else None
+    return None
+
+
 def _ev_report(m, f):
     """(earliest, latest, how it is known) of the event a report tells of, or None. A time the headline of a news
-    report gives (EV_TOLD; a channel's clock times are too loose: «ساعت ۱۲:۱۴» may be past midnight), else the 12
-    hours before a first-hand report (EV_INFER)."""
-    if not _physical(f):
+    report gives (EV_TOLD; a clock time first, then a part of the day, «بامداد» = midnight to 5 a.m.; a channel's
+    clock times are too loose: «ساعت ۱۲:۱۴» may be past midnight), else the 12 hours before a first-hand report
+    (EV_INFER). Reports found through Bing search carry a guessed time: never placed."""
+    if not _physical(f) or m.get("via") == "bing":
         return None
     w = None if f["chan"] else vessel.when({**m, "su": "", "en_su": ""}, fine=True)  # a summary recalls other days
+    if w and w[1] - w[0] <= EV_CLOCK:
+        return (w[0], w[1], EV_TOLD)
+    p = None if f["chan"] else _part_of_day(m)
+    if p:
+        return (p[0], p[1], EV_TOLD)
     if w and w[1] - w[0] <= EV_NARROW:
         return (w[0], w[1], EV_TOLD)
     if _first_hand(m, f):
         return (m["t"] - EV_FRESH, m["t"], EV_INFER)
     return None
+
+
+def _ev_mid_dist(a, b):
+    """How far the middle of a report's time is from a story's likeliest moment: the middle of a time told, or, for a
+    time inferred from reports, its end (a blast is mostly reported soon after it)."""
+    at = b[1] if b[2] == EV_INFER else (b[0] + b[1]) / 2
+    return abs((a[0] + a[1]) / 2 - at)
 
 
 def _ev_gap(a, b):
@@ -898,6 +942,10 @@ class Clusterer:
         w = f.get("evp") or _ev_report(m, f)
         f["evp"] = w
         cur = self.ev.get(c["id"])
+        if m.get("via") == "bing" and not w:
+            return                                   # Bing guesses the time of what it finds: it sets no label
+        if cur is not None and cur[2] >= EV_INFER and m["t"] < cur[0] - EV_SLACK:
+            return                                   # out before the event it tells of: its time is wrong
         if cur is None:                              # the first report comes out within six hours of the event
             cur = w if w and w[2] == EV_TOLD else (m["t"] - EV_FIRST, m["t"], w[2] if w else EV_ANCHOR)
         elif w and w[2] > cur[2]:
@@ -907,6 +955,21 @@ class Clusterer:
             cur = (x[0], x[1], cur[2]) if x else cur
         self.ev[c["id"]] = cur
         c["ev"] = [int(cur[0]), int(cur[1]), cur[2]]
+
+    def _facts(self, f, cid):
+        """How many particular facts the report shares with the story's closest report."""
+        best = 0
+        for mf in self.tok.get(cid, {}).values():
+            n = sum((
+                bool(same_spot(f, mf)),
+                bool(f["cities"] & mf["cities"]),
+                bool(f["nums"] and mf["nums"] and f["nums"] & mf["nums"]),
+                bool(f["sk"] and mf["sk"] and same_strike(f, mf)),
+                bool(f.get("sid") and mf.get("sid") and vessel.same_ship(f["sid"], mf["sid"])),
+                bool(f.get("stmt") and mf.get("stmt") and vessel.same_statement(f["stmt"], mf["stmt"])),
+                bool(f.get("ship") and mf.get("ship") and vessel.same(f["ship"], mf["ship"]))))
+            best = max(best, n)
+        return best
 
     def _ev_fits(self, f, cid):
         """The report's time meets the story's label, or one can't rule the other out: a label only assumed from the
@@ -993,14 +1056,20 @@ class Clusterer:
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
                 matches.append((score, c))
-        if EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD:
-            # a report giving a time goes to the story whose time is nearest it
-            gaps = {id(c): _ev_gap(f["evp"], self.ev[c["id"]]) for _, c in matches
-                    if (self.ev.get(c["id"]) or (0, 0, EV_ANCHOR))[2] != EV_ANCHOR}
-            if gaps:
-                g = min(gaps.values())
-                matches = [x for x in matches if gaps.get(id(x[1]), g) == g]
-        matches.sort(key=lambda x: -x[0])
+        if EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD and len(matches) > 1:
+            # a report giving a time that fits several events (two or three blasts at dawn): the event whose time it
+            # falls in, then the one sharing the most particular facts with it (the spot, the city, who struck, the
+            # count, the ship, the statement), then the one whose time is nearest, then the closest headline
+            def rank(x):
+                lab = self.ev.get(x[1]["id"])
+                known = lab and lab[2] != EV_ANCHOR
+                return (_ev_gap(f["evp"], lab) if known else 0, -self._facts(f, x[1]["id"]),
+                        _ev_mid_dist(f["evp"], lab) if known else 0, -x[0])
+            matches.sort(key=rank)
+            g = rank(matches[0])[0]
+            matches = [x for x in matches if rank(x)[0] == g]
+        else:
+            matches.sort(key=lambda x: -x[0])
         best = matches[0][1] if matches else None
         for _, other in matches[1:]:
             # the report fits two stories: fold the smaller one in only if the two also match each other
