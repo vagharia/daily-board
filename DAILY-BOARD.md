@@ -30,6 +30,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Mediators visiting Tehran → orange | `classify.py` → `_mediator_visit` |
 | Clustering, same-story rules, story-level caps, channel rules | `cluster.py` → `features`, `same_story`, `Clusterer`, scoring block after `ch_strike` |
 | Same strike in other words (news only, same attacker + city, 12 h, no "new/again") | `cluster.py` → `strike_key`, `same_strike` |
+| When it happened: a time label per event story (`c["ev"]` = from, to, how known: 0 first report −6 h, 1 first-hand report −12 h, 2 told in a headline); a report placed at another time never joins; a told time can join an older story up to 48 h | `cluster.py` → `EV_ON`, `_ev_report`, `_first_hand`, `Clusterer._ev_add`, `_ev_fits`, `_ev_late` |
 | Qeshm, Kish, Abu Musa: places of their own; Qeshm and Abu Musa within the Hormuz area for matching | `lexicon.py` → `PLACES`; `cluster.py` → `REGION` |
 | "Source not stated" vs relayed outlet (unknown outlets, «روزنامه آمریکایی X») | `citation.py` → `outlet_named`, `OTHER` |
 | Ships/tankers: marks (distance + bearing from ports in Hormuz, Persian Gulf, Arabian Sea, Red Sea), sea areas, time (`when(fine=True)`: «بامداد امروز», "3 hours ago", local clock), kind of ship (tanker/super/LNG/container…), flag, owner, name, ship counts, Iranian statements | `vessel.py` (`REFS`, `AREAS`, `mark`, `area`, `when`, `kinds`, `flag`, `owner`, `name`, `ship_id`, `counts`, `statement`, `signature`) |

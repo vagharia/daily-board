@@ -537,7 +537,7 @@ def features(m):
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
             "sk": strike_key(m),
-            "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")}
+            "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
 
 
 def _at_sea(m):
@@ -777,6 +777,75 @@ def variants(title, same=False):
     return [full]
 
 
+# ------------------------------------------------------------------ when it happened: a time label for each story
+# A story of an event (a strike, a blast, an incident at sea, an Iranian statement about ships) carries the span
+# of time the event happened in (c["ev"]), worked out from its reports and narrowed as reports come in. A report is
+# placed in time too: by the time it gives («بامداد امروز», "3 hours ago", "last night", a clock time), else, if it
+# comes first-hand (an Iranian outlet, an Israeli outlet on Israel, an advisory placing a ship by distance; not a
+# video, a recap, an analysis or a relayed outlet), within the 12 hours before it; else not at all. A report placed
+# in time never joins a story whose span it misses: today's new "two tankers" statement is not yesterday's, however
+# late yesterday's story got its last retelling. A report giving a time within an older story's span joins it
+# beyond the usual windows (up to two days after its latest report). The other rules stay as they are.
+EV_ON = True
+EV_FIRST = 6 * 3600          # the first report of an event comes out within this of it
+EV_FRESH = 12 * 3600         # a first-hand report that gives no time tells of something within this before it
+EV_SLACK = 2 * 3600
+EV_EXTEND = 48 * 3600
+EV_NARROW = 18 * 3600        # a time the headline gives counts only if it is this narrow ("Friday", not "this week")
+_NOT_NOW_EN = re.compile(r"\b(video|watch|footage|images?|photos?|pictures|recap|timeline|explainer|what we know)\b", re.I)
+_NOT_NOW_FA = re.compile(fa_norm("فیلم|تصاویر|ویدئو|ویدیو|عکس|جمع بندی|مروری بر|روایت"))
+_NOT_NOW_FLAGS = {"past", "analysis", "opinion", "digest", "speculative", "denial"}
+
+
+def _ev_feats(m):
+    return {"evp": None}                         # filled by _ev_report once the rest of the features are known
+
+
+def _physical(f):
+    return f["cls"] in PHYSICAL or bool(f.get("stmt") or f.get("ship"))
+
+
+def _first_hand(m, f):
+    """A report that tells of the event as it comes: it gives no reason to think it is told later."""
+    if set(m.get("flags") or []) & _NOT_NOW_FLAGS or f["chan"]:
+        return False
+    en, fa = vessel._head(m)
+    if _NOT_NOW_EN.search(en) or (fa and _NOT_NOW_FA.search(fa)):
+        return False
+    if f.get("ship"):
+        return True                              # an advisory placing the ship by distance and bearing
+    if f["cite"]:
+        return False                             # a relayed outlet
+    g = BY_ID.get((m.get("s") or "").split(":")[0], {}).get("group")
+    return g == "iran" or (g == "il" and "il" in f["ctry"])
+
+
+EV_ANCHOR, EV_INFER, EV_TOLD = 0, 1, 2       # how a time is known: a story's first report, a first-hand report, told
+
+
+def _ev_report(m, f):
+    """(earliest, latest, how it is known) of the event a report tells of, or None. A time the headline of a news
+    report gives (EV_TOLD; a channel's clock times are too loose: «ساعت ۱۲:۱۴» may be past midnight), else the 12
+    hours before a first-hand report (EV_INFER)."""
+    if not _physical(f):
+        return None
+    w = None if f["chan"] else vessel.when({**m, "su": "", "en_su": ""}, fine=True)  # a summary recalls other days
+    if w and w[1] - w[0] <= EV_NARROW:
+        return (w[0], w[1], EV_TOLD)
+    if _first_hand(m, f):
+        return (m["t"] - EV_FRESH, m["t"], EV_INFER)
+    return None
+
+
+def _ev_gap(a, b):
+    return max(0, a[0] - b[1], b[0] - a[1])
+
+
+def _ev_meet(a, b):
+    lo, hi = max(a[0], b[0]), min(a[1], b[1])
+    return (lo, hi) if lo <= hi else None
+
+
 class Clusterer:
     def __init__(self, clusters):
         self.clusters = clusters
@@ -792,14 +861,16 @@ class Clusterer:
         self.deps = {}                                    # (count, kind, destination) of a deployment -> story ids
         self.evacs = {}                                   # (who, country, how far) of an order to leave -> story ids
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
+        self.ev = {}                                      # story id -> (earliest, latest): when its event happened
         for c in clusters:
             self._index(c)
 
     def _index(self, c):
         feats = self.tok.setdefault(c["id"], {})
-        for m in c["m"]:
+        for m in sorted(c["m"], key=lambda m: m["t"]):
             if m["k"] not in feats:
                 feats[m["k"]] = features(m)
+                self._ev_add(c, m, feats[m["k"]])
                 for v in feats[m["k"]]["vars"]:
                     for w in v:
                         self.index.setdefault(w, set()).add(c["id"])
@@ -820,6 +891,43 @@ class Clusterer:
                 if feats[m["k"]].get("dup"):
                     self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
+    def _ev_add(self, c, m, f):
+        """Narrow the story's time label with a report (see EV_ON)."""
+        if not EV_ON or not _physical(f):
+            return
+        w = f.get("evp") or _ev_report(m, f)
+        f["evp"] = w
+        cur = self.ev.get(c["id"])
+        if cur is None:                              # the first report comes out within six hours of the event
+            cur = w if w and w[2] == EV_TOLD else (m["t"] - EV_FIRST, m["t"], w[2] if w else EV_ANCHOR)
+        elif w and w[2] > cur[2]:
+            x = _ev_meet(cur, w)                         # a better known time: it narrows the label or replaces it
+            cur = (x[0], x[1], w[2]) if x else w
+        elif w and w[2] == cur[2]:
+            x = _ev_meet(cur, w)                         # a report that misses it (joined by another rule) is left out
+            cur = (x[0], x[1], cur[2]) if x else cur
+        self.ev[c["id"]] = cur
+        c["ev"] = [int(cur[0]), int(cur[1]), cur[2]]
+
+    def _ev_fits(self, f, cid):
+        """The report's time meets the story's label, or one can't rule the other out: a label only assumed from the
+        story's first report rules out nothing, nor does a first-hand report's assumed time rule out a time told (an
+        event made known days later: «قطر حملهٔ ۲ روز قبل به کشتی خود را تأیید کرد»)."""
+        if not EV_ON or not f.get("evp"):
+            return True
+        lab = self.ev.get(cid)
+        if not lab or lab[2] == EV_ANCHOR or (f["evp"][2] == EV_INFER and lab[2] == EV_TOLD):
+            return True
+        return vessel.overlap(f["evp"], lab, EV_SLACK)
+
+    def _ev_late(self, item, f, c):
+        """A report giving a time within an older story's label: it may join beyond the usual windows."""
+        if not EV_ON or not f.get("evp") or f["evp"][2] != EV_TOLD:
+            return False
+        lab = self.ev.get(c["id"])
+        return bool(lab) and lab[2] != EV_ANCHOR and item["t"] - c["u"] <= EV_EXTEND \
+            and vessel.overlap(f["evp"], lab, EV_SLACK)
+
     def _rare(self, w, t):
         """True if at most RARE_STORIES stories of the two days around t use the word."""
         ids = self.index.get(w, ())
@@ -837,6 +945,8 @@ class Clusterer:
     def add(self, item):
         """Attach the item to an existing cluster or start a new one. Returns (cluster, is_new_cluster)."""
         f = features(item)
+        if EV_ON and _physical(f):
+            f["evp"] = _ev_report(item, f)
         it_tok = set().union(*f["vars"])
         rare = frozenset(w for w in it_tok if len(w) >= 4 and not w.isdigit() and self._rare(w, item["t"]))
         cand = {}
@@ -846,7 +956,8 @@ class Clusterer:
         ranked = []
         for cid, n in cand.items():
             c = self.byid.get(cid)
-            if c and abs(item["t"] - _since(c)) <= (STRIKE_WINDOW if f["sk"] else WINDOW["other"]):
+            if c and (abs(item["t"] - _since(c)) <= (STRIKE_WINDOW if f["sk"] else WINDOW["other"])
+                      or self._ev_late(item, f, c)):
                 ranked.append((n, cid))
         matches = []
         for _, cid in sorted(ranked, reverse=True)[:40]:
@@ -861,12 +972,16 @@ class Clusterer:
                 continue                                   # an Iranian statement vs an incident told independently
             if self._ship_misfit(f, cid):
                 continue                                   # another kind of ship, another flag or another name
+            if not self._ev_fits(f, cid):
+                continue                                   # it happened at another time
+            late = self._ev_late(item, f, c)
             feats = self.tok.get(cid, {})
-            if f["sk"] and abs(item["t"] - _since(c)) <= STRIKE_WINDOW and any(same_strike(f, mf) for mf in feats.values()):
+            if f["sk"] and (abs(item["t"] - _since(c)) <= STRIKE_WINDOW or late) \
+                    and any(same_strike(f, mf) for mf in feats.values()):
                 matches.append((0.55, c))                  # the same strike told in other words (see same_strike)
                 continue
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
-            if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"]:
+            if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"] and not late:
                 continue                                   # when: measured from the story's first report
             times = {m["k"]: m["t"] for m in c["m"]}
             score = max((same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()),
@@ -877,8 +992,15 @@ class Clusterer:
                 + self._own_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
-            if not any(x is c for _, x in matches):
+            if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
                 matches.append((score, c))
+        if EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD:
+            # a report giving a time goes to the story whose time is nearest it
+            gaps = {id(c): _ev_gap(f["evp"], self.ev[c["id"]]) for _, c in matches
+                    if (self.ev.get(c["id"]) or (0, 0, EV_ANCHOR))[2] != EV_ANCHOR}
+            if gaps:
+                g = min(gaps.values())
+                matches = [x for x in matches if gaps.get(id(x[1]), g) == g]
         matches.sort(key=lambda x: -x[0])
         best = matches[0][1] if matches else None
         for _, other in matches[1:]:
@@ -891,6 +1013,10 @@ class Clusterer:
                 continue
             if best.get("manual") or other.get("manual"):
                 continue                               # a story put together by hand is never folded either way
+            if EV_ON and self.ev.get(best["id"]) and self.ev.get(other["id"]) \
+                    and self.ev[best["id"]][2] == self.ev[other["id"]][2] != EV_ANCHOR \
+                    and not vessel.overlap(self.ev[best["id"]], self.ev[other["id"]], EV_SLACK):
+                continue                               # two events at different times
             if any(self._ship_conflict(x, best["id"]) for x, _ in self.ships.get(other["id"], [])):
                 continue                               # two incidents at sea placed apart
             if self.sids.get(other["id"]) and self.sids.get(best["id"]) and not any(
@@ -1000,7 +1126,8 @@ class Clusterer:
             return out
         for cid, sts in self.stmts.items():
             c = self.byid.get(cid)
-            if not c or len(c["m"]) >= 60 or abs(item["t"] - c["u"]) > STMT_KEEP or self._ship_misfit(f, cid):
+            if not c or len(c["m"]) >= 60 or self._ship_misfit(f, cid) \
+                    or (abs(item["t"] - c["u"]) > STMT_KEEP and not self._ev_late(item, f, c)):
                 continue
             if any(vessel.same_statement(f["stmt"], x) and (not f.get("when") or not w or vessel.overlap(f["when"], w))
                    for x, w, _ in sts):
