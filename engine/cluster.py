@@ -901,8 +901,7 @@ class Clusterer:
         if cur is None:                              # the first report comes out within six hours of the event
             cur = w if w and w[2] == EV_TOLD else (m["t"] - EV_FIRST, m["t"], w[2] if w else EV_ANCHOR)
         elif w and w[2] > cur[2]:
-            x = _ev_meet(cur, w)                         # a better known time: it narrows the label or replaces it
-            cur = (x[0], x[1], w[2]) if x else w
+            cur = w                                      # a better known time replaces a weaker guess
         elif w and w[2] == cur[2]:
             x = _ev_meet(cur, w)                         # a report that misses it (joined by another rule) is left out
             cur = (x[0], x[1], cur[2]) if x else cur
