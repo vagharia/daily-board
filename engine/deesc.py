@@ -19,7 +19,8 @@ Confirmation:
 
 Subject: a ceasefire or end of the war, Hormuz reopened, the blockade lifted, a nuclear deal, a prisoner exchange or a
 withdrawal count in full; a humanitarian pause, airspace or flights reopened, mine clearing one stage less; anything
-vaguer ("regional security", "ties", "reducing tension") at most stage 1. Only Iran against America or Israel can be
+vaguer ("regional security", "ties", "reducing tension") at most stage 1, and so are talks on a matter outside the war
+(deportations, migrants, visas, consular work, students, sport) even between Iran and America. Only Iran against America or Israel can be
 red; other fronts (Saudi Arabia and the Houthis, Lebanon, Gaza) stop at orange.
 """
 import re
@@ -66,6 +67,12 @@ CORE_EN = (r"\b(?:cease-?fire|truce|end (?:of |to )?the war|halt (?:to )?(?:the 
            r"|draft (?:deal|agreement)|interim (?:deal|agreement)|peace (?:proposal|plan|talks|framework))\b")
 MINOR_EN = (r"\b(?:humanitarian pause|corridor|aid deliveries|airspace reopen\w*|reopen\w*[^.]{0,15}airspace|flights? resum\w*"
             r"|resum\w*[^.]{0,15}flights?|mine[- ]?clearing|demining)\b")
+# talks on a matter outside the war (deporting nationals, migrants, visas, consular work, students, pilgrims, sport):
+# not de-escalation, even when Iran and America are the two sides ("held talks with Iran on deporting Iranians")
+OFF_FA = (r"اخراج|دیپورت|مهاجر|مهاجرت|پناهجو|پناهنده|پناهندگی|ویزا|روادید|کنسولی|اتباع|دانشجو|زائر|زائران|حج(?![؀-ۿ])"
+          r"|جام\s*جهانی|فوتبال|ورزش|المپیک|گردشگر|زلزله")
+OFF_EN = (r"\b(?:deport\w*|immigra\w*|migrants?|migration|refugees?|asylum|visas?|consular|repatriat\w*|nationals"
+          r"|students?|pilgrims?|hajj|world cup|football|soccer|olympic\w*|touris\w*|earthquake)\b")
 OTHER_FRONT_FA = r"غزه|حماس(?![؀-ۿ])|لبنان|حزب\s*الله|یمن|حوثی|انصارالله|عربستان|سوریه|اوکراین|روسیه"
 OTHER_FRONT_EN = r"\b(?:gaza|hamas|leban\w*|hezbollah|yemen\w*|houthis?|saudi\w*|syria\w*|ukrain\w*|russia\w*)\b"
 
@@ -96,7 +103,8 @@ S4_EN = (r"\b(?:agree|agreed|agrees|reach|reached|reaches|strike|struck)\b[^.]{0
          r"|wednesday|thursday|friday|saturday|sunday))\b|\bannounces?\b[^.]{0,20}\b(?:cease-?fire|truce)\b"
          r"|\b(?:cease-?fire|truce)\b[^.]{0,30}\b(?:will|to) (?:start|begin|take effect|come into (?:force|effect))\b")
 S3_EN = (r"\b(?:talks|negotiations|round of talks|meeting)\b[^.]{0,40}\b(?:held|took place|concluded|ended|began|opened|wrapped up)\b"
-         r"|\b(?:met|meet|meets|held talks|hold talks|holds talks|spoke|speaks|phoned)\b(?!\s+(?:\w+\s+){0,2}(?:conditions|demands|terms"
+         r"|\b(?:spoke|speaks|talked)\s+(?:by phone\s+)?(?:with|to)\b(?!\s+(?:the\s+)?(?:reporters|press|media|journalists|nation|troops|supporters|crowd))"
+         r"|\b(?:met|meet|meets|held talks|hold talks|holds talks|phoned)\b(?!\s+(?:\w+\s+){0,2}(?:conditions|demands|terms"
          r"|deadline|requirements|goals|needs|obligations|expectations|criteria))")
 S2_EN = (r"\b(?:proposal|plan|draft|offer|framework|text|package)\b[^.]{0,40}\b(?:presented|submitted|handed|delivered|sent|received"
          r"|tabled|put forward)\b|\b(?:presents?|submits?|hands?|delivers?|sends?|receives?|tables?|puts? forward)\b[^.]{0,30}"
@@ -105,9 +113,11 @@ S1_EN = (r"\b(?:talks?|negotiat\w+|meet\w*|met|discuss\w*|mediat\w+|proposal|pla
          r"|speaks|de-?escalat\w*|diplomac\w*)\b")
 
 HEDGE_FA = (r"ممکن|احتمال|در\s*صورت|اگر|در\s*تلاش|تلاش\s*برای|خواستار|آماده|آمادگی|امیدوار|نزدیک\s*است|شاید|بررسی\s*(?:می|کرد)"
-            r"|به\s*زودی|می\s*تواند|می\s*توان|باید|مشروط|ادعا|شرایط|شرط|یا\s")
+            r"|به\s*زودی|می\s*تواند|می\s*توان|باید|مشروط|ادعا|شرایط|شرط|یا\s"
+            r"|پیشنهاد\s*(?:دیدار|ملاقات|مذاکره|گفتگو|گفت\s*وگو)|حاضر\s*(?:است|به)|دعوت\s*(?:کرد|کردند)")
 HEDGE_EN = (r"\b(?:may|might|could|if|would|trying|seeks?|seeking|urges?|calls? for|ready|hopes?|hopeful|close to|nearing|soon"
-            r"|considering|weighs?|possible|potential|expected to|likely|plans? to|must|should|need to|or)\b")
+            r"|considering|weighs?|possible|potential|expected to|likely|plans? to|must|should|need to|or"
+            r"|offers? to|offered to|proposes? to|proposed to|wants? to|wanted to|willing to|invites?|invited)\b")
 FUTURE_EN = r"\b(?:will|set to|to (?:meet|hold|sign|resume|discuss|start|begin)|next (?:week|month)|tomorrow|later)\b"
 FUTURE_FA = r"خواهد|خواهند|قرار\s*است|فردا|هفته\s*آینده|آینده|می\s*کند|می\s*کنند|برگزار\s*می\s*شود"
 DENY_FA = r"تکذیب|صحت\s*ندارد|کذب|شایعه|هیچ\s*(?:مذاکره|توافق|آتش\s*بس|دیدار|گفتگو)|وجود\s*ندارد|نفی\s*کرد|خبری\s*نیست"
@@ -121,9 +131,11 @@ BROKEN_EN = r"\b(?:violat\w*|breach\w*|collaps\w*|broke down|breaks down|shatter
 # meeting one's own forces ("Khamenei meets military brass", «دیدار رهبر انقلاب با فرماندهان»)
 _OWN_SIDE_EN = re.compile(r"\b(?:met|meet|meets|meeting)\b(?:\s+(?:with|the|his|its|top|senior|iran's|israel's))*\s+"
                           r"(?:military|army|armed forces|commanders?|brass|generals?|officers|troops|forces|cabinet"
-                          r"|security council|war cabinet|irgc|guards)\b", re.I)
+                          r"|security council|war cabinet|irgc|guards|advis[eo]rs?|aides?|national security (?:team|advis[eo]rs?)"
+                          r"|security team|lawmakers|senators|republicans|democrats)\b", re.I)
 _OWN_SIDE_FA = re.compile(fa_norm("(?:دیدار|ملاقات|نشست|جلسه)\\s*(?:\\S+\\s+){0,4}?با\\s*(?:جمعی\\s*از\\s*)?"
-                                  "(?:فرماندهان|فرمانده|نیروهای\\s*مسلح|نظامیان|ارتش|سپاه|کابینه|شورای\\s*عالی\\s*امنیت)"))
+                                  "(?:فرماندهان|فرمانده|نیروهای\\s*مسلح|نظامیان|ارتش|سپاه|کابینه|شورای\\s*عالی\\s*امنیت"
+                                  "|مشاوران|مشاور|تیم\\s*امنیت|شورای\\s*امنیت\\s*ملی|نمایندگان|سناتورها|جمهوری\\s*خواهان)"))
 # attacks told in the same headline
 _ESCAL_EN = re.compile(r"\b(?:strikes?|struck|attacks?|attacked|bomb\w*|missiles?|plot\w*|war plans?|raids?)\b", re.I)
 _ESCAL_FA = re.compile(fa_norm("حمله|حملات|ضربه|بمباران|موشک|توطئه|طرح حمله"))
@@ -136,11 +148,11 @@ def _rx(p, flags=0):
 _C = {k: _rx(v.translate(FA_MAP)) for k, v in {                # the text is normalised (ئ -> ی, ZWNJ -> space); so are these
     "t3": T3_FA, "t2": T2_FA, "un": UNNAMED_FA, "core": CORE_FA, "minor": MINOR_FA, "s5": S5_FA, "s4": S4_FA,
     "s3": S3_FA, "s2": S2_FA, "s1": S1_FA, "hedge": HEDGE_FA, "future": FUTURE_FA, "deny": DENY_FA, "reject": REJECT_FA, "broken": BROKEN_FA,
-    "ir": IR_SIDE_FA, "us": OTHER_SIDE_FA, "other": OTHER_FRONT_FA}.items()}
+    "ir": IR_SIDE_FA, "us": OTHER_SIDE_FA, "other": OTHER_FRONT_FA, "off": OFF_FA}.items()}
 _E = {k: _rx(v, re.I) for k, v in {
     "t3": T3_EN, "t2": T2_EN, "un": UNNAMED_EN, "core": CORE_EN, "minor": MINOR_EN, "s5": S5_EN, "s4": S4_EN,
     "s3": S3_EN, "s2": S2_EN, "s1": S1_EN, "hedge": HEDGE_EN, "future": FUTURE_EN, "deny": DENY_EN, "reject": REJECT_EN, "broken": BROKEN_EN,
-    "ir": IR_SIDE_EN, "us": OTHER_SIDE_EN, "other": OTHER_FRONT_EN}.items()}
+    "ir": IR_SIDE_EN, "us": OTHER_SIDE_EN, "other": OTHER_FRONT_EN, "off": OFF_EN}.items()}
 
 
 def grade(lang, title, summary="", rel=0.6, channel=False):
@@ -181,6 +193,8 @@ def grade(lang, title, summary="", rel=0.6, channel=False):
         stage = 1                                    # "… as U.S. said to plot strikes": the headline tells of attacks
     both = bool(X["ir"].search(t)) and bool(X["us"].search(t))         # in the headline itself
     direct = both and not (X["other"].search(t) and not X["ir"].search(t))
+    if X["off"].search(t) and not core:
+        stage = min(stage, 1)                        # talks on deportations, visas, sport: not about the war
     if stage >= 2 and not core:
         if minor:
             stage -= 1
