@@ -15,6 +15,7 @@ import time
 import re
 
 from . import evac, http, vessel
+from .cluster import channel
 from .util import clip_sentence, fa_norm, log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -365,6 +366,16 @@ SEA_ADOPT = 3 * 3600          # a placed report gives its place to a vague incid
 
 
 def _sea_pick(sea, c, t, quiet=False, first=None):
+    how = _sea_pick1(sea, c, t, quiet, first)
+    inc = sea.pop("_inc", None)
+    if inc is not None:
+        ids = inc.setdefault("ids", [])
+        if c["id"] not in ids:
+            ids.append(c["id"])                      # the stories of the incident: an update in any is its one update
+    return how
+
+
+def _sea_pick1(sea, c, t, quiet=False, first=None):
     """'send', 'update' or None (not announced) for a red story about ships; records what was announced.
     t: now (or, for a story already announced, its latest report); first: when the story was first reported.
     A report that gives no place counts as an incident in that sea area if it comes within six hours of the latest
@@ -404,6 +415,7 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
         inc = next((i for i in reversed(incs) if i.get("area") == ar and first - i.get("tm", i["t0"]) <= SEA_VAGUE
                     and first - i["t0"] <= SEA_KEEP and _ships_fit(i.get("sh") or {}, sh)), None)
     if inc:
+        sea["_inc"] = inc
         inc["t"] = max(inc["t"], t)
         if mt:
             inc["tm"] = max(inc.get("tm", inc["t0"]), mt)
@@ -420,6 +432,7 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
             return "update"
         return None
     incs.append({"t0": first, "t": t, "tm": mt or first, "mk": mk, "area": ar, "fx": sorted(fx), "upd": 0, "sh": sh})
+    sea["_inc"] = incs[-1]
     return None if quiet else "send"
 
 
@@ -457,6 +470,81 @@ def _sea_save(sea):
 
 
 LATE = 2 * 3600            # a report seen this long after it was published is old news by then: no alert
+LATER_FRESH = 6 * 3600     # a report joining a story already announced gives an update only this soon after it came out
+_NEWS_FA = {"sank": "غرق شدن کشتی", "hurt": "کشته یا زخمی شدن افراد", "who": "معلوم شدن عامل حمله", "seized": "توقیف کشتی"}
+
+
+def _news(c):
+    return set().union(*(vessel.facts(m) for m in c["m"])) & SEA_NEWS if c["m"] else set()
+
+
+def _head_news(m):
+    """What important a report's headline tells (not its summary, which often recalls earlier events)."""
+    return vessel.facts({**m, "su": "", "en_su": ""}) & SEA_NEWS
+
+
+def _same_ships(m, kd):
+    """The report is about a ship (in its headline) of a kind that fits the story's when it was announced."""
+    en, fa = vessel._head(m)
+    if not (vessel.SHIP_EN.search(en) or vessel.SHIP_FA.search(fa or "")):
+        return False
+    x = vessel.ship_id(m)["kd"]
+    return not (x and kd and not vessel.kinds_fit(frozenset(x), frozenset(kd)))
+
+
+def _later(sea, clusters, sent, t, seen, quiet):
+    """Stories about ships already announced (an incident or an Iranian claim): a report that joined since and tells
+    in its headline something important the story didn't tell before (SEA_NEWS: a sinking, people hurt, who did it,
+    a seizure) gives one update, the only one of its incident. The report: from a news organisation (not a channel),
+    about a ship of the kind announced (not the fishing boats that joined a tanker's story), out within six hours.
+    Returns [(story, report, new facts)]."""
+    known = sea.setdefault("fx", {})
+    for k in [k for k, v in known.items() if t - v["t"] > SEA_KEEP]:
+        del known[k]
+    out = []
+    sent = set(sent)
+    for c in clusters:
+        if c["id"] not in sent or c["tier"] != "red" or not _at_sea(c):
+            continue
+        fx = _news(c)
+        k = known.get(c["id"])
+        if k is None:                                # first seen announced: what it tells is known
+            known[c["id"]] = {"fx": sorted(fx), "t": t, "kd": _ships(c)["kd"]}
+            continue
+        k["t"] = t
+        new = fx - set(k["fx"])
+        if not new:
+            continue
+        k["fx"] = sorted(set(k["fx"]) | fx)
+        reps = [m for m in c["m"] if _head_news(m) & new and t - m["t"] <= LATER_FRESH and not channel(m)
+                and _same_ships(m, k.get("kd")) and not (seen and seen.get(m["k"], m["t"]) - m["t"] > LATE)]
+        reps = [m for m in reps if not (_RECAP_EN.search(m.get("en_ti") or m.get("ti") or "")
+                                        or _RECAP_FA.search(fa_norm(m.get("ti") or "")))]
+        if quiet or k.get("upd") or not reps or "denial" in c.get("flags", []) or "past" in c.get("flags", []):
+            continue
+        inc = next((i for i in sea.get("inc", []) if c["id"] in i.get("ids", [])), None)
+        if inc is not None:
+            if inc.get("upd", 0) >= SEA_UPDATES:
+                continue
+            inc["upd"] = inc.get("upd", 0) + 1
+            inc["fx"] = sorted(set(inc.get("fx", [])) | new)
+        k["upd"] = 1
+        m = next((m for m in reps if m.get("lang") == "fa"), reps[0])
+        out.append((c, m, new))
+    return out
+
+
+def _later_msg(c, m, new):
+    fa = c.get("fa") or {}
+    title = html.escape(fa.get("ti") or c.get("en", {}).get("ti", ""))
+    what = "، ".join(_NEWS_FA[x] for x in ("sank", "hurt", "who", "seized") if x in new)
+    body = f"🔄 <b>به‌روزرسانی: {title}</b>\nخبر تازه: {what}"
+    if m.get("lang") == "fa" and m.get("ti"):
+        body += f"\n{html.escape(m['ti'])}"
+    src = m.get("sn_fa") or m.get("sn")
+    if src:
+        body += f"\n\n<i>منبع: {html.escape(src)}</i>"
+    return body
 
 
 def _late(c, seen):
@@ -494,6 +582,10 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
             keep.append(c)
             if how == "update":
                 upd.add(c["id"])
+    later = _later(sea, clusters, sent, t, seen, first_run)
+    for c in red_new:                                # announced now: what they tell is known
+        if _at_sea(c):
+            sea["fx"][c["id"]] = {"fx": sorted(_news(c)), "t": t, "kd": _ships(c)["kd"]}
     _sea_save(sea)
     red_msg = keep
     if not first_run:
@@ -505,6 +597,8 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
             messages.append(msg)
         if len(red_msg) > 4:
             messages.append(f"🔴 و {_fa_num(len(red_msg) - 4)} خبر قرمز دیگر در بولتن.")
+        for c, m, new in later[:2]:
+            messages.append(_later_msg(c, m, new))
         for l in lights_on:
             ev = l["evidence"][0] if l["evidence"] else None
             line = html.escape(ev.get("fa", "")) if ev else ""
