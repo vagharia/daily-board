@@ -534,33 +534,47 @@ def _road(lang, t):
     return bool(_ROAD_EN.search(t or "")) and not _WAR_EN.search(t or "")
 
 
-# a fire or a gas blast in a home, a shop or a block of flats, put out by firefighters ("مهار آتش‌سوزی منزل مسکونی در
-# اصفهان پیش از وقوع انفجار", "انفجار کپسول گاز در …"): an accident, a yellow story, never a strike; a refinery, a
-# port, a base or any word of the war keeps it as it is
+# a fire or a blast in a home, a shop or a block of flats with an accidental cause told (a gas leak, a gas cylinder,
+# a backdraft, a heater or a short circuit: "نشت گاز شهری موجب انفجار در یک منزل مسکونی …"), or a fire with no blast
+# put out by firefighters: an accident, a yellow story. A blast in a home or a street with no cause told stays as it
+# is; so does anything at a refinery, a port, a base, or with any word of the war.
 HOME_FIRE_CAP = 38.0
-_FIRE_FA = re.compile(fa_norm("آتش سوزی|آتش گرفت|حریق|انفجار|شعله|دود"))
-_HOME_FA = re.compile(fa_norm("منزل|خانه|مسکونی|آپارتمان|ساختمان|مغازه|واحد تجاری|پاساژ|انبار کالا|کارگاه|رستوران|هتل"
-                              "|آتش نشان|آتش نشانی|بک درفت|بکدرفت|نشت گاز|انفجار گاز|گاز شهری|کپسول گاز|سیلندر گاز"
-                              "|پیک نیک|بخاری|شومینه|اتصال برق|اتصالی برق|کولر"))
+_FIRE_FA = re.compile(fa_norm("آتش سوزی|آتش گرفت|حریق|انفجار|شعله"))
+_BLAST_FA = re.compile(fa_norm("انفجار|منفجر|صدای مهیب|انهدام"))
+_CAUSE_FA = re.compile(fa_norm("نشت گاز|انفجار گاز|گاز شهری|گازگرفتگی|کپسول گاز|سیلندر گاز|مخزن گاز|گاز مایع|پیک نیک"
+                               "|لوله گاز|انشعاب گاز|بک درفت|بکدرفت|بخاری|آبگرمکن|شومینه|اتصال برق|اتصالی برق|اتصال سیم"
+                               "|کولر|کپسول آتش نشانی"))
+_HOME_FA = re.compile(fa_norm("منزل|خانه|مسکونی|آپارتمان|ساختمان|مجتمع|مغازه|واحد تجاری|پاساژ|انبار کالا|کارگاه|رستوران"
+                              "|هتل|آتش نشان"))
 _HOME_NOT_FA = re.compile(fa_norm("حمله|پهپاد|موشک|بمب|ترور|اصابت|شلیک|پدافند|جنگنده|تیراندازی|مسلح|خرابکار|عملیات تروریستی"
                                   "|پالایشگاه|پتروشیمی|نیروگاه|پادگان|پایگاه|سپاه|ارتش|نظامی|هسته ای|غنی سازی|سایت|تاسیسات"
-                                  "|تأسیسات|بندر|اسکله|کشتی|نفتکش|خط لوله|انبار مهمات|مهمات|اسرائیل|آمریکا|صهیونیست"))
-_HOME_FIRE_EN = re.compile(r"\b((house|home|residential|apartment|flat|building|shop|restaurant|hotel|warehouse) (fire|blaze)"
-                           r"|fire ?fighters?|fire (brigade|department|service)|backdraft|gas (leak|cylinder|canister)"
-                           r"|(gas|boiler|cylinder|heater) (explosion|blast))\b", re.I)
+                                  "|تأسیسات|بندر|اسکله|کشتی|نفتکش|خط لوله|انبار مهمات|مهمات|اسرائیل|آمریکا|صهیونیست"
+                                  "|مشکوک|نامعلوم|ناشناخته|علت .{0,15}(?:مشخص نیست|نامشخص|در دست بررسی)"))
+_FIRE_EN = re.compile(r"\b((house|home|residential|apartment|flat|building|shop|restaurant|hotel|warehouse) (fire|blaze)"
+                      r"|fire ?fighters?|fire (brigade|department|service))\b", re.I)
+_BLAST_EN = re.compile(r"\b(explo\w+|blast\w*|detonat\w+)\b", re.I)
+_CAUSE_EN = re.compile(r"\b(gas (leak|cylinder|canister|pipe|explosion|blast)|backdraft|boiler|heater|short[- ]circuit"
+                       r"|electrical fault)\b", re.I)
 _HOME_NOT_EN = re.compile(r"\b(attack\w*|strike\w*|drones?|missiles?|bomb\w*|shell\w*|gunmen|sabotage|refiner\w*"
                           r"|petrochemical|power (plant|station)|base|military|nuclear|port|ship|tanker|pipeline|depot"
-                          r"|ammunition|israel\w*|u\.?s\.?|america\w*|irgc)\b", re.I)
+                          r"|ammunition|israel\w*|u\.?s\.?|america\w*|irgc|suspicious|unknown|unexplained|mysterious)\b",
+                          re.I)
 
 
 def _home_fire(lang, t, s):
-    """A household or shop fire or gas blast (title, and the first sentence for who put it out)."""
+    """A household or shop fire, or a blast there with an accidental cause told (title and first sentence)."""
     if lang == "fa":
         t = fa_norm(t)
         lead = t + " " + fa_norm(first_sentences(s or "", 220))
-        return bool(_FIRE_FA.search(t)) and bool(_HOME_FA.search(lead)) and not _HOME_NOT_FA.search(lead)
+        if not _FIRE_FA.search(t) or not _HOME_FA.search(lead) or _HOME_NOT_FA.search(lead):
+            return False
+        return bool(_CAUSE_FA.search(lead)) or not _BLAST_FA.search(lead)
     lead = (t or "") + " " + first_sentences(s or "", 220)
-    return bool(_HOME_FIRE_EN.search(t or "")) and not _HOME_NOT_EN.search(lead)
+    if _HOME_NOT_EN.search(lead):
+        return False
+    if _CAUSE_EN.search(t or ""):
+        return True
+    return bool(_FIRE_EN.search(t or "")) and not _BLAST_EN.search(lead)
 
 
 HIJAB_CAP = 40.0
