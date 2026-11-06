@@ -34,7 +34,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | "Source not stated" vs relayed outlet (unknown outlets, «روزنامه آمریکایی X») | `citation.py` → `outlet_named`, `OTHER` |
 | Ships/tankers: marks (distance + bearing from ports in Hormuz, Persian Gulf, Arabian Sea, Red Sea), sea areas, time (`when(fine=True)`: «بامداد امروز», "3 hours ago", local clock), kind of ship (tanker/super/LNG/container…), flag, owner, name, ship counts, Iranian statements | `vessel.py` (`REFS`, `AREAS`, `mark`, `area`, `when`, `kinds`, `flag`, `owner`, `name`, `ship_id`, `counts`, `statement`, `signature`) |
 | Same ship/incident in the bulletin: kind/flag/owner/name must fit; same owner + kind + area joins | `cluster.py` → `same_story` (sid), `_ship_misfit`, `_own_matches` |
-| Telegram: one alert per incident at sea, repeated Iranian claims, update only for sinking/casualties/who/seizure | `alerts.py` → `_sea_pick`, `_claim_told`, `SEA_NEWS` |
+| Telegram: one alert per incident at sea, repeated Iranian claims (24 h; a new statement — 2+ Iranian agencies within an hour, or "two more" — only 6 h), update only for sinking/casualties/who/seizure | `alerts.py` → `_sea_pick`, `_claim_told`, `_fresh`, `SEA_NEWS` |
 | Deployments (count, kind, destination) | `deploy.py` |
 | Evacuation orders (one story per order, 7 days; stale "effective <date>") | `evac.py` |
 | Telegram red alerts, sea rules, lights, late-report rule | `alerts.py` → `run`, `_sea_pick`, `_late` |

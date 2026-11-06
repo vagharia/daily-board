@@ -184,10 +184,13 @@ def _fa_num(n):
 # and name, vessel.ship_id): a report of a container ship is never the tanker's incident announced before.
 SEA_KEEP = 24 * 3600         # an incident placed by distance and bearing is remembered this long
 SEA_VAGUE = 6 * 3600         # a report that gives no place counts as the incident announced in that sea area this soon
-CLAIM_KEEP = 36 * 3600       # an Iranian claim with a count of ships already announced is not announced again within this
+CLAIM_KEEP = 24 * 3600       # an Iranian claim with a count of ships already announced is not announced again within this
 CLAIM_VAGUE = 12 * 3600      # nor one with no count ("a tanker caught fire") after a claim about that sea within this
 CLAIM_MORE = 6 * 3600        # nor "another tanker" after a claim of another ship within this
 CLAIM_OTHER = 12 * 3600      # the army and the IRGC giving the same count within this: one claim told twice
+CLAIM_FRESH = 6 * 3600       # a new statement (_fresh) is a repeat only of a claim announced this soon: the same statement
+FRESH_WIN = 3600             # split in two stories. The IRGC says "two tankers" day after day; a statement Iranian
+FRESH_OUTLETS = 2            # agencies all publish within an hour is the day's new one, not yesterday's retold
 SEA_UPDATES = 1
 SEA_NEWS = {"sank", "hurt", "who", "seized"}   # what makes an update: not how it was hit (a mine, a drone, a projectile)
 _RECAP_EN = re.compile(r"\blive\b|\bmore on\b|\blatest:|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b"
@@ -239,14 +242,25 @@ def _claims(c):
     return out
 
 
-def _claim_told(x, said, first, w=None):
+def _fresh(c):
+    """A new statement: at least two Iranian agencies published it within an hour of the story's first report (a
+    statement retold the next day comes from one or two outlets abroad, hours later)."""
+    t0 = min(m["t"] for m in c["m"])
+    outs = {m["s"].split(":")[0] for m in c["m"] if m["t"] - t0 <= FRESH_WIN}
+    return len(outs & vessel._IR_OUTLETS) >= FRESH_OUTLETS
+
+
+def _claim_told(x, said, first, w=None, fresh=False):
     """True if the claim x (a signature) was already announced: a claim told again by other outlets or other words.
-    said: key -> when announced. With a count of ships: the same count from the same body (or "Iran") within 36 hours,
+    said: key -> when announced. With a count of ships: the same count from the same body (or "Iran") within 24 hours,
     or from the other body within 12; "the third": the same; "another ship": another ship already told within 6 hours;
     with neither: any claim about that sea and that kind of ship within 12 hours. Counts must be the same: "two
     tankers" is not the "two stopped, four destroyed" of the day before. A super tanker or ships stopped
     never told before is new; so is a claim whose report places what it tells (w: when, vessel.when) after the
-    earlier claim was announced."""
+    earlier claim was announced. "Two more tankers" is new unless "two more" was told within 6 hours. fresh (the
+    story is a new statement, _fresh): only a claim announced within 6 hours is the same."""
+    cap = CLAIM_FRESH if fresh else None
+    lim = (lambda d: min(d, cap)) if cap else (lambda d: d)
     for k, t0 in said.items():
         if w and w[0] > t0 + 3600:
             continue                                 # it tells of what happened after that claim: another one
@@ -260,18 +274,22 @@ def _claim_told(x, said, first, w=None):
         if (x["super"] and not y["super"]) or (x["stop"] and not y["stop"]):
             continue
         if x.get("ord"):
-            if y.get("ord") == x["ord"] and who and dt <= CLAIM_KEEP:
+            if y.get("ord") == x["ord"] and who and dt <= lim(CLAIM_KEEP):
                 return True
             continue
         if x["nums"]:
-            if set(x["nums"]) == set(y["nums"]) and dt <= (CLAIM_KEEP if who else CLAIM_OTHER):
+            if x.get("ano"):                         # "two more tankers": a repeat only of "two more" just told
+                if y.get("ano") and set(x["nums"]) == set(y["nums"]) and dt <= CLAIM_MORE:
+                    return True
+                continue
+            if set(x["nums"]) == set(y["nums"]) and dt <= lim(CLAIM_KEEP if who else CLAIM_OTHER):
                 return True
             continue
         if x.get("ano"):
             if y.get("ano") and dt <= CLAIM_MORE:
                 return True
             continue
-        if dt <= CLAIM_VAGUE:
+        if dt <= lim(CLAIM_VAGUE):
             return True
     return False
 
@@ -361,7 +379,8 @@ def _sea_pick(sea, c, t, quiet=False, first=None):
         return None                                  # the reports place it hours ago: told again, not new
     sigs = [(x, m) for x, m in ((vessel.signature(m), m) for m in c["m"]) if x]
     if _head_claim(c) and sigs:
-        new = [x for x, m in sigs if not _claim_told(x, claims, first, vessel.when(m, fine=True))]
+        fresh = _fresh(c)
+        new = [x for x, m in sigs if not _claim_told(x, claims, first, vessel.when(m, fine=True), fresh)]
         for x, _ in sigs:
             k = _claim_key(x)
             claims[k] = max(claims.get(k, 0), t)
