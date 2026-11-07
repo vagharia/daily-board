@@ -613,6 +613,9 @@ def news_round(full=True):
             for m in c["m"]:
                 fstory[m["k"]] = {"sid": c["id"], "places": pl, "n": len(c["m"]), "news0": news0}
     flash_msgs, _ = flash.process(fstate, rel_items, T, start, quiet=first_run, fa_story=fa_head, story=fstory)
+    nd = flash.drop_never_events(fstate, clusters)
+    if nd:
+        log(f"main-front lines taken off (controlled detonation or advance notice): {nd}")
     nx = flash.mark_denied(fstate, clusters)
     if nx:
         log(f"main-front lines marked not confirmed: {nx}")

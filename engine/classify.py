@@ -10,6 +10,7 @@ import re
 
 from . import config, deesc, sport, witness
 from .classify_fa import STRONG as STRONG_FA, score_fa
+from . import scheduled
 from .fronts import SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
@@ -899,6 +900,11 @@ Q_SIDE = re.compile(r"\b(iran\w*|tehran|irgc|u\.?s\.?|us|america\w*|washington|p
 CONTROLLED = re.compile(r"\b(non-?functional|unexploded|unfired|un-?detonated|controlled (explosions?|detonations?)"
                         r"|defus\w+|bomb disposal|ordnance|munitions? (clearance|disposal)|clearing (mines|munitions)"
                         r"|destruction of (\w+ ){0,3}(ammunition|munitions?|shells|bombs))\b", I)
+# the same, narrower, for reading the English translation of a Persian report
+CONTROLLED_TR = re.compile(r"\b(unexploded|un-?detonated|controlled (explosions?|detonations?|blasts?|demolitions?)"
+                           r"|bomb disposal|(munitions?|ordnance|ammunition) (clearance|disposal|destruction)"
+                           r"|(defus|neutraliz|neutralis)\w* (of )?(unexploded |remaining )?(bombs?|munitions?|ordnance))\b", I)
+SCHEDULED_CAP = 60.0
 # fact-checks and debunks of attack claims
 FACTCHECK = re.compile(r"\b(does not show|doesn't show|did not show|didn't show|outdated (video|footage|image|photo)s?"
                        r"|old (video|footage)|fact[- ]?check\w*|misleading|miscaptioned|false claims?|no evidence of"
@@ -1123,6 +1129,17 @@ def classify(item):
         en_s = _digest_part(en_t, en_s, "en")
         sev, topics, flags = score_en(en_t, en_s)
         fa_t = fa_s = ""
+    if item.get("lang") == "fa" and "controlled" not in flags and (
+            CONTROLLED_TR.search(item.get("en_ti") or "") or CONTROLLED_TR.search((item.get("en_su") or "")[:200])):
+        # the English translation says what the Persian rules missed (a spelling they don't know): a controlled
+        # detonation, not an attack
+        sev = min(sev, 40)
+        flags = (set(flags) - HARD_EVENTS) | {"controlled"}
+    if scheduled.notice(item.get("lang") or "en", fa_t or en_t, fa_s or en_s, flags, item.get("t")):
+        # an advance notice ("…فردا اجرا می‌شود", "will be carried out tomorrow"): nothing has happened yet, so it is
+        # neither an event of the moment nor a red story (scheduled.py)
+        sev = min(sev, SCHEDULED_CAP)
+        flags = (set(flags) - HARD_EVENTS) | {"scheduled"}
     if item.get("via") == "tg" and aside(fa_t or en_t):
         # a channel admin's own opinion or what-if: yellow, and never an event
         sev = min(sev, 38)

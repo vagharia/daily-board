@@ -92,7 +92,7 @@ _STEPS = [
 _STEPS = [(n, k, re.compile(fa), re.compile(en, re.I)) for n, k, fa, en in _STEPS]
 _WIT_STEP = {"strike": 4, "blast": 4, "launch": 3, "airdef": 2, "jet": 1, "drone": 1, "siren": 1, "infra": 4}
 # a report that is not of something happening now
-_NOT_NOW = {"denial", "controlled", "past", "speculative", "threat", "analysis", "opinion", "reaction", "verbal",
+_NOT_NOW = {"denial", "controlled", "scheduled", "past", "speculative", "threat", "analysis", "opinion", "reaction", "verbal",
             "civil_drill", "exercise", "sport", "local_toll", "earnings", "piracy", "far_off"}
 _FROM_FA = re.compile(fa_norm("از"))
 # not news of something happening now: a court case, an anniversary, figures for a month, a feature
@@ -562,6 +562,7 @@ def _message(ev, m, kind_of_alert, fa_story=None):
 # recap or live page, and no time in its text more than six hours ago.
 NEWS_REPEAT = 6 * 3600
 _NEWS_NOT = {"analysis", "speculative", "quote", "reaction", "denial", "past", "opinion", "digest", "controlled",
+             "scheduled",
              "verbal", "threat"}
 _LIVE_HEAD = re.compile(r"\blive\b|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b|\bmore on\b"
                         r"|\bquestions?\b|\bwhat(?:'s| is) (?:ahead|next)\b|\bwhat (?:it|this) means\b|^\W*(?:watch|video)\b",
@@ -807,6 +808,32 @@ def confirm_late(state, items):
                 x["conf"] = 1
                 n += 1
     return n
+
+
+# a story that turns out to be a controlled detonation or an advance notice was never an event: its lines leave the list
+NEVER_AN_EVENT = {"controlled", "scheduled"}
+
+
+def drop_never_events(state, clusters):
+    """Lines of a news outlet's report whose story is now a controlled detonation or a notice of something planned
+    («انفجارهای کنترل‌شده… فردا اجرا می‌شود») are taken off the list, with the incident they opened, so that a real event
+    at that place is announced as new. Lines a channel or citizens sent stay (marked "not confirmed" below). Returns
+    how many were taken off."""
+    by = {c["id"]: c for c in clusters}
+    log_ = state.get("log") or []
+    gone = [x for x in log_ if x.get("nw") and (c := by.get(x.get("sid"))) is not None
+            and set(c.get("flags") or []) & NEVER_AN_EVENT
+            and all(set(m.get("flags") or []) & NEVER_AN_EVENT for m in c["m"] if not channel(m))]
+    if not gone:
+        return 0
+    state["log"] = [x for x in log_ if x not in gone]
+    inc = state.get("inc") or {}
+    for x in gone:
+        cur = inc.get(x["p"])
+        if cur and cur["t0"] <= x["t"] <= cur["t1"] and not any(
+                y["p"] == x["p"] and cur["t0"] <= y["t"] <= cur["t1"] for y in state["log"]):
+            inc.pop(x["p"])
+    return len(gone)
 
 
 def mark_denied(state, clusters):

@@ -368,8 +368,8 @@ def strike_key(m):
     """(attacker, places hit, kinds of target) of a news report of an attack, or None (see above)."""
     if channel(m) or m.get("wit") or event_class(m) != "K":
         return None
-    if set(m.get("flags") or []) & {"denial", "past", "controlled", "speculative", "threat", "analysis", "opinion",
-                                    "quote", "digest", "reaction"}:
+    if set(m.get("flags") or []) & {"denial", "past", "controlled", "scheduled", "speculative", "threat", "analysis",
+                                    "opinion", "quote", "digest", "reaction"}:
         return None
     t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
     if not t or _NEW_EN.search(t) or (m.get("lang") == "fa" and _NEW_FA.search(fa_norm(m.get("ti") or ""))):
