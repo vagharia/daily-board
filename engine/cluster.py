@@ -51,6 +51,10 @@ SYN = {
     "uav": "drone", "uavs": "drone", "blast": "explosion", "blasts": "explosion", "explosions": "explosion",
     "interception": "intercept", "interceptions": "intercept", "destruction": "destroy", "destroyed": "destroy",
     "destroys": "destroy",
+    # one thing in several words: "minor" / "limited" / "small" strikes, "anti-aircraft" / "air defence" (tokens),
+    # and "carries" with "carried" (the stemmer made them "carrie" and "carri")
+    "limited": "minor", "small": "minor", "little": "minor", "partial": "minor",
+    "carries": "carried",
     "two": "2", "three": "3", "four": "4", "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
     "ten": "10", "eleven": "11", "twelve": "12", "dozen": "12",
 }
@@ -287,6 +291,7 @@ def tokens(title: str, same=False):
     if same:
         for a, b in _SAME_PHRASES:
             t = t.replace(a, b)
+    t = re.sub(r"\banti[- ]?aircraft\b|\bair[- ]defen[cs]es?\b", " airdefense ", t)
     t = re.sub(r"[^a-z0-9\s]", " ", t)
     out = set()
     for w in t.split():
@@ -318,6 +323,9 @@ PHYSICAL = {"M", "K", "A", "V", "D"}            # something happened somewhere; 
 KIND = {"M": "attack", "K": "attack", "A": "attack", "V": "evac", "D": "deploy", "U": "threat", "T": "threat",
         "N": "nuclear", "S": "sanctions", "O": None}
 WINDOW = {"event": 4 * 3600, "other": 10 * 3600}
+# a named person's words about an event ("Trump says US carried out 'minor' strikes") are retold for hours: a report
+# quoting the same person as one of the story's reports may join an event story this long after its first report
+SPEECH_WINDOW = 10 * 3600
 # places within a wider one: a report of Qeshm and one of the Strait of Hormuz don't name different places
 REGION = {"qeshm": "hormuz", "abu_musa": "hormuz"}
 
@@ -1043,7 +1051,10 @@ class Clusterer:
                 matches.append((0.55, c))                  # the same strike told in other words (see same_strike)
                 continue
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
-            if abs(item["t"] - _since(c)) > WINDOW["event" if physical else "other"] and not late:
+            win = WINDOW["event" if physical else "other"]
+            if f["spk"] and f["spk"][0] and any((x.get("spk") or (None,))[0] == f["spk"][0] for x in feats.values()):
+                win = max(win, SPEECH_WINDOW)              # one person's words, retold for hours
+            if abs(item["t"] - _since(c)) > win and not late:
                 continue                                   # when: measured from the story's first report
             times = {m["k"]: m["t"] for m in c["m"]}
             score = max((same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()),
