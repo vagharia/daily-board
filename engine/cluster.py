@@ -7,7 +7,7 @@ from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .relevance import FA_CITY, FA_IRAN
 from .sources import BY_ID
-from .fronts import SECONDARY_CAP
+from .fronts import MINOR_CAP, SECONDARY_CAP
 from .sport import CAP as SPORT_CAP
 from .util import fa_norm, sha
 
@@ -1392,6 +1392,17 @@ def refresh(c):
         # it red, nor does one outlet's wording that the rules didn't place on that front
         c["sev"] = min(c["sev"], SECONDARY_CAP)
         claim = min(claim, SECONDARY_CAP)
+    if any("side_minor" in m.get("flags", []) for m in ms) and all("side_minor" in m.get("flags", [])
+                                                                   or e <= MINOR_CAP for e, m in zip(eff, ms)):
+        # a side front's everyday report (strikes inside Yemen, the daily strikes in Lebanon): yellow, however many
+        # outlets tell it
+        c["sev"] = min(c["sev"], MINOR_CAP)
+        claim = min(claim, MINOR_CAP)
+    if any({"judicial", "protest", "deesc_talk"} & set(m.get("flags", [])) for m in ms) and all(e < config.TIER_ORANGE for e in eff):
+        # an execution or a verdict, a protest abroad, mediation "to prevent escalation": yellow, however many
+        # outlets tell it
+        c["sev"] = min(c["sev"], config.TIER_ORANGE - 1)
+        claim = min(claim, config.TIER_ORANGE - 1)
     if c["ns"] == 1 and max_rel < CORROBORATE_BELOW:
         # a single less reliable outlet (state media, partisan or Telegram channels) can't make a red story
         # on its own; it turns red once another source reports it

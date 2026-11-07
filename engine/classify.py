@@ -5,13 +5,14 @@ evacuations, carrier / bomber deployments. Orange (45-69): threats, sanctions, e
 attacks, IAEA findings. Yellow (<45): statements, diplomacy, analysis, and sports news touched by the war (a match
 called off, a team that won't travel).
 """
+import datetime
 import math
 import re
 
 from . import config, deesc, sport, witness
 from .classify_fa import STRONG as STRONG_FA, score_fa
 from . import scheduled
-from .fronts import SECONDARY_CAP, side_front
+from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
 from .util import fa_norm, first_sentences, strip_dateline, to_latin_digits
@@ -41,7 +42,7 @@ def P(rx, base, topics=(), flags=()):
 PATTERNS = [
     # --- critical / kinetic
     P(r"\b(declar(e|es|ed|ing) war|war (has )?(begun|broken out|erupted)"
-      r"|ground (offensive|invasion|operation)|invad(e|es|ed|ing)\b|invasion of)", 90, ["military"], ["kinetic"]),
+      r"|ground (offensive|invasion|operation|incursions?|assault)|invad(e|es|ed|ing)\b|invasion of)", 90, ["military"], ["kinetic"]),
     P(r"\b(all-out|full-scale|full-blown|wider|regional|new|renewed) war\b|\bact of war\b|\bbrink of war\b", 58,
       ["military"], ["threat"]),
     P(r"\b(air ?strikes?|airstrikes?)\b", 80, ["military"], ["kinetic"]),
@@ -84,15 +85,33 @@ PATTERNS = [
       r"(tanker|vessel|ship|freighter|cargo ship|warship|container ship)s?\b", 80, ["maritime"],
       ["kinetic", "maritime_incident"]),
     P(r"\b(explosions?|blasts?|detonat\w+)\b", 70, ["military"], ["kinetic"]),
+    # "Qeshm island and Hormuz hit", "Natanz site struck": a place of the war hit
+    P(r"\b(qeshm|kish|abu musa|hormuz|bandar abbas|tehran|isfahan|natanz|fordow|bushehr|kharg|shiraz|tabriz|mashhad|ahvaz"
+      r"|karaj|chabahar|jask|haifa|tel aviv|eilat|dimona|beersheba|island|port|naval base|air ?base|base|airport|refinery"
+      r"|facility|nuclear site)( and (\w+ ){0,2}?(qeshm|kish|hormuz|bandar abbas|tehran|isfahan|island|port|base|airport))?"
+      r"( (island|port|site|facility|base))? (was |were |is |are |is being |are being )?(hit|struck|bombed|pounded|shelled)\b"
+      r"(?! (by|with) (sanctions?|tariffs?|protests?|strikes? by workers|a strike by|blackouts?|power cuts?|storms?|floods?"
+      r"|heat|drought|outages?))", 62, ["military"], ["kinetic"]),
+    # a strike on an air-defence system, a radar or launchers ("US military targets Iranian defense system"), or
+    # "the latest round of strikes": an attack, orange
+    P(r"\b(attack(s|ed|ing)?|target(s|ed|ing)?|hit(s|ting)?|strik(e|es|ing)|struck|destroy(s|ed|ing)?|bomb(s|ed|ing)?"
+      r"|took out|takes? out|knock(s|ed)? out)\s+(a |an |the |its |their )?([\w'-]+\s+){0,3}?(air[- ]defen[cs]e|defen[cs]e"
+      r"|radar|missile|launch|anti-?aircraft)\w*\s+(systems?|batter(y|ies)|sites?|launchers?|radars?|installations?|units?)\b"
+      r"|\b(air[- ]defen[cs]e|defen[cs]e|radar|missile) (systems?|batter(y|ies)|radars?|launchers?)\b[^.;]{0,30}"
+      r"\b(destroyed|struck|targeted|taken out|knocked out|hit)\b"
+      r"|\b(round|wave|series|string) of (\w+ ){0,2}(air ?strikes|airstrikes|strikes|attacks|raids)\b", 68, ["military"],
+      ["kinetic"]),
     P(r"\b(was |were |been |is |are )?assassinated\b|\bassassination of\b|\bkilled (a |an |the )?(senior|top) "
       r"(commander|official|general)", 84, ["military"], ["kinetic"]),
     P(r"\bassassination attempt\b|\battempt(ed)? to assassinate\b", 72, ["military"], ["kinetic"]),
     P(r"\bassassinat\w+", 60, ["military"], ["threat"]),
     P(r"\b(plot|plots|plotting|planning|plann?ed)\b.{0,40}\b(attacks?|strikes?|kill|killing|assassinat\w*|bomb\w*)\b",
       60, ["military"], ["threat"]),
-    P(r"\bprepar\w+ (\w+ ){0,3}(for )?(\w+ )?escalat\w+|\bescalat\w+ (\w+ ){0,2}(war|conflict|fighting|strikes?)\b",
-      62, ["military"], ["threat"]),
-    P(r"\bescalat\w+", 48, ["military"], []),
+    # (not "de-escalation", "de-escalate")
+    P(r"\bprepar\w+ (\w+ ){0,3}(for )?(\w+ )?(?<!de-)(?<!de )escalat\w+"
+      r"|(?<!de-)(?<!de )\bescalat\w+ (\w+ ){0,2}(war|conflict|fighting|strikes?)\b", 62, ["military"], ["threat"]),
+    # "escalation" as a word ("risk of escalation", "invitation to escalate"): commentary, a yellow story
+    P(r"(?<!de-)(?<!de )\bescalat\w+", 42, ["military"], []),
     P(r"\b(seiz(e|es|ed|ing|ure)|hijack(s|ed|ing)?|board(s|ed|ing)?|captur(e|es|ed)) (\w+ ){0,3}(tanker|vessel|ship|cargo ship)s?\b",
       82, ["maritime"], ["kinetic", "maritime_incident"]),
     P(r"\b(tanker|vessel|ship|freighter)s? (was |were |is )?(seized|attacked|hit|struck|ablaze|on fire|explod\w+|sunk|sank|damaged|targeted)",
@@ -273,12 +292,16 @@ def _far(lang, t, s):
 LOCAL_TOLL_CAP = 40.0
 _YEM_EN = re.compile(r"\b(yemen\w*|houthis?|sanaa|sana'a|aden|hodeidah|hudaydah|taiz|marib|lahij|saada|abyan|shabwa"
                      r"|hadramout|hadramawt|mokha|dhamar|ibb|amran)\b", re.I)
-_YEM_FA = re.compile(fa_norm("یمن|حوثی|انصارالله|صنعا|عدن|الحدیده|حدیده|تعز|مأرب|مارب|لحج|صعده|ابین|شبوه|حضرموت|مخا|ذمار|عمران"))
+_YEM_FA = re.compile(r"(?<![\u0620-\u06FF])(?:" + fa_norm("یمن|حوثی|انصارالله|صنعا|عدن|الحدیده|حدیده|تعز|مأرب|مارب|لحج|صعده"
+                                                            "|ابین|شبوه|حضرموت|مخا|ذمار|عمران")
+                     + r")(?:" + fa_norm("ی|ها|های") + r")?(?![\u0620-\u06FF])")
 _TOLL_EN = re.compile(r"\b(killed|kills|kill|dead|deaths?|died|wounded|injured|injures|injuries|casualt\w+|toll|fatalit\w+"
                       r"|martyr\w*|murders?)\b", re.I)
 _TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|شهادت|شهدا|قربانی|کشتار|مصدوم"))
 _SAUDI_PLACE_EN = re.compile(r"\b(riyadh|jeddah|jizan|jazan|najran|abha|taif|mecca|makkah|medina|dammam|khamis|yanbu"
-                             r"|ras tanura|abqaiq|inside saudi|in (?:the )?(?:\w+ )?saudi|in the kingdom)\b"
+                             r"|ras tanura|abqaiq|inside saudi|in (?:the )?(?:\w+ )?saudi(?![- ](?:led|backed|coalition|strikes?"
+                             r"|air|airstrikes?|raids?|attacks?|bomb\w*|jets?|warplanes?|fighters?|shell\w*|artillery|missiles?"
+                             r"|drones?|forces|troops|army|military|aggression)\b)|in the kingdom)\b"
                              r"|\b(attacks?|strikes?|missiles?|drones?|fire\w*|launch\w*)\b[^.;]{0,25}\b(on|at|against|toward|"
                              r"towards|targeting|into) (saudi|the kingdom)", re.I)
 _SAUDI_PLACE_FA = re.compile(fa_norm("ریاض|جده|جیزان|جازان|نجران|ابها|طائف|مکه|مدینه|دمام|خمیس|ینبع|راس تنوره|ابقیق|در عربستان|خاک عربستان")
@@ -758,6 +781,83 @@ def _domestic_attack(lang, t, s):
     return "event" if (_DOM_ATTACK_FA if fa else _DOM_ATTACK_EN).search(head) else "other"
 
 
+# a court's verdict (an execution, a hanging, a death sentence, a conviction): not the attack it names, a yellow
+# story. A spy for Israel or America executed stays orange (SPY_WAR_SEV) when the report tells what he did in the war:
+# sites and coordinates passed on, strikes, missiles, drones, commanders or scientists killed
+JUDICIAL_CAP = 40.0
+SPY_WAR_SEV = 54.0
+_JUD_EN = re.compile(r"\b(hanged|hanging of|hangs (a |an |two |three |\d+ )?([\w'-]+ ){0,2}(man|men|woman|women|prisoners?"
+                     r"|spy|spies|militants?|protesters?|members?|convicts?|alleged|baluch\w*|kurd\w*|arab)|executed|executes|execution(?! of (the |a |an )?(plan|deal|agreement|order|strategy"
+                     r"|operation|contract|project|budget))|death sentences?|sentenced|convicted|condemned to death"
+                     r"|put to death|gallows)\b", re.I)
+_JUD_FA = re.compile(fa_norm("اعدام|به دار آویخت|به دار آویخته|به دار مجازات|بدار آویخته|قصاص شد|حکم قصاص|حبس ابد")
+                     + "|" + fa_norm("(?:محکوم|محکومیت)") + r"\s*" + fa_norm("(?:به\\s*)?(?:اعدام|حبس|زندان|قصاص)")
+                     + r"|" + fa_norm("محکوم به") + r"\s*\d+\s*" + fa_norm("سال"))
+_SPY_EN = re.compile(r"\b(spy|spies|spying|espionage|mossad|cia|collaborat\w+ with (israel|the us|america)"
+                     r"|working for (israel|mossad|the cia))\b", re.I)
+_SPY_FA = re.compile(fa_norm("جاسوس|جاسوسی|موساد|عامل رژیم صهیونیستی|همکاری با رژیم صهیونیستی|همکاری با اسرائیل"
+                             "|ارتباط با رژیم صهیونیستی|ارتباط با اسرائیل|ارتباط با سرویس|سرویس اطلاعاتی رژیم|سرویس های اطلاعاتی")
+                     + r"|(?<![\u0600-\u06FF])" + fa_norm("سیا") + r"(?![\u0600-\u06FF])")
+_WAR_DATA_EN = re.compile(r"\b(war|strikes?|air ?strikes?|attacks?|missiles?|drones?|coordinates|targets?|assassinat\w+"
+                          r"|scientists?|commanders?|military (sites?|bases?|facilit\w+|installations?|centers?)"
+                          r"|nuclear (sites?|facilit\w+|program\w*)|air defen[cs]e\w*|launchers?|bombing)\b", re.I)
+_WAR_DATA_FA = re.compile(fa_norm("جنگ") + r"(?!\s*(?:" + fa_norm("نرم|روانی|اقتصادی|شناختی|رسانه ای|ترکیبی|ارزی") + r"))"
+                          + "|" + fa_norm("حمله|حملات|تجاوز|موشک|پهپاد|ریزپرنده|مختصات|ترور|دانشمند|فرمانده|تاسیسات"
+                                          "|مراکز نظامی|مراکز حساس|اماکن نظامی|اماکن حساس|سایت|پایگاه|پدافند|سامانه"
+                                          "|نقاط حساس|اهداف نظامی|لانچر|پرتابگر|بمباران"))
+
+
+def _judicial(lang, t, s):
+    """'spy_war' (a spy executed or sentenced, and the report tells of his part in the war), 'spy', 'other', or None."""
+    fa = lang == "fa"
+    head = to_latin_digits(fa_norm(t or "")) if fa else (t or "")
+    if not (_JUD_FA if fa else _JUD_EN).search(head):
+        return None
+    text = head + " " + (to_latin_digits(fa_norm(s or "")) if fa else (s or ""))[:600]
+    if not (_SPY_FA if fa else _SPY_EN).search(text):
+        return "other"
+    return "spy_war" if (_WAR_DATA_FA if fa else _WAR_DATA_EN).search(text) else "spy"
+
+
+# a protest, a rally or a march outside the region (Europe, America, Asia…): a yellow story, unless it turns violent
+# (an embassy stormed, people killed); protests in Iran, Israel, Iraq or the Gulf are scored as they are
+PROTEST_CAP = 40.0
+_PROTEST_EN = re.compile(r"\b(protesters|protestors|demonstrators|demonstrations?|sit-ins?|vigils?)\b"
+                         r"|\b(hundreds|thousands|dozens|tens of thousands|crowds?|people|activists|students)\b[^.;:]{0,30}"
+                         r"\b(protest\w*|rall(y|ies|ied)|march(es|ed)?|demonstrat\w*|gather\w*)\b"
+                         r"|\bprotests? (in|outside|across|against|erupt\w*|held|spread|over)\b"
+                         r"|\b(rally|rallies) (in|outside|across|against|near)\b", re.I)
+_PROTEST_NOT_EN = re.compile(r"\b(oil|crude|brent|stocks?|shares|markets?|prices?|dollar|gold|rial|bonds?|currenc\w+"
+                             r"|storm\w*|torch\w*|set (fire|ablaze)|clash\w*|killed|kill|shot|shoot\w*|tear gas|live (fire|ammunition)"
+                             r"|ransack\w*|dead|wounded|injured|crackdown|stampede)\b", re.I)
+_REGION_PLACES_EN = (r"(iran|tehran|isfahan|mashhad|shiraz|tabriz|ahvaz|karaj|qom|zahedan|kermanshah|rasht|israel|tel aviv"
+                     r"|jerusalem|haifa|iraq|baghdad|basra|erbil|najaf|karbala|bahrain|manama|kuwait|qatar|doha|uae|dubai"
+                     r"|abu dhabi|saudi( arabia)?|riyadh|jordan|amman|oman|muscat|west bank|gaza)")
+_PROTEST_IN_REGION_EN = re.compile(r"\b(in|across|outside|near|at|throughout)\s+(the\s+)?([\w'-]+\s+){0,2}?"
+                                   + _REGION_PLACES_EN + r"\b|^\W*" + _REGION_PLACES_EN + r"\b", re.I)
+_PROTEST_FA = re.compile(fa_norm("تجمع") + r"(?!\s*(?:" + fa_norm("نیرو|ناو|تجهیزات|جنگنده|نظامی|سلاح|موشک|سرمایه") + r"))"
+                         + "|" + fa_norm("راهپیمایی|راه پیمایی|تظاهرات|معترضان|معترضین|اعتراضات خیابانی")
+                         + "|" + fa_norm("(?:صدها|هزاران|ده ها|دهها|جمعی از|گروهی از)") + r"[^.؛]{0,30}"
+                         + fa_norm("(?:اعتراض|تجمع|راهپیمایی)"))
+_PROTEST_NOT_FA = re.compile(fa_norm("تسخیر|یورش|به آتش کشید|آتش زدند|درگیری|کشته|زخمی|مجروح|شلیک|گاز اشک آور|سرکوب"
+                                     "|حمله به سفارت|حمله به کنسولگری"))
+_PROTEST_IN_REGION_FA = re.compile(fa_norm("(?:در|مقابل|جلوی|نزدیک|سراسر|شهرهای|مردم|شهروندان|دانشجویان|اهالی|مردمان)") + r"\s*(?:\S+\s+){0,2}?"
+                                   + fa_norm("(?:ایران|تهران|اصفهان|مشهد|شیراز|تبریز|اهواز|کرج|قم|زاهدان|کرمانشاه|رشت"
+                                             "|اسرائیل|اسراییل|تل آویو|قدس|حیفا|سرزمین های اشغالی|عراق|بغداد|بصره|اربیل"
+                                             "|نجف|کربلا|بحرین|منامه|کویت|قطر|دوحه|امارات|دبی|ابوظبی|عربستان|ریاض|اردن"
+                                             "|امان|عمان|مسقط|کرانه باختری|غزه|کشور)")
+                                   + r"(?![\u0600-\u06FF])")
+
+
+def _protest(lang, t):
+    fa = lang == "fa"
+    if fa:
+        t = fa_norm(t or "")
+        return bool(_PROTEST_FA.search(t)) and not _PROTEST_NOT_FA.search(t) and not _PROTEST_IN_REGION_FA.search(t)
+    t = t or ""
+    return bool(_PROTEST_EN.search(t)) and not _PROTEST_NOT_EN.search(t) and not _PROTEST_IN_REGION_EN.search(t)
+
+
 # a commemoration (the 13th of Aban, an anniversary, a statement "on the occasion of"): told for the day, not news,
 # unless the Leader or the president speaks
 COMMEMORATION_CAP = 40.0
@@ -878,6 +978,46 @@ PAST = re.compile(r"\b(anniversary|years? ago|decades? ago|commemorat\w+|memoria
                   r"|(?:weeks|months|several days)\s+(?:after|since)\s+(?:the\s+|a\s+|an\s+)?(?:[\w'-]+\s+){0,3}?"
                   r"(?:strikes?|attacks?|bombing|blasts?|explosions?|war)"
                   r"|weeks ago|months ago)\b", I)
+# an attack of an earlier year ("Hezbollah's 1983 bombing", "the 2024 war"), read in the headline only (a text often
+# compares: "the heaviest since 2024"), and not "the first since 1983 bombing"
+_YEAR = datetime.date.today().year
+_PAST_YEARS = "|".join(str(y) for y in range(1900, _YEAR))
+_PAST_YEARS_FA = "|".join(str(y) for y in range(1300, _YEAR - 621)) + "|" + _PAST_YEARS
+_EVENT_EN = (r"(bombings?|attacks?|strikes?|air ?strikes?|wars?|massacres?|blasts?|explosions?|invasions?|hostage crisis"
+             r"|hijackings?|assassinations?|uprisings?|revolution|coup|truck bomb\w*|raids?|conflict)")
+_PAST_YEAR_EN = re.compile(r"\b(" + _PAST_YEARS + r")('s)?\s+([\w-]+\s+){0,2}?" + _EVENT_EN + r"\b"
+                           r"|\b" + _EVENT_EN + r" (of|in) (" + _PAST_YEARS + r")\b", I)
+_PAST_YEAR_FA = re.compile(fa_norm("(?:بمب گذاری|بمبگذاری|انفجار|حمله|حملات|جنگ|ترور|کشتار|گروگان گیری|کودتا|انقلاب"
+                                   "|تجاوز|عملیات)") + r"[^.؛]{0,25}?(?:" + fa_norm("سال") + r"\s*)?(?<!\d)(?:" + _PAST_YEARS_FA
+                           + r")(?!\d)|(?<!\d)(?:" + _PAST_YEARS + r")(?!\d)\s*(?:\S+\s+){0,1}?"
+                           + fa_norm("(?:بمب گذاری|بمبگذاری|انفجار|حمله|جنگ|ترور|کشتار)"))
+_SINCE = re.compile(r"\b(since|first time since|first since)\s+(the\s+)?$", I)
+_SINCE_FA = re.compile(fa_norm("(?:از|پس از|بعد از|از زمان|از سال)") + r"\s*$")
+
+
+def past_year(lang, t):
+    """Does a headline tell of an attack of an earlier year (not "the first since …")?"""
+    fa = lang == "fa"
+    t = to_latin_digits(fa_norm(t or "")) if fa else (t or "")
+    for m in (_PAST_YEAR_FA if fa else _PAST_YEAR_EN).finditer(t):
+        if not (_SINCE_FA if fa else _SINCE).search(t[:m.start()]):
+            return True
+    return False
+
+
+_PREVENT_ESC = re.compile(r"\b(prevent\w*|avoid\w*|avert\w*|contain\w*|curb\w*|reduc\w*|eas(e|es|ed|ing)|halt\w*|stop\w*"
+                          r"|calm\w*)\s+(\w+\s+){0,3}?escalat\w+|\bde-?escalat\w+", I)
+_JUDGED_EN = re.compile(r"\b(attack\w*|strik(e|es|ing)|bombing|targeting)\b[^.;:]{0,60}\b(is|are|was|were|constitutes?|amounts? to)"
+                        r" (a |an )?(\w+ )?(war crimes?|terrorist acts?|act of (terror\w*|aggression|war)|crimes?|violations?"
+                        r"|breach\w*|attack on)\b", I)
+_REJECT_DEESC = re.compile(r"\b(reject\w*|refus\w*|dismiss\w*|rules? out|no)\b[^.;]{0,25}\b(de-?escalat\w+|calls)", I)
+# commentators' views ("…, experts say", "Analysts warn…", "Iraqi researcher: …")
+EXPERTS = re.compile(r"\b(experts?|analysts?|observers|scholars?|academics?|researchers?|commentators?|pundits?"
+                     r"|think[- ]tanks?)\b[^.;:]{0,20}\b(say|says|said|believe|warn\w*|argue\w*|suggest\w*|predict\w*"
+                     r"|fear\w*|see)\b"
+                     r"|^\W*([\w'-]+\s+){0,3}(analyst|expert|researcher|scholar|professor|commentator|columnist)\b[^:]{0,30}:", I)
+_MAIN_EN = re.compile(r"\b(iran\w*|tehran|irgc|israel\w*|idf|netanyahu|america\w*|pentagon|centcom|washington|trump"
+                      r"|hormuz|khamenei|white house|persian gulf|gulf of oman|oman\w*|ukmto|tankers?|vessels?|ships?)\b|(?-i:(?<![A-Za-z])(US|U\.S\.)(?![A-Za-z]))", I)
 OPINION = re.compile(r"^(opinion|op-ed|editorial|commentary|letters?)\b|\|\s*opinion|\bopinion:|^view:|^comment:", I)
 ANALYSIS = re.compile(r"^(analysis|explainer|explained|q&a|podcast|newsletter|the big story|in charts|fact check)\b"
                       r"|\b(what to know|what we know|why it matters|how .{3,40} could|what .{3,40} means)\b", I)
@@ -996,7 +1136,7 @@ def score_en(title: str, summary: str):
     if kinetic_in_title and SPEC.search(t) and "kinetic_threat" not in flags:
         best *= 0.82
         flags.add("speculative")
-    if PAST.search(t) or PAST.search(s[:160]):
+    if PAST.search(t) or PAST.search(s[:160]) or past_year("en", t):
         best = min(best * 0.6, PAST_CAP)           # told of the past: a yellow story, never an event of now
         flags.add("past")
     if ACTOR.search(t) and flags & {"ultimatum", "kinetic_threat"}:
@@ -1021,7 +1161,10 @@ def score_en(title: str, summary: str):
         best = min(best, 40)
         flags -= HARD_EVENTS
     if title_best < 45:
-        best = min(best, 52)                       # nothing notable in the headline itself
+        # nothing notable in the headline itself: the text alone tells no event, and it is a yellow story unless the
+        # headline names the main front (Iran, America, Israel, Hormuz)
+        flags -= HARD_EVENTS
+        best = min(best, 52 if _MAIN_EN.search(t) else 44)
     if DRILL_EN.search(t) and flags & HARD_EVENTS and not _DRILL_HURT_EN.search(t):
         best = min(best, 55)                       # "drill against bombing": a drill, not a strike
         flags = (flags - HARD_EVENTS) | {"exercise"}
@@ -1052,6 +1195,18 @@ def score_en(title: str, summary: str):
     elif (ANALYSIS.search(t) or EXTRA_ANALYSIS.search(t)) and not LIVE.search(t):
         best = min(best, 44)
         flags.add("analysis")
+    if _PREVENT_ESC.search(t) and not _REJECT_DEESC.search(t) and not flags & HARD_EVENTS:
+        # mediation "to prevent escalation", calls to "de-escalate": diplomacy, not a threat
+        best = min(best, 44)
+        flags = (flags - {"threat"}) | {"deesc_talk"}
+    if _JUDGED_EN.search(t):
+        # "Attacking schools is a war crime": words about attacks, not an attack
+        best = min(best, 44)
+        flags = (flags - HARD_EVENTS) | {"statement_only"}
+    if EXPERTS.search(t):
+        # "…, experts say", "Analyst: …": commentators' views, not news of an event
+        best = min(best, 44)
+        flags = (flags - HARD_EVENTS) | {"analysis"}
     return max(5.0, min(98.0, best)), topics, flags
 
 
@@ -1118,6 +1273,10 @@ def classify(item):
             t = first_item("fa", t)                # several items in one headline: only the first is read
         s = _digest_part(t, s, "fa")
         sev, topics, flags = score_fa(t, s)
+        if past_year("fa", t) and "past" not in flags:
+            # «بمب‌گذاری سال ۱۹۸۳»: an attack of an earlier year, told in the headline
+            sev = min(sev * 0.6, PAST_CAP)
+            flags = (set(flags) - HARD_EVENTS) | {"past"}
         en_t = en_s = ""
         fa_t, fa_s = t, s
     else:
@@ -1155,7 +1314,11 @@ def classify(item):
     if sf:
         # the side fronts (the Saudi-Houthi war, Israel and Hezbollah in Lebanon): red only for a big turn (fronts.py)
         item["front"] = sf[0]
-        if sf[1] == "secondary":
+        if sf[1] == "minor":
+            # the everyday reports there (strikes inside Yemen, the daily strikes in Lebanon, threats, tallies): yellow
+            flags = (set(flags) - HARD_EVENTS) | {"secondary", "side_minor"}
+            sev = min(sev, MINOR_CAP)
+        elif sf[1] == "secondary":
             flags = set(flags) | {"secondary"}
             sev = min(sev, SECONDARY_CAP)
         else:
@@ -1220,6 +1383,21 @@ def classify(item):
             sev = min(sev, DOMESTIC_EVENT_CAP)
             if dom in ("event", "big") and not set(flags) & {"analysis", "speculative"}:
                 sev = max(sev, DOMESTIC_EVENT_SEV)
+    jud = _judicial(lang, fa_t or en_t, fa_s or en_s)
+    if jud:
+        # an execution, a death sentence, a conviction: a court's verdict, not the attack it names; a spy for Israel
+        # stays orange only when the report tells what he did in the war
+        flags = (set(flags) - HARD_EVENTS - {"threat", "domestic_attack"}) | {"judicial"}
+        if jud == "spy_war":
+            flags |= {"spy"}
+            sev = SPY_WAR_SEV
+        else:
+            flags |= {"spy"} if jud == "spy" else set()
+            sev = min(sev, JUDICIAL_CAP)
+    if _protest(lang, fa_t or en_t):
+        # a protest, a rally or a march outside the region ("Hundreds protest Israeli attacks… in Sweden"): yellow
+        flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"protest"}
+        sev = min(sev, PROTEST_CAP)
     if _commemoration(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
         flags = set(flags) | {"commemoration"}
         sev = min(sev, COMMEMORATION_CAP)

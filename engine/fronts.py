@@ -1,29 +1,43 @@
 """Rules for the side fronts: the Saudi-Houthi war and Israel against Hezbollah in Lebanon.
 
 Both produce dozens of reports a day, and the bulletin is about the main front (Iran against America and Israel).
-On these fronts a report is red only when it is a big turn ("major"); everything else stays orange at most
-("secondary", SECONDARY_CAP), and the index counts it lightly (index.py).
+On these fronts a report is red only when it is a big turn ("major"). The everyday reports are yellow ("minor",
+MINOR_CAP); on the Saudi-Houthi front an attack reaching Saudi soil that isn't a big turn stays orange at most
+("secondary", SECONDARY_CAP). The index counts both lightly (index.py).
 
 Saudi-Houthi, major: a Houthi attack that hits Saudi oil or energy sites (Aramco, refineries, oil terminals,
 pipelines, power and desalination plants), an attack on America's interests in Saudi Arabia (its bases, troops,
 embassy or consulates), wide damage to a Saudi airport (on fire, destroyed, closed), attacks on shipping in the Red
 Sea and Bab el-Mandeb held to the Hormuz rules (a ship hit, on fire, sunk or seized, told by someone other than the
-Houthis: UKMTO, Ambrey, a navy, the owner), and staff told to leave. Not major: missiles and drones intercepted, airports and cities
-"targeted" with no damage told, the Houthi spokesman's claims alone, Saudi or coalition strikes on Yemen, fighting
-inside Yemen, counts of attacks, casualty figures, statements, talks, markets. A report that names Israel or Iran,
-or America striking, is left to the general rules.
+Houthis: UKMTO, Ambrey, a navy, the owner), and staff told to leave. Orange ("secondary"): missiles and drones on
+Saudi soil intercepted, airports and cities "targeted" with no damage told, the Houthi spokesman's claims alone, ship
+attacks claimed by the Houthis. Yellow ("minor"): Saudi or coalition strikes on Yemen, fighting inside Yemen, counts
+of attacks, casualty figures inside Yemen, threats and vows of revenge, reactions, denials, statements, talks,
+markets. A report that names Israel or Iran, or America striking, is left to the general rules.
 
-Lebanon, major: Hezbollah firing at Israel (rockets, missiles, drones, sirens in the north), Israeli strikes on
-Beirut and its southern suburbs, a senior Hezbollah leader or commander killed, a ground invasion or a new
-offensive, the ceasefire collapsing, the heaviest strikes in a long time or strikes across the country. Not major:
-the daily air strikes, drone strikes and shelling in the south and the Bekaa, a local commander killed, statements,
-casualty figures (those are yellow, classify._local_toll). A report that names Iran is left to the general rules."""
+Lebanon, major (a war, not the everyday strikes): a ground invasion or a new offensive, war resuming, the ceasefire
+collapsing, the heaviest strikes in a long time or strikes across the country, a heavy Hezbollah barrage on Israel or
+fire reaching Haifa or Tel Aviv, Hezbollah's own leader (secretary-general, deputy) killed, Israel and the Lebanese
+state (its army, government) drawn into the fighting, embassies telling their people to leave. Everything else is
+yellow ("minor"): the daily strikes anywhere in Lebanon (Beirut and its suburbs too), a commander killed, a single
+launch at Israel, statements, protests, diplomacy, casualty figures. A report that names Iran is left to the
+general rules."""
 import re
 
 from .util import fa_norm
 
 _I = re.I
+# whole Persian words: «عدن» is not in «معدن», «صور» not in «صورت», «ابها» not in «ابهام», «مخا» not in «مخالف»
+_FL = "\u0620-\u06FF"
+
+
+def _w(alts, suffix=""):
+    """Persian alternatives as whole words (normalised), with an optional ending such as «ی» (یمنی، لبنانی)."""
+    return (f"(?<![{_FL}])(?:" + fa_norm(alts) + ")" + (f"(?:{fa_norm(suffix)})?" if suffix else "")
+            + f"(?![{_FL}])")
+
 SECONDARY_CAP = 64.0          # an orange story, below the main front's orange ones
+MINOR_CAP = 40.0              # a side front's everyday report: a yellow story
 
 # ------------------------------------------------------------------ English
 _EN_FRONT = re.compile(r"\b(houthis?|ansar ?allah|yemen\w*|sanaa|sana'a|saada|sa'ada|hodeidah|hudaydah|aden|lahij|lahj"
@@ -71,19 +85,20 @@ _EN_REVIEW = re.compile(r"\b(oil (prices?|hits|jumps|rises|falls|climbs|little c
                         r"|airlines?|flights? (cancel\w*|suspend\w*))\b", _I)
 
 # ------------------------------------------------------------------ Persian (matched on normalised text)
-_FA_FRONT = re.compile(fa_norm("حوثی|انصارالله|یمن|صنعا|صعده|الحدیده|حدیده|عدن|لحج|تعز|مأرب|مارب|شبوه|حضرموت|مکلا"
-                               "|ابین|باب المندب|یحیی سریع"))
+_FA_FRONT = re.compile(_w("حوثی|انصارالله|یمن", "ی|ها|های") + "|" + _w("صنعا|صعده|الحدیده|حدیده|عدن|لحج|تعز|مأرب|مارب|شبوه"
+                                                                          "|حضرموت|مکلا|ابین|باب المندب|یحیی سریع"))
 _FA_FRONT2 = re.compile(fa_norm("ائتلاف سعودی|ائتلاف عربی|ائتلاف متجاوز|سخنگوی ائتلاف"
                                 "|(رهگیری|سرنگون|ساقط)[^.؛]{0,60}(عربستان|سعودی|ریاض|جده|مکه|مدینه|جیزان|جازان|نجران|ابها|دمام)"))
 _FA_OTHER = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|تل آویو|ایلات|حیفا|ایران|تهران|جمهوری اسلامی|آمریکا|امریکا"
                                "|ایالات متحده|پنتاگون|سنتکام|ترامپ"))
 _FA_PROXY = re.compile(fa_norm("(وابسته به|مورد حمایت|تحت حمایت|طرفدار|مزدوران)\\s*(ریاض|عربستان|سعودی|آل سعود)"))
-_FA_SAUDI = re.compile(fa_norm("عربستان|سعودی|ریاض|جده|مکه|مدینه|طائف|رابغ|خمیس مشیط|جیزان|جازان|نجران|ابها|ظهران"
-                               "|راس تنوره|ابقیق|ینبع|آرامکو|ائتلاف"))
+_FA_SAUDI = re.compile(_w("عربستان|سعودی|ائتلاف", "ی|ها|های") + "|" + _w("ریاض|جده|مکه|مدینه|طائف|رابغ|خمیس مشیط|جیزان"
+                                                                           "|جازان|نجران|ابها|ظهران|راس تنوره|ابقیق|ینبع|آرامکو"))
 _FA_ATTACK = re.compile(fa_norm("حمله|حملات|هدف قرار|اصابت|شلیک|پرتاب|موشک|پهپاد|رهگیری|رهگیر|سرنگون|منهدم|انهدام"
                                 "|بمباران|انفجار|آوار|بقایای موشک|ترکش|آتش سوزی|عملیات"))
 _FA_SEAS = "دریای سرخ|باب المندب|خلیج عدن|حدیده|الحدیده|مخا|صلیف|راس عیسی|کمران|میون|جیبوتی|عصب|نشطون|مکلا|عدن|ینبع|سواحل یمن"
-_FA_SEA = re.compile(fa_norm("(کشتی|نفتکش|شناور)[^.؛]{0,60}(" + _FA_SEAS + ")|(" + _FA_SEAS + ")[^.؛]{0,60}(کشتی|نفتکش|شناور)"))
+_FA_SEA = re.compile(fa_norm("(کشتی|نفتکش|شناور)[^.؛]{0,60}") + _w(_FA_SEAS) + "|" + _w(_FA_SEAS)
+                     + fa_norm("[^.؛]{0,60}(کشتی|نفتکش|شناور)"))
 _FA_TOLL = re.compile(fa_norm(r"^\W*([^:]{2,40}:\s*)?(\d+|ده ها|دهها|صدها|چند|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)"
                               r"\s*(تن|نفر|شهید|کشته|زخمی|مجروح|غیرنظامی|کودک|زن)"
                               r"|(آوار|ترکش|بقایای)[^.؛]{0,50}(زخمی|مجروح|کشته)"
@@ -121,9 +136,21 @@ _EN_HCLAIM = re.compile(r"\b(saree|sarea|houthis? (say|says|said|claim\w*)|claim
                         r"|army|military|spokes\w*)|ansar ?allah (say|says|said|claim\w*))\b", _I)
 _EN_INTERCEPT = re.compile(r"\b(intercept\w*|shoots? down|shot down|downs?|downed|destroy\w* (a |an |two |three )?"
                            r"(drones?|missiles?|projectiles?))\b", _I)
-_EN_YEMEN_SITE = re.compile(r"\b(in yemen|yemen's|sanaa|sana'a|saada|hodeidah|hudaydah|ras isa|salif|marib|ma'rib|aden"
+_EN_YEMEN_SITE = re.compile(r"\b(in yemen|yemen's|(on|against|across|of|over|into) yemen|yemeni|sanaa|sana'a|saada|hodeidah|hudaydah|ras isa|salif|marib|ma'rib|aden"
                             r"|taiz|lahj|shabwa|hadramout|mukalla|al-jawf|jawf|amran|dhamar)\b", _I)
 
+# counts of attacks ("105 attacks in 24 hours", «۱۰۵ بار به یمن حمله کرد»)
+_EN_TALLY = re.compile(r"\b\d{2,}[\d,]*\s+(\w+\s+){0,3}(attacks|strikes|raids|airstrikes|air strikes|times|operations)\b"
+                       r"|\b(dozens|scores|hundreds) of (\w+ ){0,2}(attacks|strikes|raids|airstrikes)\b", _I)
+_FA_TALLY = re.compile(fa_norm(r"\d{2,}\s*(بار|حمله|حملات|عملیات|بمباران|نوبت)|(ده ها|دهها|صدها)\s*(حمله|بار|عملیات)"))
+
+# Saudi Arabia named as the one striking ("killed in Saudi air strike", «حمله هوایی عربستان»), not as the place hit
+_EN_SAUDI_ACTOR = re.compile(r"\b(saudi|coalition)(-led| led)?( \w+)?( (air ?strikes?|airstrikes?|strikes?|raids?|attacks?"
+                             r"|bombing|bombardment|jets?|warplanes?|fighters?|forces|troops|shelling|artillery|aggression))+\b"
+                             r"|\bsaudi-led( coalition)?\b|\b(saudi|arab|saudi-led) coalition\b", _I)
+_FA_SAUDI_ACTOR = re.compile(fa_norm(r"(حمله|حملات|بمباران|تجاوز|یورش)( هوایی| موشکی| توپخانه ای)? (رژیم |ائتلاف |جنگنده های |)"
+                                     r"(عربستان|سعودی|آل سعود)|(جنگنده های|هواپیماهای|ائتلاف|رژیم|متجاوزان|نیروهای) (سعودی|آل سعود)"
+                                     r"|ائتلاف (متجاوز )?(عربستان|سعودی)"))
 _FA_MAIN = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|تل آویو|ایلات|حیفا|ایران|تهران|جمهوری اسلامی"))
 _FA_US = re.compile(fa_norm("آمریکا|امریکا|ایالات متحده|پنتاگون|سنتکام|ترامپ|واشنگتن"))
 _FA_US_SITE = re.compile(fa_norm("(پایگاه|سفارت|کنسولگری|نیروهای|نظامیان|سربازان|دیپلمات|ناو|ناوشکن|کارکنان)[^.؛]{0,12}"
@@ -140,16 +167,19 @@ _FA_HIT = re.compile(fa_norm("اصابت|خسارت|تخریب|منهدم|آتش
 _FA_HCLAIM = re.compile(fa_norm("یحیی سریع|سخنگوی (نیروهای مسلح|ارتش) یمن|نیروهای مسلح یمن|ارتش یمن|انصارالله|حوثی ها مدعی"
                                 "|ادعا|مدعی|اعلام کرد|اعلام کردند"))
 _FA_INTERCEPT = re.compile(fa_norm("رهگیری|رهگیر|سرنگون|ساقط|منهدم کرد|منهدم شد"))
-_FA_YEMEN_SITE = re.compile(fa_norm("در یمن|خاک یمن|صنعا|صعده|الحدیده|حدیده|راس عیسی|صلیف|مأرب|مارب|عدن|تعز|لحج|شبوه"
-                                    "|حضرموت|مکلا|الجوف|جوف|عمران|ذمار"))
+_FA_YEMEN_SITE = re.compile(_w("در یمن|خاک یمن|به یمن|علیه یمن|بر یمن|یمنی|مردم یمن|مناطق یمن|استان های یمن|صنعا|صعده"
+                               "|الحدیده|حدیده|راس عیسی|صلیف|مأرب|مارب|عدن|تعز|لحج|شبوه|حضرموت|مکلا|الجوف|جوف|عمران|ذمار"))
 
+# "killed in Saudi strikes", "on Saudi-backed forces": Saudi Arabia acting, not a place in Saudi Arabia
+_NOT_SAUDI_ACT = (r"(?![- ](led|backed|coalition|strikes?|air|airstrikes?|raids?|attacks?|bomb\w*|jets?|warplanes?|fighters?"
+                  r"|shell\w*|artillery|missiles?|drones?|forces|troops|army|military|aggression)\b)")
 _EN_SAUDI_PLACE = re.compile(r"\b(riyadh|jeddah|jiddah|mecca|makkah|medina|madinah|taif|rabigh|khamis mushait|jizan|jazan"
-                             r"|najran|abha|dhahran|dammam|ras tanura|abqaiq|yanbu|aramco|khurais|in saudi( arabia)?"
+                             r"|najran|abha|dhahran|dammam|ras tanura|abqaiq|yanbu|aramco|khurais|in saudi( arabia)?" + _NOT_SAUDI_ACT +
                              r"|saudi arabia's|(eastern|southern|western) (saudi|province|region of saudi)|inside saudi"
-                             r"|on saudi( arabia)?|at saudi( arabia)?)\b", _I)
-_FA_SAUDI_PLACE = re.compile(fa_norm("ریاض|جده|مکه|مدینه|طائف|رابغ|خمیس مشیط|جیزان|جازان|نجران|ابها|ظهران|دمام|راس تنوره"
-                                     "|ابقیق|ینبع|آرامکو|خریص|در عربستان|خاک عربستان|شرق عربستان|جنوب عربستان"
-                                     "|(به|علیه)\\s*(عربستان|سعودی)"))
+                             r"|on saudi( arabia)?" + _NOT_SAUDI_ACT + r"|at saudi( arabia)?" + _NOT_SAUDI_ACT + r")\b", _I)
+_FA_SAUDI_PLACE = re.compile(_w("ریاض|جده|مکه|مدینه|طائف|رابغ|خمیس مشیط|جیزان|جازان|نجران|ابها|ظهران|دمام|راس تنوره"
+                                "|ابقیق|ینبع|آرامکو|خریص|در عربستان|خاک عربستان|شرق عربستان|جنوب عربستان"
+                                "|(به|علیه)\\s*(عربستان|سعودی)"))
 
 
 # Ships in the Red Sea, Bab el-Mandeb and the Gulf of Aden, held to the rules of ships in Hormuz: red only for an
@@ -185,7 +215,7 @@ def _red_sea(t, fa, src="", text=""):
                                  else (_EN_SEA_DONE, _EN_SEA_INDEP, _EN_SEA_CLAIM, _EN_SEA_RECAP))
     told = t + " " + (text or "")[:400]
     if recap.search(t) or not done.search(t):
-        return "secondary"               # a tally, something past, or only "targeted" / "attacked" with nothing hit
+        return "minor" if recap.search(t) else "secondary"   # a tally or something past; only "targeted"
     if indep.search(told):
         return "major"                   # UKMTO, Ambrey, a navy, the ship's owner…
     if claim.search(t) or (src or "").split(":")[0] in _IR_OUTLETS:
@@ -197,17 +227,18 @@ def _sh_rx(fa):
     if fa:
         return dict(front2=_FA_FRONT2, place2=_FA_SAUDI, front=_FA_FRONT, main=_FA_MAIN, us=_FA_US, proxy=_FA_PROXY, saudi=_FA_SAUDI, attack=_FA_ATTACK,
                     sea=_FA_SEA, toll=_FA_TOLL, talk=_FA_TALK, review=_FA_REVIEW, future=_FA_FUTURE,
-                    us_site=_FA_US_SITE, us_act=_FA_US_ACT, energy=_FA_ENERGY, airport=_FA_AIRPORT, damage=_FA_DAMAGE,
+                    tally=_FA_TALLY, actor=_FA_SAUDI_ACTOR, us_site=_FA_US_SITE, us_act=_FA_US_ACT, energy=_FA_ENERGY, airport=_FA_AIRPORT, damage=_FA_DAMAGE,
                     hit=_FA_HIT, hclaim=_FA_HCLAIM, intercept=_FA_INTERCEPT, yemen=_FA_YEMEN_SITE, place=_FA_SAUDI_PLACE)
     return dict(front2=_EN_FRONT2, place2=_EN_SAUDI, front=_EN_FRONT, main=_EN_MAIN, us=_EN_US, proxy=_EN_PROXY, saudi=_EN_SAUDI, attack=_EN_ATTACK,
                 sea=_EN_SEA, toll=_EN_TOLL, talk=_EN_TALK, review=_EN_REVIEW, future=_EN_FUTURE,
-                us_site=_EN_US_SITE, us_act=_EN_US_ACT, energy=_EN_ENERGY, airport=_EN_AIRPORT, damage=_EN_DAMAGE,
+                tally=_EN_TALLY, actor=_EN_SAUDI_ACTOR, us_site=_EN_US_SITE, us_act=_EN_US_ACT, energy=_EN_ENERGY, airport=_EN_AIRPORT, damage=_EN_DAMAGE,
                 hit=_EN_HIT, hclaim=_EN_HCLAIM, intercept=_EN_INTERCEPT, yemen=_EN_YEMEN_SITE, place=_EN_SAUDI_PLACE)
 
 
 def saudi_houthi(title, lang="en", flags=(), src="", text=""):
     """None when the report is not on the Saudi-Houthi front (or names Israel or Iran, or America striking),
-    "major" for what may be red there (see the module's text), "secondary" for everything else on that front."""
+    "major" for what may be red there, "secondary" (orange) for an attack on Saudi soil, "minor" (yellow) for the rest
+    (see the module's text)."""
     fa = lang == "fa"
     t = fa_norm(title or "") if fa else (title or "")
     r = _sh_rx(fa)
@@ -223,17 +254,17 @@ def saudi_houthi(title, lang="en", flags=(), src="", text=""):
     if rv and r["airport"].search(t) and re.match(r"flight|airline|لغو پرواز|ایرلاین|شرکت", rv.group(0), _I):
         rv = None                        # flights halted at an attacked airport are its damage, not a market story
     if rv or r["future"].search(t):
-        return "secondary"
+        return "minor"                   # threats, vows of revenge, markets, analysis
     a, w = r["attack"].search(t), r["talk"].search(t)
     if w and (not a or w.start() < a.start()):
-        return "secondary"               # framed as a reaction, a warning or talks ("GCC condemns Houthi attack")
+        return "minor"                   # framed as a reaction, a warning or talks ("GCC condemns Houthi attack")
     if not a:
-        return "secondary"
+        return "minor"                   # statements, denials, troops rumoured, captures inside Yemen
     if us and r["us_act"].search(t) and not r["us_site"].search(t):
         return None                      # America striking the Houthis: the general rules
     tp = r["proxy"].sub(" ", t)
     # the target is in Saudi Arabia: a Saudi city or site named, or Saudi Arabia named and no place in Yemen
-    in_saudi = bool(r["place"].search(tp)) or (bool(r["saudi"].search(tp)) and not r["yemen"].search(tp))
+    in_saudi = bool(r["place"].search(tp)) or (bool(r["saudi"].search(r["actor"].sub(" ", tp))) and not r["yemen"].search(tp))
     claim = bool(r["hclaim"].search(t))
     caught = bool(r["intercept"].search(t))
     if r["sea"].search(t):
@@ -249,7 +280,9 @@ def saudi_houthi(title, lang="en", flags=(), src="", text=""):
         return "major"                   # a Saudi airport on fire, destroyed or closed
     if us:
         return None if not in_saudi else "secondary"
-    return "secondary"                   # interceptions, "targeted", strikes on Yemen, fighting inside Yemen, counts
+    if not in_saudi or r["tally"].search(t):
+        return "minor"                   # strikes on Yemen, fighting inside Yemen, counts, casualty figures
+    return "secondary"                   # missiles and drones on Saudi soil intercepted or "targeted"
 
 
 # ------------------------------------------------------------------ Lebanon: Israel against Hezbollah
@@ -260,6 +293,29 @@ _EN_LEB_ATTACK = re.compile(r"\b(strik\w*|struck|airstrikes?|air strikes?|raids?
                             r"|attack\w*|fire[sd]?|firing|launch\w*|rockets?|missiles?|drones?|killed|kills?|assassinat\w*"
                             r"|eliminat\w*|invasion|invad\w*|incursion|offensive|operation)\b", _I)
 # Hezbollah firing at Israel
+# a heavy barrage, or fire reaching deep into Israel: a battle, not one launch
+_EN_HZB_BIG = re.compile(r"\b(barrages?|salvos?|waves?|dozens|scores|hundreds|massive|heavy|heaviest|largest|biggest"
+                         r"|intense|widespread|\d{2,} (rockets?|missiles?|drones?|projectiles?))\b"
+                         r"|\b(haifa|tel aviv|central israel|jerusalem|netanya|hadera)\b", _I)
+_FA_HZB_BIG = re.compile(fa_norm(r"رگبار|موج|ده ها|دهها|صدها|گسترده|سنگین|سنگین ترین|بزرگترین|\d{2,}\s*(موشک|راکت|پهپاد)"
+                                 r"|حیفا|تل آویو|مرکز اسرائیل|قدس|نتانیا|حدیره"))
+# the Lebanese state drawn in: its army fighting Israel's, Israel striking its army or government, war between states
+_EN_STATE = re.compile(r"\b(lebanese (army|armed forces|soldiers?|troops|government|state|president|military))\b[^.;]{0,60}"
+                       r"\b(clash\w*|exchange\w* (of )?fire|fir(e|es|ed|ing) (at|on)|engag\w*|attacked|declares? war|at war)\b"
+                       r"|\b(clash\w*|exchange\w* of fire|fighting|battles?)\b[^.;]{0,30}\blebanese (army|armed forces|soldiers"
+                       r"|troops|military)\b"
+                       r"|\b(israel\w*|idf)\b[^.;]{0,40}\b(strik\w*|struck|attack\w*|bomb\w*|target\w*)\b"
+                       r"[^.;]{0,30}\b(lebanese (army|armed forces|government|state|military|ministry) (positions?|bases?"
+                       r"|barracks|headquarters|posts?|buildings?|offices?)|lebanese (government|state|presidential|ministry)\b"
+                       r"|(positions?|bases?|barracks|posts?) of the lebanese (army|armed forces))"
+                       r"|\b(israel and lebanon|lebanon and israel) (at war|go to war|clash\w*)\b", _I)
+_FA_STATE = re.compile(fa_norm(r"(ارتش|نیروهای مسلح|دولت|نظامیان|سربازان|رئیس جمهور) لبنان[^.؛]{0,60}(درگیری|درگیر شد|تبادل آتش"
+                               r"|شلیک به|اعلام جنگ|حالت جنگ)"
+                               r"|(درگیری|تبادل آتش|نبرد)[^.؛]{0,30}(ارتش|نیروهای مسلح|نظامیان|سربازان) لبنان"
+                               r"|(اسرائیل|اسراییل|صهیونیست|اشغالگر)[^.؛]{0,40}(حمله|حملات|بمباران|هدف قرار)[^.؛]{0,30}"
+                               r"(مواضع|پایگاه|پایگاه های|مقر|پادگان) (ارتش|نیروهای مسلح) لبنان|(حمله|حملات|بمباران)[^.؛]{0,30}"
+                               r"(وزارت|دولت|کاخ ریاست جمهوری) لبنان"
+                               r"|جنگ (میان|بین) (لبنان و اسرائیل|اسرائیل و لبنان)"))
 _EN_HZB_FIRE = re.compile(r"(^|[:;,|\u2013\u2014-]\s*|\b(as|after|says|said|while|and)\s+)(hezbollah|hizbollah|hizballah)\s+"
                           r"(\w+\s+){0,2}?(fires?|fired|launch\w*|strikes|struck|attacks|attacked|targets|targeted|shoots"
                           r"|shot|hits|hit|claims?|shells|shelled)\b"
@@ -267,14 +323,9 @@ _EN_HZB_FIRE = re.compile(r"(^|[:;,|\u2013\u2014-]\s*|\b(as|after|says|said|whil
                           r"(southern )?lebanon\b"
                           r"|\b(sirens?|rockets?|missiles?|drones?)\b[^.;]{0,40}\b(northern israel|galilee|haifa|kiryat shmona"
                           r"|metula|nahariya|safed|tiberias|golan|tel aviv)\b", _I)
-_EN_BEIRUT = re.compile(r"\b(beirut|dahiyeh|dahieh|dahiya|southern suburbs?)\b", _I)
-_EN_BEIRUT_NOT = re.compile(r"\b(port blast|port explosion|probe|investigat\w*|trial|court|anniversary|airport (reopen\w*"
-                            r"|flights?)|parliament|cabinet|elect\w*)\b", _I)
-_EN_STRIKE = re.compile(r"\b(strik\w*|struck|airstrikes?|air strikes?|raids?|bomb\w*|hits?|targets?|targeted|attack\w*"
-                        r"|drone strike)\b", _I)
-_EN_SENIOR = re.compile(r"\b(kill\w*|assassinat\w*|eliminat\w*|dead|death of)\b[^.;]{0,60}\b(senior|top|chief|leader"
-                        r"|secretary[- ]general|naim qassem|qassem|head of|second[- ]in[- ]command|deputy (chief|leader))\b"
-                        r"|\b(senior|top|chief|leader|secretary[- ]general|naim qassem|qassem|head of)\b[^.;]{0,60}"
+_EN_SENIOR = re.compile(r"\b(kill\w*|assassinat\w*|eliminat\w*|dead|death of)\b[^.;]{0,60}\b(hezbollah('s)? (leader|chief)"
+                        r"|secretary[- ]general|naim qassem|qassem|second[- ]in[- ]command|deputy (secretary[- ]general|chief|leader))\b"
+                        r"|\b(hezbollah('s)? (leader|chief)|secretary[- ]general|naim qassem|qassem)\b[^.;]{0,60}"
                         r"\b(killed|assassinated|eliminated|dead)\b", _I)
 _EN_WAR = re.compile(r"\b(ground (invasion|offensive|operation|incursion|forces? (enter|advance|push))|invad\w*"
                      r"|(launch\w*|begins?|began|starts?|started|expands?|expanded|widens?) (a |an |its )?(new |wide\w* "
@@ -285,7 +336,8 @@ _EN_WAR = re.compile(r"\b(ground (invasion|offensive|operation|incursion|forces?
 _EN_LEB_FUTURE = re.compile(r"\b(will|would|vows?|vowed|warns?|warned|threat\w*|plans?|could|may|might|prepar\w*|ready"
                             r"|if)\b", _I)
 
-_FA_LEB = re.compile(fa_norm("لبنان|بیروت|ضاحیه|صور|صیدا|نبطیه|بقاع|بعلبک|بنت جبیل|مرجعیون|خیام|لیطانی|حزب الله|رضوان|یونیفل"))
+_FA_LEB = re.compile(_w("لبنان", "ی|ها") + "|" + _w("بیروت|ضاحیه|صور|صیدا|نبطیه|بقاع|بعلبک|بنت جبیل|مرجعیون|خیام|لیطانی"
+                                                     "|حزب الله|رضوان|یونیفل"))
 _FA_LEB_OTHER = re.compile(fa_norm("ایران|تهران|سپاه|جمهوری اسلامی|هرمز|حوثی|یمن"))
 _FA_LEB_ATTACK = re.compile(fa_norm("حمله|حملات|بمباران|هدف قرار|اصابت|شلیک|پرتاب|موشک|پهپاد|راکت|ترور|کشته|شهید|شهادت"
                                     "|تهاجم|یورش|عملیات|گلوله باران|توپخانه"))
@@ -293,14 +345,10 @@ _FA_HZB_FIRE = re.compile("(?:^|[:؛،.\\-]\\s*)" + fa_norm("حزب الله[^.�
                           + "|" + fa_norm("(موشک|راکت|پهپاد)[^.؛]{0,40}(از لبنان|از خاک لبنان|از جنوب لبنان)"
                                   "|(آژیر|موشک|راکت|پهپاد)[^.؛]{0,40}(شمال اسرائیل|شمال اسراییل|شمال فلسطین اشغالی|الجلیل|جلیل"
                                   "|حیفا|کریات شمونه|متولا|نهاریا|صفد|طبریه|جولان|تل آویو)"))
-_FA_BEIRUT = re.compile(fa_norm("بیروت|ضاحیه|حومه جنوبی"))
-_FA_BEIRUT_NOT = re.compile(fa_norm("انفجار بندر|تحقیقات|دادگاه|محاکمه|سالگرد|پارلمان|کابینه|انتخابات|پرواز"))
-_FA_STRIKE = re.compile(fa_norm("حمله|حملات|بمباران|هدف قرار|اصابت|ترور|موشک باران"))
-_FA_SENIOR = re.compile(fa_norm("(ترور|کشته|شهید|شهادت|به شهادت)[^.؛]{0,60}(ارشد|عالی رتبه|عالیرتبه|رئیس|دبیرکل|نعیم قاسم"
-                                "|جانشین|معاون دبیرکل|رهبر)"
-                                "|(ارشد|عالی رتبه|عالیرتبه|دبیرکل|نعیم قاسم|جانشین)[^.؛]{0,60}(ترور شد|کشته شد|به شهادت رسید"
+_FA_SENIOR = re.compile(fa_norm("(ترور|کشته|شهید|شهادت|به شهادت)[^.؛]{0,60}(دبیرکل|نعیم قاسم|معاون دبیرکل|رهبر حزب الله)"
+                                "|(دبیرکل|نعیم قاسم|معاون دبیرکل|رهبر حزب الله)[^.؛]{0,60}(ترور شد|کشته شد|به شهادت رسید"
                                 "|شهید شد)"))
-_FA_WAR = re.compile(fa_norm("حمله زمینی|تهاجم زمینی|عملیات زمینی|یورش زمینی|ورود (نیروهای|ارتش) [^.؛]{0,20}به لبنان|اشغال"
+_FA_WAR = re.compile(fa_norm("حمله زمینی|تهاجم زمینی|عملیات زمینی|یورش زمینی|ورود (نیروهای|ارتش) [^.؛]{0,20}به لبنان|اشغال (جنوب|مناطق|منطقه|شهر|روستا|خاک)"
                              "|آغاز (جنگ|عملیات گسترده|حملات گسترده|تهاجم)|از سرگیری جنگ|جنگ تمام عیار|جنگ همه جانبه"
                              "|فروپاشی آتش بس|پایان آتش بس|آتش بس (شکست|فرو پاشید)|(شدیدترین|سنگین ترین|گسترده ترین|بزرگترین)"
                              "[^.؛]{0,30}(حمله|حملات|بمباران)|سراسر لبنان|موج (جدید )?حملات"))
@@ -308,34 +356,34 @@ _FA_LEB_FUTURE = re.compile(fa_norm("خواهد|خواهیم|نخواهد|تهد
 
 
 def israel_lebanon(title, lang="en", flags=()):
-    """None when the report is not about Lebanon (or names Iran), "major" for a big turn between Israel and
-    Hezbollah (see the module's text), "secondary" for everything else there."""
+    """None when the report is not about Lebanon (or names Iran), "major" for a war between Israel and Hezbollah or
+    Lebanon (see the module's text), "minor" for everything else there."""
     fa = lang == "fa"
     t = fa_norm(title or "") if fa else (title or "")
     if fa:
-        front, other, attack, hzb, beirut, bnot, strike, senior, war, future, talk, review = (
-            _FA_LEB, _FA_LEB_OTHER, _FA_LEB_ATTACK, _FA_HZB_FIRE, _FA_BEIRUT, _FA_BEIRUT_NOT, _FA_STRIKE, _FA_SENIOR,
+        front, other, attack, hzb, big, state, senior, war, future, talk, review = (
+            _FA_LEB, _FA_LEB_OTHER, _FA_LEB_ATTACK, _FA_HZB_FIRE, _FA_HZB_BIG, _FA_STATE, _FA_SENIOR,
             _FA_WAR, _FA_LEB_FUTURE, _FA_TALK, _FA_REVIEW)
     else:
-        front, other, attack, hzb, beirut, bnot, strike, senior, war, future, talk, review = (
-            _EN_LEB, _EN_LEB_OTHER, _EN_LEB_ATTACK, _EN_HZB_FIRE, _EN_BEIRUT, _EN_BEIRUT_NOT, _EN_STRIKE, _EN_SENIOR,
+        front, other, attack, hzb, big, state, senior, war, future, talk, review = (
+            _EN_LEB, _EN_LEB_OTHER, _EN_LEB_ATTACK, _EN_HZB_FIRE, _EN_HZB_BIG, _EN_STATE, _EN_SENIOR,
             _EN_WAR, _EN_LEB_FUTURE, _EN_TALK, _EN_REVIEW)
     if not front.search(t) or other.search(t):
         return None
     if "evac" in flags:
         return "major"                   # embassies telling their people to leave Lebanon
     a, w = attack.search(t), talk.search(t)
+    if state.search(t) and not future.search(t):
+        return "major"                   # Israel and the Lebanese state (its army, its government) drawn in
     if not a or future.search(t) or review.search(t) or (w and w.start() < a.start()):
-        return "secondary"               # threats, plans, reactions, talks, politics in Beirut
-    if hzb.search(t) or senior.search(t) or war.search(t):
-        return "major"
-    if beirut.search(t) and strike.search(t) and not bnot.search(t):
-        return "major"                   # Israel striking Beirut or its southern suburbs
-    return "secondary"                   # the daily strikes, drone strikes and shelling in the south and the Bekaa
+        return "minor"                   # threats, plans, reactions, talks, protests, politics in Beirut
+    if war.search(t) or senior.search(t) or (hzb.search(t) and big.search(t)):
+        return "major"                   # a war: an invasion, an offensive, the Lebanese state drawn in, a heavy barrage
+    return "minor"                       # the daily strikes anywhere in Lebanon (Beirut too), a commander, one launch
 
 
 def side_front(title, lang="en", flags=(), src="", text=""):
-    """(front, grade) of a report on a side front ("saudi_houthi" or "lebanon"; "major" or "secondary"), or None.
+    """(front, grade) of a report on a side front ("saudi_houthi" or "lebanon"; "major", "secondary" or "minor"), or None.
     src (the outlet) and text (the summary) tell who a ship attack in the Red Sea is told by."""
     g = saudi_houthi(title, lang, flags, src, text)
     if g:
