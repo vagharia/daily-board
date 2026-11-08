@@ -1704,7 +1704,8 @@ _THREAT_EN = re.compile(r"\b(threat\w*|warn\w*|ultimatum|deadline|vow\w*|hammer)
 _WAR_EN = re.compile(r"\b(attack\w*|strik\w*|bomb\w*|war|destroy\w*|devastat\w*|wipe\w*|obliterat\w*|military action"
                      r"|hit\w*|cease-?fire|resum\w*|conflict|fighting)\b", I)
 _WILL_EN = re.compile(r"\b(will|would|won'?t|going to|could|may|might|if|unless|soon|decid\w*|decision|plans?|unlikely"
-                      r"|ready|rush|must|have to|has to|never|or else|rule out|again|renewed|new|end|over|whenever|any time)\b", I)
+                      r"|ready|prepared|rush|must|have to|has to|never|or else|rule out|again|renewed|new|end|over|whenever|any time"
+                      r"|in case|should|targets?|options?)\b", I)
 _TRUMP_NOT = {"past", "analysis", "opinion", "sport", "commemoration", "digest"}
 
 
