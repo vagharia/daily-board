@@ -399,11 +399,20 @@ def same_strike(a, b):
 # News reports (never a Telegram channel or citizen reports) of missiles or drones on a Gulf Arab city are one story
 # when both tell of an attack, name the same city ("explosions heard in Riyadh", "2 Houthi missiles intercepted over
 # Riyadh", «حمله هوایی به پایتخت عربستان»), or one names only the country ("over Saudi airspace"), and the report comes
-# within two hours of the story's first report. Sirens and civil-defence warnings make a story of their own, joined
+# within two hours of the story's first report, or, while it is still being told, within an hour of its latest report
+# and four hours of its first (later reports of the same attack: "Aramco building damaged as Houthis target Riyadh").
+# Sirens and civil-defence warnings make a story of their own, joined
 # the same way; never an attack's. Only for this front: a report naming Iran, Israel or America gets no mark
 # (fronts.gulf_mark), and a story holding such a report takes no report by this rule; nor does a report that says
 # it is a new or another attack. The main front's rules are untouched.
 GULF_WINDOW = 2 * 3600
+GULF_GAP = 1 * 3600           # still being told: within this of the story's latest report…
+GULF_SPAN = 4 * 3600          # …and this of its first
+
+
+def _gulf_time(t, c):
+    """The report at time t comes within the Gulf rule's time window of story c."""
+    return abs(t - _since(c)) <= GULF_WINDOW or (t - c["u"] <= GULF_GAP and t - c["t"] <= GULF_SPAN)
 
 
 def gulf_key(m):
@@ -1212,7 +1221,7 @@ class Clusterer:
             return out
         for cid, marks in self.gulfs.items():
             c = self.byid.get(cid)
-            if not c or cid in self.gmain or len(c["m"]) >= 60 or abs(item["t"] - _since(c)) > GULF_WINDOW:
+            if not c or cid in self.gmain or len(c["m"]) >= 60 or not _gulf_time(item["t"], c):
                 continue
             n = max(same_gulf(f["gulf"], x) for x in marks)
             if n and not self._gulf_conflict(f, cid) and self._ev_fits(f, cid):
@@ -1238,7 +1247,7 @@ class Clusterer:
             return None                                # the main front: its own rules
         if {x[0] for x in ma}.isdisjoint({x[0] for x in mb}):
             return False
-        if abs(_since(a) - _since(b)) > GULF_WINDOW:
+        if not (_gulf_time(_since(b), a) or _gulf_time(_since(a), b)):
             return None
         return any(same_gulf(x, y) for x in ma for y in mb) or None
 
@@ -1488,12 +1497,13 @@ def refresh(c):
         c["sev"] = min(c["sev"], SECONDARY_CAP)
         claim = min(claim, SECONDARY_CAP)
     gk = [gulf_key(m) for m in ms]
-    if len(ms) > 1 and any(gk) and not any("side_major" in m.get("flags", []) or gulf_main(m) for m in ms) \
+    if len(ms) > 1 and any(gk) and not any(("side_major" in m.get("flags", []) and e >= 70) or gulf_main(m)
+                                                     for e, m in zip(eff, ms)) \
             and all((g and "sa" in g[2]) or {"secondary", "side_minor"} & set(m.get("flags", [])) or e < 45
                     for g, e, m in zip(gk, eff, ms)):
         # missiles and drones on Saudi soil, or the sirens there, told by several outlets (joined by the Gulf rule,
-        # GULF_WINDOW): orange at most, as the side-front rules have it, however many outlets tell it; a lone report
-        # keeps its own grade
+        # GULF_WINDOW): orange at most, as the side-front rules have it, however many outlets tell it, unless one of
+        # its reports is itself red (a big turn: a Saudi oil site hit…); a lone report keeps its own grade
         c["sev"] = min(c["sev"], SECONDARY_CAP)
         claim = min(claim, SECONDARY_CAP)
     if any("side_minor" in m.get("flags", []) for m in ms) and all("side_minor" in m.get("flags", [])

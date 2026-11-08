@@ -434,8 +434,8 @@ _ALERT_EN = re.compile(r"\b(sirens?|alerts?|early[- ]warnings?|air[- ]raid|take 
 _ALERT_FA = re.compile(fa_norm("آژیر|هشدار زودهنگام|اعلام هشدار|هشدارهای|هشدار در|هشدار برای|هشدار خطر|پناهگاه"
                                "|وضعیت قرمز|وضعیت اضطراری"))
 _HIT_EN = re.compile(r"\b(explosions?|blasts?|intercept\w*|shot down|shoots? down|downed|destroy\w*|struck|hits?"
-                     r"|impact\w*|attack\w*|strikes?|missiles?|drones?|rockets?|debris|shrapnel)\b", _I)
-_HIT_FA = re.compile(fa_norm("انفجار|رهگیری|رهگیر|سرنگون|ساقط|منهدم|اصابت|حمله|حملات|موشک|پهپاد|راکت|ترکش|بقایای"))
+                     r"|impact\w*|attack\w*|strikes?|missiles?|drones?|rockets?|debris|shrapnel|target\w*|damag\w*)\b", _I)
+_HIT_FA = re.compile(fa_norm("انفجار|رهگیری|رهگیر|سرنگون|ساقط|منهدم|اصابت|حمله|حملات|موشک|پهپاد|راکت|ترکش|بقایای|هدف|خسارت|آسیب"))
 _CAUGHT_EN = re.compile(r"\b(intercept\w*|shoots? down|shot down|downs?|downed|destroy\w*)\b", _I)
 
 
