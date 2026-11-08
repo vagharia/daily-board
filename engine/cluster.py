@@ -2,7 +2,7 @@
 import re
 
 from . import config, deploy, evac, vessel, witness
-from .classify import cluster_severity, tier
+from .classify import cluster_severity, tier, trump_on_iran
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .relevance import FA_CITY, FA_IRAN
@@ -1706,6 +1706,13 @@ def refresh(c):
                     acc.append(x)
         c[f] = acc[:8]
     c["core"] = is_core(c)
+    if c["tier"] != "red" and not c.get("unconf") and news and 2 * sum(map(trump_on_iran, news)) >= len(news):
+        # Trump's own words on Iran (war, talks, sanctions, anything; at least half its news reports): red in the bulletin. Only the colour: the
+        # severity, the index and the Telegram alerts (alerts.py leaves out `trump`) go by the usual rules
+        c["tier"] = "red"
+        c["trump"] = True
+    else:
+        c.pop("trump", None)
     # de-escalation (deesc.py): the green tag, and when a ceasefire or formal talks began, for the index
     for key, flag in (("cease_t", "ceasefire_on"), ("talks_t", "talks_held"), ("deny_t", "deesc_denial")):
         ts = [m["t"] for m in ms if flag in m.get("flags", []) and not channel(m)]

@@ -268,7 +268,7 @@ def lite(T, day, idx, lights, lang, front=()):
         "index": pick(idx, ("value", "zone", "label_fa", "label_en", "delta24")),
         "lights": [pick(l, ("id", "state", "fa", "en")) for l in lights],
         # id, tier, severity, time, number of sources, headline, first source, unconfirmed label, de-escalation tag
-        "news": [[c["id"], c["tier"], round(c["sev"]), c["t"], c["ns"],
+        "news": [[c["id"], c["tier"], round(shown_sev(c)), c["t"], c["ns"],
                   (c[lang] or {}).get("ti") or (c[other] or {}).get("ti", ""),
                   (c["src"][0].get("nf" if lang == "fa" else "n") or c["src"][0].get("n") or "") if c["src"] else "",
                   c.get("unconf") or "", 1 if c.get("green") else 0] for c in day],
@@ -276,6 +276,12 @@ def lite(T, day, idx, lights, lang, front=()):
         "front": [[e["t"], e["s"], e.get(lang) or e.get(other, ""), e.get("conf", 0), e.get("x", 0)]
                   for e in front if T - e["t"] <= 48 * 3600][-80:],
     }
+
+
+def shown_sev(c):
+    """The severity the app shows: a story red only for Trump's words on Iran (cluster.py, `trump`) shows at least the
+    red line; the engine and the index keep its own severity."""
+    return max(c["sev"], float(config.TIER_RED)) if c.get("trump") else c["sev"]
 
 
 def public_cluster(c, short=False):
@@ -292,7 +298,7 @@ def public_cluster(c, short=False):
         fa["su"] = truncate(fa.get("su", ""), 260)
     lang = next((m.get("lang") for m in c["m"] if m["k"] == c.get("en_from")), "en")
     return {
-        "id": c["id"], "t": c["t"], "u": c["u"], "tier": c["tier"], "sev": c["sev"], "en": en, "fa": fa,
+        "id": c["id"], "t": c["t"], "u": c["u"], "tier": c["tier"], "sev": shown_sev(c), "en": en, "fa": fa,
         "lang": lang, "img": c.get("img"), "vid": c.get("vid"), "src": srcs[:14], "ns": c.get("ns", len(srcs)),
         "topics": c.get("topics", []), "geo": c.get("geo", [])[:4], "ctry": c.get("ctry", [])[:5],
         "ppl": c.get("ppl", [])[:5], "flags": [f for f in c.get("flags", []) if f in PUBLIC_FLAGS],

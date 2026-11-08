@@ -1121,6 +1121,9 @@ _PREVENT_ESC = re.compile(r"\b(prevent\w*|avoid\w*|avert\w*|contain\w*|curb\w*|r
 _JUDGED_EN = re.compile(r"\b(attack\w*|strik(e|es|ing)|bombing|targeting)\b[^.;:]{0,60}\b(is|are|was|were|constitutes?|amounts? to)"
                         r" (a |an )?(\w+ )?(war crimes?|terrorist acts?|act of (terror\w*|aggression|war)|crimes?|violations?"
                         r"|breach\w*|attack on)\b", I)
+# attacks said to be unlikely or not planned ("New attacks on Iran 'highly unlikely,' Trump says"): words, not a strike
+_UNLIKELY_EN = re.compile(r"\b(unlikely|not likely|no plans? (to|for)|no intention|not plan\w* to|not going to"
+                          r"|won'?t (attack|strike|bomb|order))\b", I)
 _REJECT_DEESC = re.compile(r"\b(reject\w*|refus\w*|dismiss\w*|rules? out|no)\b[^.;]{0,25}\b(de-?escalat\w+|calls)", I)
 # commentators' views ("…, experts say", "Analysts warn…", "Iraqi researcher: …")
 EXPERTS = re.compile(r"\b(experts?|analysts?|observers|scholars?|academics?|researchers?|commentators?|pundits?"
@@ -1288,6 +1291,10 @@ def score_en(title: str, summary: str):
         best = min(best, 66 if HYPO.search(t) else 64)   # "threatens to strike", "plans attacks", "X: …attack…"
         flags -= HARD_EVENTS
         flags |= {"speculative", "threat"} if HYPO.search(t) else {"quote"}
+    if flags & HARD_EVENTS and not _strong_kinetic(t) and _UNLIKELY_EN.search(t):
+        best = min(best, 60)                       # "new attacks on Iran unlikely": no attack took place
+        flags -= HARD_EVENTS
+        flags.add("speculative")
     if REACTION.search(t):
         best = min(best, 54)                       # reactions to an event rank below the event itself
         flags.add("reaction")
@@ -1654,3 +1661,55 @@ if __name__ == "__main__":
         print(f"{s:5.1f} {tier(s):6s} {sorted(fl)} | {t}")
     for t in ["حمله موشکی به پایگاه آمریکا در عراق", "عراقچی: آماده مذاکره هستیم", "تکذیب شایعه حمله به نفتکش"]:
         print(score_fa(t, "")[0], score_fa(t, "")[2], t)
+
+
+# ------------------------------------------------------------------ Trump's own words on Iran
+# Whatever Trump says about Iran (war, talks, sanctions, anything else) is a red story in the bulletin (cluster.py,
+# `trump`), but only there: its severity, the index and the Telegram alerts go by the usual rules.
+_TRUMP_IRAN_EN = re.compile(r"\b(iran\w*|tehran|khamenei|irgc|hormuz|araghchi|pezeshkian)\b", I)
+_TRUMP_SAYS_EN = re.compile(
+    r"\btrump(?!['’]s (administration|officials?|envoys?|team|aides?|allies))(?!\s+(administration|officials?|aides?"
+    r"|envoys?|team|allies|ally|supporters|tower|card|accounts?|jr|junior|adviser\w*|advisor\w*|aides?)\b)"
+    r"(?!['’]s (sons?|daughter|son-in-law|advis\w+|deputy|spokes\w+|cabinet|officials?|aides?|envoys?|team|allies"
+    r"|administration|reward|defeat|loss|midterm\w*|party)\b)"
+    r"(\s*:|\s+(\S+\s+){0,3}?(says?|said|tells?|told|warns?|warned|threat\w*|vows?|vowed|claims?|claimed|announc\w+"
+    r"|insists?|insisted|declares?|declared|writes?|wrote|posts?|posted|urges?|urged|demands?|demanded|rejects?"
+    r"|rejected|signals?|signaled|suggests?|suggested|hints?|hinted|predicts?|predicted|calls?|called|praises?"
+    r"|praised|slams?|slammed|blasts?|blasted|dismiss\w*|rules? out|ruled out|orders?|ordered|signs?|signed"
+    r"|imposes?|imposed|extends?|extended|lifts?|lifted|offers?|offered|gives?|gave|sets?|expects?|believes?"
+    r"|thinks?|hopes?|wants?|admits?|admitted|boasts?|boasted|mocks?|mocked|denies|denied|confirms?|confirmed)\b"
+    r"|\s+(on|about) iran\b)"
+    r"|,\s*trump\s+(says|said|tells|told|warns|claims)\b", I)
+_TRUMP_IRAN_FA = re.compile(fa_norm(r"ایران|تهران|خامنه|سپاه|هرمز|عراقچی|پزشکیان"))
+_TRUMP_SAYS_FA = re.compile(fa_norm(
+    r"(?:^|[\s«\"،,:؛|])ترامپ(?!\s*(?:جونیور|جوینور|جونیر|جوان))(?:\s*[:：]|\s+درباره\s+ایران\s*[:：]|(?:\s+\S+){0,3}?\s+"
+    r"(?:گفت|می\s*گوید|میگوید|گفته\s*است|اعلام\s*کرد|تهدید\s*کرد|هشدار\s*داد|هشدار\s*می\s*دهد|نوشت|ادعا\s*کرد"
+    r"|مدعی\s*شد|افزود|تاکید\s*کرد|تأکید\s*کرد|خواستار|اظهار\s*کرد|اظهار\s*داشت|تصریح\s*کرد|مدعی\s*است"
+    r"|اعلام\s*می\s*کند|خبر\s*داد|دستور\s*داد|امضا\s*کرد|پیام\s*داد|تایید\s*کرد|تأیید\s*کرد|پذیرفت|اعتراف))"
+    r"|^\W*(?:\S+\s*\|\s*)?(?:ادعای|هشدار|تهدید|پیام|اولتیماتوم|ضرب\s*الاجل)\s+(?:\S+\s+)?ترامپ"))
+# Trump begins the clause: the headline's start, after punctuation («به گزارش سی‌ان‌ان، ترامپ…», "Live: Trump…") or
+# his title; "Iran's hardliners see a weakened Trump", «پاسخ … به اتهام‌زنی ترامپ:», "Why does Trump…" are not his words
+_TRUMP_LEAD_FA = re.compile(fa_norm(r"(?:^|[:：،,؛;|/«\"(\-–—]|رئیس\s*جمهور(?:\s*آمریکا)?|رییس\s*جمهور(?:\s*آمریکا)?|پرزیدنت|دونالد)\s*$"))
+_TRUMP_LEAD_EN = re.compile(r"(?:^|[:,;|/“”\"‘’'(\-–—]|\b(?:president|donald|u\.?s\.? president|us president))\s*$", I)
+_TRUMP_NOT = {"past", "analysis", "opinion", "sport", "commemoration", "digest"}
+
+
+def trump_on_iran(m):
+    """A report whose headline gives Trump's own words on Iran: «ترامپ: …ایران…», "Trump says … Iran …"."""
+    if set(m.get("flags") or []) & _TRUMP_NOT:
+        return False
+    if m.get("lang") == "fa":
+        t = fa_norm(m.get("ti") or "")
+        if not _TRUMP_IRAN_FA.search(t):
+            return False
+        for x in _TRUMP_SAYS_FA.finditer(t):
+            i = x.start() + x.group(0).find("ترامپ")
+            if x.start() == 0 and not x.group(0).lstrip().startswith("ترامپ"):
+                return True                          # «ادعای ترامپ: …», «هشدار ترامپ به ایران»
+            if _TRUMP_LEAD_FA.search(t[:i]):
+                return True
+        return False
+    t = m.get("en_ti") or m.get("ti") or ""
+    if not _TRUMP_IRAN_EN.search(t):
+        return False
+    return any(_TRUMP_LEAD_EN.search(t[:x.start() + x.group(0).lower().find("trump")]) for x in _TRUMP_SAYS_EN.finditer(t))
