@@ -322,6 +322,11 @@ def is_relevant(item):
         return 70, True                       # undersea cables of the region threatened, cut or damaged
     if roundup(item):
         item = dict(item, su="")                       # a roundup counts by its headline only
+    from .mishap import border_drop
+    lang = item.get("lang") or "en"
+    if border_drop(lang, item.get("ti", "") if lang == "fa" else (item.get("en_ti") or item.get("ti", "")),
+                   item.get("su", "")):
+        return 0.0, False                     # an accident or a toll across the border, Iran named only as the place
     if item.get("lang") == "fa":
         sc, ok = relevance_fa(item.get("ti", ""), item.get("su", ""))
         if ok and _noecon(item.get("s")) and not internet("fa", item.get("ti", ""), item.get("su", "")):
