@@ -165,7 +165,7 @@ PATTERNS = [
     P(r"\b(retaliat\w+|reprisal|revenge|counter-?attack|response will be)\b", 64, ["military"], ["retaliation"]),
     P(r"\bcyber ?-?attacks?\b", 60, ["military"], []),
     # --- significant
-    P(r"\b(threat(en|ens|ened|ening)?|warn(s|ed|ing)?|vow(s|ed|ing)?|pledg\w+ to (respond|retaliate|strike))\b", 52,
+    P(r"\b((?<!triple )(?<!triple-)threat(en|ens|ened|ening)?|warn(s|ed|ing)?|vow(s|ed|ing)?|pledg\w+ to (respond|retaliate|strike))\b", 52,
       ["statement"], ["threat"]),
     P(r"\bsanction\w*\b", 52, ["economy"], ["sanctions"]),
     # ships told to keep out of Hormuz or the Gulf
@@ -849,6 +849,24 @@ _PROTEST_IN_REGION_FA = re.compile(fa_norm("(?:در|مقابل|جلوی|نزدی
                                    + r"(?![\u0600-\u06FF])")
 
 
+# a rally of the government's own supporters (hardliners, shroud-wearers, Basij): a yellow story, unless it turns
+# violent; protests against the government in Iran are scored as they are
+_SUPPORTERS_EN = re.compile(r"\b(shroud\w*|hard-?liners?|regime (supporters|loyalists)|government supporters"
+                            r"|pro-(government|regime|establishment)|basij\w*|loyalists)\b", re.I)
+_GATHER_EN = re.compile(r"\b(rall(y|ies|ied|ying)|protest\w*|gather\w*|march(es|ed|ing)?|demonstrat\w*|sit-ins?)\b", re.I)
+_SUPPORTERS_FA = re.compile(fa_norm("کفن پوش|کفنپوش|تندرو|حامیان نظام|حامیان دولت|حامیان رهبری|بسیجیان|حزب اللهی"
+                                    "|دلواپسان|نیروهای انقلابی"))
+_GATHER_FA = re.compile(fa_norm("تجمع|راهپیمایی|راه پیمایی|اجتماع|تظاهرات"))
+
+
+def _supporters_rally(lang, t, s):
+    text = (t or "") + " " + first_sentences(s or "", 220)
+    if lang == "fa":
+        text = fa_norm(text)
+        return bool(_SUPPORTERS_FA.search(text) and _GATHER_FA.search(text)) and not _PROTEST_NOT_FA.search(text)
+    return bool(_SUPPORTERS_EN.search(text) and _GATHER_EN.search(text)) and not _PROTEST_NOT_EN.search(text)
+
+
 def _protest(lang, t):
     fa = lang == "fa"
     if fa:
@@ -897,8 +915,17 @@ _FEATURE_EN = re.compile(r"\b(stranded|plight|in limbo|livelihoods?|housing|rent
                          r"|everyday life|way of life|emergency kits?|stock(ing|s)? up|hoard\w*|panic[- ]buy\w*)\b", re.I)
 
 
+# births, babies, families doing well ("Triplets doing well after premature birth in first days of Iran conflict"): a
+# yellow story when nobody died or was hurt
+_HUMAN_EN = re.compile(r"\b(born (prematurely|early|premature|during|amid|in the)|births?|newborns?|bab(y|ies)|triplets"
+                       r"|twins|doing well|reunit\w+|weddings?)\b", re.I)
+_HURT_EN = re.compile(r"\b(dead|died|die|dies|deaths?|wounded|injured|hurt|casualt\w+|martyr\w*|missing)\b", re.I)
+
+
 def _feature(lang, t, flags):
-    return lang != "fa" and bool(_FEATURE_EN.search(t or "")) and not _STRONG.search(t or "")
+    if lang == "fa" or _STRONG.search(t or ""):
+        return False
+    return bool(_FEATURE_EN.search(t or "")) or (bool(_HUMAN_EN.search(t or "")) and not _HURT_EN.search(t or ""))
 
 
 CIVIL_DRILL_CAP = 35.0
@@ -978,6 +1005,47 @@ PAST = re.compile(r"\b(anniversary|years? ago|decades? ago|commemorat\w+|memoria
                   r"|(?:weeks|months|several days)\s+(?:after|since)\s+(?:the\s+|a\s+|an\s+)?(?:[\w'-]+\s+){0,3}?"
                   r"(?:strikes?|attacks?|bombing|blasts?|explosions?|war)"
                   r"|weeks ago|months ago)\b", I)
+# told long after the start of a war ("Triplets born in the first days of the Iran conflict are finally flourishing"):
+# strict, since in a new war "in the first hours of the war" is news of now. Only "in/during the first|early|opening
+# days|weeks|months of the war/conflict" (never a bare "during the war"), only with a sign that time has passed since
+# ("finally", "months later", "since then", "to this day"), and never with a strike in the headline
+_EARLY_WAR_EN = re.compile(r"\b(in|during|over) (the )?(first|early|earliest|opening|initial) (days|weeks|months)"
+                           r" of (the )?([\w'-]+ ){0,2}?(war|conflict|fighting|hostilities)\b", I)
+_LONG_SINCE_EN = re.compile(r"\b(finally|since then|to this day|(weeks|months|a year|years) (later|on)"
+                            r"|(weeks|months) (after|since)( the| that)?|now (recovering|thriving|flourishing|home|back))\b", I)
+
+
+def early_war_past(t, s):
+    text = (t or "") + " " + (s or "")[:220]
+    return bool(_EARLY_WAR_EN.search(text)) and bool(_LONG_SINCE_EN.search(text))
+
+
+# a crowd's call for revenge ("amid demands for retaliation", "chanting for revenge", "protesters demand revenge"):
+# not a threat or a retaliation; a leader's call ("Trump calls for retaliation") is not touched
+_CROWD_REVENGE_EN = re.compile(
+    r"\b(amid|after|following|with) (growing |public |popular |angry |loud |fresh )?(calls|demands|cries|chants)"
+    r" for (retaliation|revenge|reprisals?)\b"
+    r"|\bchant\w*[^.;]{0,30}\b(retaliation|revenge)\b"
+    r"|\b(protesters|protestors|demonstrators|crowds?|mourners|hard-?liners|supporters|rall(y|ies|ied)|marchers"
+    r"|women|men|students)\b[^.;]{0,60}\b(demand\w*|call\w*|urg\w*|cr(y|ied|ies))\s+(for\s+)?"
+    r"(retaliation|revenge|reprisals?)\b", I)
+
+
+def crowd_revenge(text):
+    """Takes the revenge word out of a crowd's call for revenge, so it scores nothing."""
+    return _CROWD_REVENGE_EN.sub(
+        lambda m: re.sub(r"(?i)retaliat\w*|revenge|reprisals?", "redress", m.group(0)), text or "")
+
+
+# a headline that names only the Leader, in a quarrel at home ("Hardliners accuse Guards of defying Khamenei"):
+# with nothing notable in it, a yellow story
+_MAIN_NO_LEADER_EN = re.compile(r"\b(iran\w*|tehran|irgc|israel\w*|idf|netanyahu|america\w*|pentagon|centcom"
+                                r"|washington|trump|hormuz|white house|persian gulf|gulf of oman|oman\w*|ukmto|tankers?"
+                                r"|vessels?|ships?)\b|(?-i:(?<![A-Za-z])(US|U\.S\.)(?![A-Za-z]))", I)
+_QUARREL_EN = re.compile(r"\b(accus\w+|criticiz\w+|criticis\w+|slam\w*|blam\w+|def(y|ies|ied|ying)|defian\w+"
+                         r"|disobe\w+|loyal\w*|rift|feud\w*|row|rebuk\w+)\b", I)
+
+
 # an attack of an earlier year ("Hezbollah's 1983 bombing", "the 2024 war"), read in the headline only (a text often
 # compares: "the heaviest since 2024"), and not "the first since 1983 bombing"
 _YEAR = datetime.date.today().year
@@ -1113,7 +1181,7 @@ _DRILL_HURT_EN = re.compile(r"\b(killed|dead|died|wounded|injured|casualt\w+|cra
 
 
 def score_en(title: str, summary: str):
-    t, s = title or "", summary or ""
+    t, s = crowd_revenge(title or ""), crowd_revenge(summary or "")
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
     for rx, base, tp, fl in PATTERNS:
         if rx.search(t):
@@ -1136,7 +1204,8 @@ def score_en(title: str, summary: str):
     if kinetic_in_title and SPEC.search(t) and "kinetic_threat" not in flags:
         best *= 0.82
         flags.add("speculative")
-    if PAST.search(t) or PAST.search(s[:160]) or past_year("en", t):
+    if PAST.search(t) or PAST.search(s[:160]) or past_year("en", t) or \
+            (early_war_past(t, s) and not kinetic_in_title):
         best = min(best * 0.6, PAST_CAP)           # told of the past: a yellow story, never an event of now
         flags.add("past")
     if ACTOR.search(t) and flags & {"ultimatum", "kinetic_threat"}:
@@ -1164,7 +1233,8 @@ def score_en(title: str, summary: str):
         # nothing notable in the headline itself: the text alone tells no event, and it is a yellow story unless the
         # headline names the main front (Iran, America, Israel, Hormuz)
         flags -= HARD_EVENTS
-        best = min(best, 52 if _MAIN_EN.search(t) else 44)
+        main = _MAIN_EN.search(t) and not (_QUARREL_EN.search(t) and not _MAIN_NO_LEADER_EN.search(t))
+        best = min(best, 52 if main else 44)
     if DRILL_EN.search(t) and flags & HARD_EVENTS and not _DRILL_HURT_EN.search(t):
         best = min(best, 55)                       # "drill against bombing": a drill, not a strike
         flags = (flags - HARD_EVENTS) | {"exercise"}
@@ -1397,6 +1467,10 @@ def classify(item):
     if _protest(lang, fa_t or en_t):
         # a protest, a rally or a march outside the region ("Hundreds protest Israeli attacks… in Sweden"): yellow
         flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"protest"}
+        sev = min(sev, PROTEST_CAP)
+    if _supporters_rally(lang, fa_t or en_t, fa_s or en_s) and not set(flags) & HARD_EVENTS:
+        # a rally of the government's own supporters ("Shroud-wearing hardliners rally outside IRGC headquarters"): yellow
+        flags = (set(flags) - {"threat", "retaliation"}) | {"protest"}
         sev = min(sev, PROTEST_CAP)
     if _commemoration(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
         flags = set(flags) | {"commemoration"}

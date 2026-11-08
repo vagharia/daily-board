@@ -377,10 +377,29 @@ JUDGED = re.compile(R("(?:حمله|حملات|هدف\\s*قرار\\s*دادن|ب�
                       "re:\\s*[.!»]*\\s*$"))
 
 
+# a crowd's call for revenge («شعار انتقام», «تجمع‌کنندگان خواستار انتقام شدند»): not a threat or a retaliation; a
+# leader's call is not touched
+_CROWD_REVENGE = re.compile(R("(?:شعار|فریاد|نعره)\\s*(?:\\S+\\s+){0,2}?(?:انتقام|تلافی)", "|",
+                              "(?:تجمع کنندگان|معترضان|معترضین|کفن پوشان|عزاداران|حاضران|راهپیمایان|تظاهرکنندگان"
+                              "|تجمع|راهپیمایی)[^.؛]{0,60}(?:خواستار|مطالبه|درخواست)\\s*(?:\\S+\\s+){0,1}?(?:انتقام|تلافی)"))
+# told long after the start of a war («سه‌قلوهایی که در روزهای نخست جنگ به دنیا آمدند، سرانجام…»): strict, as in
+# English: only "in the first days|weeks|months of the war", only with a sign that time has passed since, and never
+# with a strike in the headline
+_EARLY_WAR = re.compile(R("(?:در|طی)\\s*(?:روزهای|روز های|هفته های|هفته ها|ماه های|ماه ها)\\s*(?:نخست|اول|ابتدایی|آغازین"
+                          "|ابتدای)\\s*(?:\\S+\\s+){0,1}?(?:جنگ|درگیری)"))
+_LONG_SINCE = re.compile(F("سرانجام", "بالاخره", "ماه ها بعد", "هفته ها بعد", "از آن زمان", "تا امروز", "تاکنون پس از",
+                           "اکنون پس از", "حالا پس از"))
+
+
+def _crowd_revenge(text):
+    return _CROWD_REVENGE.sub(lambda m: re.sub(R("انتقام|تلافی"), "دادخواهی", m.group(0)), text)
+
+
 def score_fa(title: str, summary: str):
     """(severity, topics, flags) for a Persian headline and text."""
     t, s = fa_norm(to_latin_digits(title or "")), fa_norm(to_latin_digits(summary or ""))
     t, s = BOMBED_ADJ.sub(" ", t), BOMBED_ADJ.sub(" ", s)
+    t, s = _crowd_revenge(t), _crowd_revenge(s)
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
     for rx, base, tp, fl in PATTERNS:
         if rx.search(t):
@@ -409,6 +428,8 @@ def score_fa(title: str, summary: str):
         best *= 0.82
         flags.add("speculative")
     past = bool(PAST.search(t) or PAST.search(s[:160]))
+    lead = t + " " + s[:220]
+    past = past or (bool(_EARLY_WAR.search(lead) and _LONG_SINCE.search(lead)) and not kinetic_in_title)
     if past:
         best = min(best * 0.6, 44.0)               # told of the past: a yellow story, never an event of now
         flags.add("past")
