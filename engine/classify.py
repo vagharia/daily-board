@@ -1664,7 +1664,7 @@ if __name__ == "__main__":
 
 
 # ------------------------------------------------------------------ Trump's own words on Iran
-# Whatever Trump says about Iran (war, talks, sanctions, anything else) is a red story in the bulletin (cluster.py,
+# What Trump says of the war's future with Iran (threats, attacks or war to come or not) is a red story in the bulletin (cluster.py,
 # `trump`), but only there: its severity, the index and the Telegram alerts go by the usual rules.
 _TRUMP_IRAN_EN = re.compile(r"\b(iran\w*|tehran|khamenei|irgc|hormuz|araghchi|pezeshkian)\b", I)
 _TRUMP_SAYS_EN = re.compile(
@@ -1691,16 +1691,31 @@ _TRUMP_SAYS_FA = re.compile(fa_norm(
 # his title; "Iran's hardliners see a weakened Trump", «پاسخ … به اتهام‌زنی ترامپ:», "Why does Trump…" are not his words
 _TRUMP_LEAD_FA = re.compile(fa_norm(r"(?:^|[:：،,؛;|/«\"(\-–—]|رئیس\s*جمهور(?:\s*آمریکا)?|رییس\s*جمهور(?:\s*آمریکا)?|پرزیدنت|دونالد)\s*$"))
 _TRUMP_LEAD_EN = re.compile(r"(?:^|[:,;|/“”\"‘’'(\-–—]|\b(?:president|donald|u\.?s\.? president|us president))\s*$", I)
+# only what he says of the war's future: threats, warnings, deadlines, or attacks / war / its end with a will, an if, a
+# soon, a decision («ایران را دوباره بمباران می‌کنیم», "attacks unlikely if talks progress"); not his comments on
+# talks going well, the midterms, fuel or what was done
+_THREAT_FA = re.compile(fa_norm(r"تهدید|هشدار|اولتیماتوم|ضرب\s*الاجل|مهلت|چکش"))
+_WAR_FA = re.compile(fa_norm(r"حمله|حملات|بمباران|جنگ|نابود|ویران|اقدام\s*نظامی|اقدام\s*بزرگ|عملیات|هدف\s*قرار|ضربه|آتش\s*بس"
+                             r"|از\s*سرگیری|ازسرگیری|با\s*خاک\s*یکسان"))
+_WILL_FA = re.compile(fa_norm(r"می\s*کنیم|میکنیم|نمی\s*کنیم|خواهیم|خواهد|خواهند|نخواهد|نخواهیم|اگر|در\s*صورت|مگر|به\s*زودی|بزودی"
+                              r"|تصمیم\s*(?:می|خواه|بگیر)|برنامه|بعید|آماده|ممکن\s*است|مجبور|باید|عجله|قصد|یا\s*آنها|یا\s*ما|هرگز|دوباره|مجدد"
+                              r"|در\s*حال\s*پایان|هر\s*زمان|فرصت"))
+_THREAT_EN = re.compile(r"\b(threat\w*|warn\w*|ultimatum|deadline|vow\w*|hammer)\b", I)
+_WAR_EN = re.compile(r"\b(attack\w*|strik\w*|bomb\w*|war|destroy\w*|devastat\w*|wipe\w*|obliterat\w*|military action"
+                     r"|hit\w*|cease-?fire|resum\w*|conflict|fighting)\b", I)
+_WILL_EN = re.compile(r"\b(will|would|won'?t|going to|could|may|might|if|unless|soon|decid\w*|decision|plans?|unlikely"
+                      r"|ready|rush|must|have to|has to|never|or else|rule out|again|renewed|new|end|over|whenever|any time)\b", I)
 _TRUMP_NOT = {"past", "analysis", "opinion", "sport", "commemoration", "digest"}
 
 
 def trump_on_iran(m):
-    """A report whose headline gives Trump's own words on Iran: «ترامپ: …ایران…», "Trump says … Iran …"."""
+    """A report whose headline gives Trump's own words on the future of the war with Iran: «ترامپ: …ایران…»,
+    "Trump says … Iran …", with a threat or an attack, war or its end still to come."""
     if set(m.get("flags") or []) & _TRUMP_NOT:
         return False
     if m.get("lang") == "fa":
         t = fa_norm(m.get("ti") or "")
-        if not _TRUMP_IRAN_FA.search(t):
+        if not _TRUMP_IRAN_FA.search(t) or not (_THREAT_FA.search(t) or (_WAR_FA.search(t) and _WILL_FA.search(t))):
             return False
         for x in _TRUMP_SAYS_FA.finditer(t):
             i = x.start() + x.group(0).find("ترامپ")
@@ -1710,6 +1725,6 @@ def trump_on_iran(m):
                 return True
         return False
     t = m.get("en_ti") or m.get("ti") or ""
-    if not _TRUMP_IRAN_EN.search(t):
+    if not _TRUMP_IRAN_EN.search(t) or not (_THREAT_EN.search(t) or (_WAR_EN.search(t) and _WILL_EN.search(t))):
         return False
     return any(_TRUMP_LEAD_EN.search(t[:x.start() + x.group(0).lower().find("trump")]) for x in _TRUMP_SAYS_EN.finditer(t))

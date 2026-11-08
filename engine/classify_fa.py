@@ -359,6 +359,13 @@ _NOT_SPEAKER = re.compile(F("منابع", "منبع", "گزارش", "خبر", "�
                             "کانال", "ادعای برخی") + "|" + _OUTLETS)
 
 
+# an attack still to come, in the speaker's own words («ایران را دوباره بمباران می‌کنیم», «بمباران خواهیم کرد»): a threat,
+# not a strike, though "بمباران" alone reads as one (STRONG)
+FUTURE_ACT = re.compile(fa_norm(r"(?:حمله|بمباران|هدف\s*قرار|نابود|ویران|منهدم|با\s*خاک\s*یکسان)\s*(?:\S+\s+){0,2}?"
+                                r"(?:می\s*کنیم|میکنیم|خواهیم|خواهد\s*کرد|خواهند\s*کرد|می\s*دهیم|میدهیم|می\s*زنیم|میزنیم)"
+                                r"(?![\u0600-\u06FF])"))
+
+
 def _quote(t):
     """'عراقچی: …' — a statement whose words may mention attacks without reporting one."""
     m = _QUOTE.match(t or "")
@@ -416,7 +423,7 @@ def score_fa(title: str, summary: str):
         best = max(best, val)
     if best == 0:
         best = 22.0
-    strong = bool(STRONG.search(t))
+    strong = bool(STRONG.search(t)) and not FUTURE_ACT.search(t)
     if DEESCALATE.search(t) and "threat" in flags:
         best = min(best, 45)
         flags.discard("threat")
