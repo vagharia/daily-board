@@ -2,7 +2,7 @@
 import re
 
 from . import config, deploy, evac, vessel, witness
-from .classify import cluster_severity, tier, trump_on_iran
+from .classify import cluster_severity, tier, trump_level
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .relevance import FA_CITY, FA_IRAN
@@ -1706,11 +1706,17 @@ def refresh(c):
                     acc.append(x)
         c[f] = acc[:8]
     c["core"] = is_core(c)
-    if c["tier"] != "red" and not c.get("unconf") and news and 2 * sum(map(trump_on_iran, news)) >= len(news):
-        # Trump's own words on Iran (war, talks, sanctions, anything; at least half its news reports): red in the bulletin. Only the colour: the
-        # severity, the index and the Telegram alerts (alerts.py leaves out `trump`) go by the usual rules
+    lv = [trump_level(m) for m in news] if news and not c.get("unconf") else []
+    if c["tier"] != "red" and lv and 2 * sum(x == 2 for x in lv) >= len(lv):
+        # Trump's own words on the war's future with Iran (threats, attacks or war to come; at least half its news
+        # reports): red in the bulletin; his other words on the conflict (talks, a deal, sanctions…) never yellow.
+        # Only the colour: the severity, the index and the Telegram alerts (alerts.py leaves out `trump`) go by the
+        # usual rules
         c["tier"] = "red"
-        c["trump"] = True
+        c["trump"] = 2
+    elif c["tier"] == "yellow" and lv and 2 * sum(x >= 1 for x in lv) >= len(lv):
+        c["tier"] = "orange"
+        c["trump"] = 1
     else:
         c.pop("trump", None)
     # de-escalation (deesc.py): the green tag, and when a ceasefire or formal talks began, for the index

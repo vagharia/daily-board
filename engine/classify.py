@@ -1708,23 +1708,57 @@ _WILL_EN = re.compile(r"\b(will|would|won'?t|going to|could|may|might|if|unless|
 _TRUMP_NOT = {"past", "analysis", "opinion", "sport", "commemoration", "digest"}
 
 
-def trump_on_iran(m):
-    """A report whose headline gives Trump's own words on the future of the war with Iran: «ترامپ: …ایران…»,
-    "Trump says … Iran …", with a threat or an attack, war or its end still to come."""
+# the rest of what he says of Iran is orange when it is about the conflict itself: talks, a deal, sanctions, the
+# nuclear programme, Hormuz and oil, the blockade, the regime, the war; not when Iran is only a word in home politics
+# (the midterms, Republicans, impeachment, his ratings)
+_MATTER_FA = re.compile(fa_norm(r"مذاکر|توافق|تحریم|هسته|غنی\s*سازی|اورانیوم|هرمز|نفت|محاصره|حکومت|رژیم|خامنه|سپاه|میانجی"
+                                r"|آتش\s*بس|جنگ|حمله|حملات|بمباران|موشک|پدافند|تسلیم|شرط|شروط|پیشنهاد|پاسخ|نامه|دیپلماسی"))
+_HOME_FA = re.compile(fa_norm(r"میان\s*دوره|انتخابات|جمهوری\s*خواه|دموکرات|استیضاح|کنگره|آرای|رای|نظرسنجی|محبوبیت"))
+_MATTER_EN = re.compile(r"\b(talks?|negotiat\w*|deal|agreement|sanction\w*|nuclear|enrich\w*|uranium|hormuz|oil|blockade"
+                        r"|regime|khamenei|irgc|mediat\w*|cease-?fire|war|attack\w*|strik\w*|bomb\w*|missiles?"
+                        r"|surrender|terms|conditions|proposal|offer|response|letter|diplomac\w*)\b", I)
+_HOME_EN = re.compile(r"\b(midterms?|elections?|republicans?|democrats?|gop|impeach\w*|congress|votes?|voters|polls?"
+                      r"|approval|ratings?)\b", I)
+
+
+def _trump_speaks(m):
+    """(headline, language) when the report's headline gives Trump's own words on Iran, else None."""
     if set(m.get("flags") or []) & _TRUMP_NOT:
-        return False
+        return None
     if m.get("lang") == "fa":
         t = fa_norm(m.get("ti") or "")
-        if not _TRUMP_IRAN_FA.search(t) or not (_THREAT_FA.search(t) or (_WAR_FA.search(t) and _WILL_FA.search(t))):
-            return False
+        if not _TRUMP_IRAN_FA.search(t):
+            return None
         for x in _TRUMP_SAYS_FA.finditer(t):
             i = x.start() + x.group(0).find("ترامپ")
             if x.start() == 0 and not x.group(0).lstrip().startswith("ترامپ"):
-                return True                          # «ادعای ترامپ: …», «هشدار ترامپ به ایران»
+                return t, "fa"                       # «ادعای ترامپ: …», «هشدار ترامپ به ایران»
             if _TRUMP_LEAD_FA.search(t[:i]):
-                return True
-        return False
+                return t, "fa"
+        return None
     t = m.get("en_ti") or m.get("ti") or ""
-    if not _TRUMP_IRAN_EN.search(t) or not (_THREAT_EN.search(t) or (_WAR_EN.search(t) and _WILL_EN.search(t))):
-        return False
-    return any(_TRUMP_LEAD_EN.search(t[:x.start() + x.group(0).lower().find("trump")]) for x in _TRUMP_SAYS_EN.finditer(t))
+    if _TRUMP_IRAN_EN.search(t) and any(_TRUMP_LEAD_EN.search(t[:x.start() + x.group(0).lower().find("trump")])
+                                        for x in _TRUMP_SAYS_EN.finditer(t)):
+        return t, "en"
+    return None
+
+
+def trump_level(m):
+    """2: Trump's own words on the future of the war with Iran (a threat, or an attack, war or its end still to come):
+    red; 1: his words on the conflict otherwise (talks, a deal, sanctions, what was done): orange; 0: anything else."""
+    got = _trump_speaks(m)
+    if not got:
+        return 0
+    t, lang = got
+    if lang == "fa":
+        if _THREAT_FA.search(t) or (_WAR_FA.search(t) and _WILL_FA.search(t)):
+            return 2
+        return 1 if _MATTER_FA.search(t) and not _HOME_FA.search(t) else 0
+    if _THREAT_EN.search(t) or (_WAR_EN.search(t) and _WILL_EN.search(t)):
+        return 2
+    return 1 if _MATTER_EN.search(t) and not _HOME_EN.search(t) else 0
+
+
+def trump_on_iran(m):
+    """Trump's own words on the future of the war with Iran (red; see trump_level)."""
+    return trump_level(m) == 2

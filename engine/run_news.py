@@ -279,9 +279,12 @@ def lite(T, day, idx, lights, lang, front=()):
 
 
 def shown_sev(c):
-    """The severity the app shows: a story red only for Trump's words on Iran (cluster.py, `trump`) shows at least the
-    red line; the engine and the index keep its own severity."""
-    return max(c["sev"], float(config.TIER_RED)) if c.get("trump") else c["sev"]
+    """The severity the app shows: a story coloured by Trump's words on Iran (cluster.py, `trump`: 2 red, 1 orange)
+    shows at least that colour's line; the engine and the index keep its own severity."""
+    lv = c.get("trump")
+    if not lv:
+        return c["sev"]
+    return max(c["sev"], float(config.TIER_RED if lv == 2 else config.TIER_ORANGE))
 
 
 def public_cluster(c, short=False):
