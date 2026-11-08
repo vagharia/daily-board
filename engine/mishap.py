@@ -207,7 +207,7 @@ _NATURE_EN = re.compile(
 _NATURE_FA = fa_rx(["زلزله", "زمین لرزه", "سیل$", "سیلاب", "طغیان رودخانه", "رانش زمین", "بهمن گرفت",
                     "ریزش بهمن", "کولاک", "طوفان شدید", "توفان شدید", "گردباد", "تندباد", "هاریکن", "تایفون", "سونامی",
                     "آتشفشان", "فوران", "موج گرما", "خشکسالی", "آتش سوزی جنگل", "آتش سوزی جنگل ها", "باران شدید",
-                    "بارش شدید", "باران های سیل آسا"])
+                    "بارش شدید", "باران های سیل آسا", "زیر آب رفت", "آبگرفتگی", "آب گرفتگی"])
 _REGION_EN = re.compile(
     r"\b(iran\w*|tehran|persian gulf|gulf of oman|hormuz|middle east|mideast|israel\w*|gaza|west bank|lebanon|lebanese"
     r"|syria\w*|iraq\w*|jordan\w*|saudi\w*|yemen\w*|oman\w*|uae|emirat\w*|dubai|abu dhabi|qatar\w*|bahrain\w*"
