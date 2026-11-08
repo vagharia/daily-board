@@ -535,6 +535,46 @@ def _mediator_visit(lang, t):
     return bool(_MED_EN.search(t)) and not _MED_NOT_EN.search(t)
 
 
+# the US military at sea on the main front, mostly told by CENTCOM: a ship disabled or fired on for running the blockade
+# of Iran, "precision munitions", boats or mines in Hormuz, an escort, a boarding: orange. It sets no event flag, so it
+# changes neither the Telegram alerts nor the main-front panel; a strike the rules already read stays as they read it.
+US_SEA_SEV = 60.0
+_USM_EN = (r"centcom|central command|pentagon|u\.?s\.? (military|forces|navy|army|troops|warships?|destroyers?|sailors"
+           r"|marines|helicopters?|aircraft|jets)|american (forces|military|warships?|destroyers?|navy)|us navy|uss \w+"
+           r"|navy (destroyer|warship|helicopter)")
+_US_EN = r"u\.?s\.?|united states|america|washington|" + _USM_EN
+_SEA_EN = (r"ships?|vessels?|tankers?|freighters?|cargo|dhows?|boats?|mines?|minesweep\w*|warships?|destroyers?"
+           r"|blockade|hormuz|gulf of oman|persian gulf|arabian sea")
+_ACT_EN = (r"disabl\w*|fir(e|es|ed|ing) (on|at|upon|warning)|warning shots?|precision (munitions|strikes?|weapons)"
+           r"|target(s|ed|ing)?|intercept\w*|interdict\w*|board(s|ed|ing)|seiz\w*|sank|sunk|sink(s|ing)?"
+           r"|harass\w*|confront\w*|escort\w*|clear(s|ed|ing)? (\w+ ){0,2}mines?|swe(ep|pt)\w* (\w+ ){0,2}mines?"
+           r"|minesweep\w*|alight|ablaze|set on fire|turn(s|ed)? back|stopp?(ed|ing)|halt(s|ed)|engag(e|es|ed|ing)|destroy\w*|neutrali[sz]\w*")
+_US_SEA_EN = re.compile(r"\b(" + _US_EN + r")\b[^;!?]{0,90}?\b(" + _ACT_EN + r")\b[^;!?]{0,70}?\b(" + _SEA_EN + r")\b"
+                        r"|\b(" + _US_EN + r")\b[^;!?]{0,90}?\b(" + _SEA_EN + r")\b[^;!?]{0,70}?\b(" + _ACT_EN + r")\b"
+                        r"|\b(" + _ACT_EN + r")\b[^;!?]{0,70}?\b(" + _SEA_EN + r")\b[^;!?]{0,60}?\b(" + _USM_EN + r")\b"
+                        r"|\b(" + _SEA_EN + r")\b[^;!?]{0,60}?\b(" + _ACT_EN + r")\b[^;!?]{0,60}?\b(" + _USM_EN + r")\b", re.I)
+# not an operation at sea: sanctions, rewards, money, a podcast, deliveries of arms, a land task force
+_US_SEA_NOT_EN = re.compile(r"\b(sanction\w*|treasury|registr(y|ies|ation)|fraud\w*|front compan\w*|reward|bounty|podcast|deliver\w*|contracts?|budget|task force"
+                            r"|ofac|seized? (assets|funds|crypto|bitcoin|domains?|websites?))\b", re.I)
+_US_FA = "سنتکام|پنتاگون|آمریکا|امریکا|آمریکایی|امریکایی|ایالات متحده"
+_SEA_FA = "کشتی|نفتکش|شناور|قایق|ناو|ناوشکن|ناوچه|مین|هرمز|دریای عمان|خلیج فارس|محاصره|لنج"
+_ACT_FA = ("از کار انداخت|از کار انداخته|از کار افتاد|هدف قرار|شلیک|تیر هوایی|تیراندازی|توقیف|رهگیری|اسکورت|همراهی|پاکسازی|خنثی"
+           "|غرق|متوقف|بازرسی|تعقیب|مزاحمت|نزدیک شد|نزدیک شدند|مهمات|منهدم|عقب راند|بازگرداند|برگرداند|مقابله|آتش زد|به آتش کشید")
+_US_SEA_FA = re.compile(fa_norm("(" + _US_FA + ")[^.؛]{0,90}?(" + _ACT_FA + ")|(" + _ACT_FA + ")[^.؛]{0,90}?(" + _US_FA + ")"))
+_SEA_FA_RX = re.compile(fa_norm(_SEA_FA))
+_US_SEA_NOT_FA = re.compile(fa_norm("تحریم|خزانه داری|جایزه|پاداش|پادکست|تحویل|قرارداد|بودجه|کارگروه|نیروی ویژه|نیروی وظیفه"))
+
+
+def us_sea_op(lang, t):
+    """The US military acting at sea on the main front ("US forces disable cargo ship in Gulf of Oman", «سنتکام: کشتی …
+    را از کار انداخت»): an orange story."""
+    if lang == "fa":
+        t = fa_norm(t)
+        return bool(_US_SEA_FA.search(t) and _SEA_FA_RX.search(t)) and not _US_SEA_NOT_FA.search(t)
+    t = t or ""
+    return bool(_US_SEA_EN.search(t)) and not _US_SEA_NOT_EN.search(t)
+
+
 # road accidents (a lorry off a bridge, a bus overturned, a crash on a highway): a yellow story, unless an attack is
 # part of it
 ROAD_CAP = 38.0
@@ -1501,6 +1541,14 @@ def classify(item):
         flags = set(flags) | {"mediator_visit"}
         topics = set(topics) | {"diplomacy"}
         sev = max(sev, MEDIATOR_VISIT_SEV)
+    if us_sea_op(lang, fa_t or en_t) and sev < US_SEA_SEV and not set(flags) & {
+            "speculative", "analysis", "opinion", "past", "denial", "reaction", "controlled", "scheduled", "exercise",
+            "feature", "statement_only", "commemoration", "resilience", "secondary", "side_minor"}:
+        # the US military at sea on the main front (CENTCOM: a ship disabled for running the blockade, mines, boats in
+        # Hormuz): orange, with no event flag, so alerts and the main-front panel stay as they are
+        flags = set(flags) | {"us_sea_op"}
+        topics = set(topics) | {"maritime", "military"}
+        sev = US_SEA_SEV
     if _cleric(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
         flags = set(flags) | {"cleric"}
         sev = min(sev, CLERIC_CAP)
