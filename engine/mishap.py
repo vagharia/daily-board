@@ -159,3 +159,38 @@ def border_drop(lang, t, s=""):
         return True
     tt = fa_norm(t or "") if lang == "fa" else (t or "")
     return bool((_HURT_FA if lang == "fa" else _HURT_EN).search(tt))
+
+
+# ------------------------------------------------------------------ roads
+# road traffic is never news of the war: a crash, a road toll ("78,500 road deaths"), road or car safety rules. Such a
+# report is dropped from the bulletin, in Iran or abroad, unless it has a word of the war in it.
+_ROADNEWS_EN = re.compile(
+    r"\b(road|traffic|highway|motorway)[\s-]+(deaths?|fatalit\w+|toll|safety|accidents?|crash\w*|collisions?|carnage)"
+    r"|\b(car|vehicle|automobile|auto)[\s-]+safety\b|\bsafety (standards?|rules|regulations) (for|on) (cars|vehicles)"
+    r"|\bdrivers? (killed|died)\b|\bpedestrians? (killed|died)\b", I)
+_ROADNEWS_FA = fa_rx(["کشته در جاده", "کشته جاده", "کشتگان جاده", "تلفات جاده", "تصادفات جاده", "حوادث جاده",
+                      "حوادث رانندگی", "سوانح رانندگی", "ایمنی خودرو", "استاندارد ایمنی خودرو",
+                      "استانداردهای ایمنی خودرو", "قوانین ایمنی خودرو", "ایمنی جاده", "پلیس راه", "راهور"])
+_ROAD_WAR_EN = re.compile(r"\b(attack\w*|strikes?|struck|air ?strikes?|drones?|missiles?|rockets?|bomb\w*|shell\w*"
+                          r"|explosives?|ied|landmines?|gunm[ae]n|gunfire|shoot\w*|shot|ambush\w*|militants?"
+                          r"|insurgents?|terror\w*|sabotage\w*|military|army|soldiers?|troops|irgc|convoy|israel\w*"
+                          r"|u\.s\.?|pentagon|war)\b", I)
+
+
+def road(lang, t, s=""):
+    """A report about road traffic: a crash, a road toll, road or car safety (headline, first sentence for war)."""
+    from .classify import _road
+    if lang == "fa":
+        tt = fa_norm(t or "")
+        lead = tt + " " + fa_norm(first_sentences(s or "", 200))
+        if _NOT_FA.search(lead) and not _ROADNEWS_FA.search(tt):
+            return False
+        hit = _ROADNEWS_FA.search(tt) or _road("fa", tt)
+        return bool(hit) and not fa_rx(["حمله", "پهپاد", "موشک", "بمب", "ترور", "اصابت", "شلیک", "انفجار",
+                                        "تیراندازی", "مسلح", "تروریست", "کمین", "سپاه", "ارتش", "نظامی", "اسرائیل",
+                                        "آمریکا", "جنگ$"]).search(lead)
+    tt = t or ""
+    lead = tt + " " + first_sentences(s or "", 200)
+    hit = _ROADNEWS_EN.search(tt) or _road("en", tt) or (mishap("en", tt, s) and re.search(
+        r"\b(road|traffic|highway|motorway|bus|buses|truck|lorry|cars?|vehicles?|minibus\w*|van)\b", tt, I))
+    return bool(hit) and not _ROAD_WAR_EN.search(lead)
