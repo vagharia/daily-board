@@ -309,7 +309,7 @@ _SAUDI_PLACE_FA = re.compile(fa_norm("ریاض|جده|جیزان|جازان|نج
                              + "|" + fa_norm("(?:حمله|حملات|موشک|پهپاد|شلیک)[^.؛]{0,25}(?:به|علیه)\\s*(?:عربستان|خاک سعودی)"))
 _BIG_ACTOR_EN = re.compile(r"\b(u\.?s\.?|america\w*|pentagon|centcom|israel\w*|idf|iran(?!-(?:backed|aligned|allied))\w*)\b",
                            re.I)
-_BIG_ACTOR_FA = re.compile(fa_norm("آمریکا|امریکا|اسرائیل|اسراییل|صهیونیست|سنتکام|پنتاگون|ایران"))
+_BIG_ACTOR_FA = re.compile(fa_norm("آمریکا|امریکا|اسرائیل|اسراییل|صهیونیست|فلسطین اشغالی|سرزمین های اشغالی|سرزمینهای اشغالی|اراضی اشغالی|سنتکام|پنتاگون|ایران"))
 
 
 _FB, _FE = r"(?<![\u0620-\u06FF])", r"(?![\u0620-\u06FF])"
@@ -334,10 +334,10 @@ _VICTIM_EN = re.compile(r"\b(civilians?|famil(y|ies)|people|children|residents|w
 _VICTIM_FA = re.compile(fa_norm("غیرنظامی|غیر نظامی|خانواده|کودک|شهروند|مردم|ساکنان|زنان|فلسطینی|یمنی|لبنانی|سوری|قاچاقچی"
                                "|پلیس|مامور|مأمور|افسر امنیتی|نگهبان"))
 # casualties on Israel's side of the border are not inside Lebanon or Gaza
-_ISR_PLACE_EN = re.compile(r"\b(tel aviv|haifa|jerusalem|northern israel|southern israel|in israel|israeli (civilians?|soldiers?"
+_ISR_PLACE_EN = re.compile(r"\b(tel aviv|haifa|jerusalem|eilat|dimona|beersheba|negev|occupied palestine|ben gurion|northern israel|southern israel|in israel|israeli (civilians?|soldiers?"
                            r"|troops)|kiryat|nahariya|metula|sderot|ashkelon|ashdod|galilee)\b"
                            r"|\b(rockets?|missiles?|drones?|attacks?)\b[^.;]{0,25}\b(on|at|into|against|toward) israel", re.I)
-_ISR_PLACE_FA = re.compile(fa_norm("تل آویو|حیفا|قدس اشغالی|شمال اسرائیل|جنوب اسرائیل|سرزمین های اشغالی|نظامیان اسرائیلی|سربازان اسرائیلی"
+_ISR_PLACE_FA = re.compile(fa_norm("تل آویو|حیفا|ایلات|دیمونا|بئرشبع|نقب|فلسطین اشغالی|سرزمین های اشغالی|سرزمینهای اشغالی|اراضی اشغالی|قدس اشغالی|شمال اسرائیل|جنوب اسرائیل|سرزمین های اشغالی|نظامیان اسرائیلی|سربازان اسرائیلی"
                                    "|نظامی صهیونیست|کریات|نهاریا|متولا|سدیروت|عسقلان|اسدود|الجلیل|شهرک نشین"))
 _LEADER_EN = re.compile(r"\b(commander|leader|chief|head of|official|spokesman|secretary[- ]general|top|senior)\b", re.I)
 _LEADER_FA = re.compile(fa_norm("فرمانده|رهبر|دبیرکل|مسئول|سخنگو|ارشد|عالی رتبه|مقام"))
@@ -355,8 +355,9 @@ def _local_region(fa, t):
     if (_US_IR_FA if fa else _US_IR_EN).search(t) or (_LEADER_FA if fa else _LEADER_EN).search(t):
         return None
     if (_YEM_FA if fa else _YEM_EN).search(t):
-        if (_SAUDI_PLACE_FA if fa else _SAUDI_PLACE_EN).search(t) or (_BIG_ACTOR_FA if fa else _BIG_ACTOR_EN).search(t):
-            return None
+        if (_SAUDI_PLACE_FA if fa else _SAUDI_PLACE_EN).search(t) or (_BIG_ACTOR_FA if fa else _BIG_ACTOR_EN).search(t) \
+                or (_ISR_PLACE_FA if fa else _ISR_PLACE_EN).search(t):
+            return None                     # a Houthi missile hitting Eilat is not a toll inside Yemen
         return "yemen"
     for region, rx in (("lebanon", _LEB_FA if fa else _LEB_EN), ("gaza", _GAZA_FA if fa else _GAZA_EN),
                        ("syria", _SYR_FA if fa else _SYR_EN), ("jordan", _JOR_FA if fa else _JOR_EN)):

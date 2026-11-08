@@ -48,7 +48,7 @@ _EN_FRONT2 = re.compile(r"\b(saudi[- ]led coalition|arab coalition|coalition (sa
                         r"|\bcoalition\b[^.;]{0,60}\bsaudi|\bsaudi\b[^.;]{0,30}\bcoalition\b"
                         r"|\b(intercept\w*|shoots? down|shot down|downs?|downed|destroy\w*)\b[^.;]{0,60}\b(saudi\w*|riyadh|jeddah"
                         r"|mecca|makkah|medina|madinah|jizan|jazan|najran|abha|khamis mushait|dhahran|dammam|the kingdom)\b", _I)
-_EN_OTHER = re.compile(r"\b(israel\w*|tel aviv|eilat|haifa|jerusalem|iran\w*|tehran|islamic republic|united states"
+_EN_OTHER = re.compile(r"\b(israel\w*|tel aviv|eilat|haifa|jerusalem|occupied palestine|dimona|beersheba|iran\w*|tehran|islamic republic|united states"
                        r"|american|pentagon|uss|us navy|centcom|trump|hegseth|rubio)\b"
                        r"|(?<![A-Za-z])(US|U\.S\.)(?![A-Za-z])", _I)
 # Yemeni forces on Saudi Arabia's side are still Yemeni forces
@@ -89,7 +89,7 @@ _FA_FRONT = re.compile(_w("حوثی|انصارالله|یمن", "ی|ها|های"
                                                                           "|حضرموت|مکلا|ابین|باب المندب|یحیی سریع"))
 _FA_FRONT2 = re.compile(fa_norm("ائتلاف سعودی|ائتلاف عربی|ائتلاف متجاوز|سخنگوی ائتلاف"
                                 "|(رهگیری|سرنگون|ساقط)[^.؛]{0,60}(عربستان|سعودی|ریاض|جده|مکه|مدینه|جیزان|جازان|نجران|ابها|دمام)"))
-_FA_OTHER = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|تل آویو|ایلات|حیفا|ایران|تهران|جمهوری اسلامی|آمریکا|امریکا"
+_FA_OTHER = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|تل آویو|ایلات|حیفا|فلسطین اشغالی|سرزمین های اشغالی|سرزمینهای اشغالی|اراضی اشغالی|دیمونا|ایران|تهران|جمهوری اسلامی|آمریکا|امریکا"
                                "|ایالات متحده|پنتاگون|سنتکام|ترامپ"))
 _FA_PROXY = re.compile(fa_norm("(وابسته به|مورد حمایت|تحت حمایت|طرفدار|مزدوران)\\s*(ریاض|عربستان|سعودی|آل سعود)"))
 _FA_SAUDI = re.compile(_w("عربستان|سعودی|ائتلاف", "ی|ها|های") + "|" + _w("ریاض|جده|مکه|مدینه|طائف|رابغ|خمیس مشیط|جیزان"
@@ -113,7 +113,7 @@ _FA_REVIEW = re.compile(fa_norm("آخرین تحولات|مروری بر|گزا�
 
 
 # what makes a report on the Saudi-Houthi front major
-_EN_MAIN = re.compile(r"\b(israel\w*|tel aviv|eilat|haifa|jerusalem|iran\w*|tehran|islamic republic)\b", _I)
+_EN_MAIN = re.compile(r"\b(israel\w*|tel aviv|eilat|haifa|jerusalem|occupied palestine|dimona|beersheba|iran\w*|tehran|islamic republic)\b", _I)
 _EN_US = re.compile(r"\b(united states|american|pentagon|uss|us navy|centcom|trump|hegseth|rubio|washington)\b"
                     r"|(?<![A-Za-z])(US|U\.S\.)(?![A-Za-z])", _I)
 _EN_US_SITE = re.compile(r"\b((u\.?s\.?|american|america's|washington's) (\w+ ){0,2}(bases?|air ?base|embassy|consulates?"
@@ -151,7 +151,7 @@ _EN_SAUDI_ACTOR = re.compile(r"\b(saudi|coalition)(-led| led)?( \w+)?( (air ?str
 _FA_SAUDI_ACTOR = re.compile(fa_norm(r"(حمله|حملات|بمباران|تجاوز|یورش)( هوایی| موشکی| توپخانه ای)? (رژیم |ائتلاف |جنگنده های |)"
                                      r"(عربستان|سعودی|آل سعود)|(جنگنده های|هواپیماهای|ائتلاف|رژیم|متجاوزان|نیروهای) (سعودی|آل سعود)"
                                      r"|ائتلاف (متجاوز )?(عربستان|سعودی)"))
-_FA_MAIN = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|تل آویو|ایلات|حیفا|ایران|تهران|جمهوری اسلامی"))
+_FA_MAIN = re.compile(fa_norm("اسرائیل|اسراییل|صهیونیست|تل آویو|ایلات|حیفا|فلسطین اشغالی|سرزمین های اشغالی|سرزمینهای اشغالی|اراضی اشغالی|دیمونا|ایران|تهران|جمهوری اسلامی"))
 _FA_US = re.compile(fa_norm("آمریکا|امریکا|ایالات متحده|پنتاگون|سنتکام|ترامپ|واشنگتن"))
 _FA_US_SITE = re.compile(fa_norm("(پایگاه|سفارت|کنسولگری|نیروهای|نظامیان|سربازان|دیپلمات|ناو|ناوشکن|کارکنان)[^.؛]{0,12}"
                                  "(آمریکا|امریکا|ایالات متحده)|شاهزاده سلطان|پرنس سلطان"))
