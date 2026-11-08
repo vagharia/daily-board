@@ -139,7 +139,8 @@ def told_later(m):
 
 # a statement ("Iran FM: …", "… says"): the general names (Iran, Israel) don't make it news of a place
 _SAID_FA = re.compile(r"^[^:：]{2,45}[:：]|" + fa_norm("گفت|اعلام کرد|مدعی شد|ادعا"))
-_SAID_EN = re.compile(r"^[^:]{2,45}:|\b(says?|said|claims?|claimed|told)\b", re.I)
+_SAID_EN = re.compile(r"^[^:]{2,45}:|\b(says?|said|claims?|claimed|told|suggests?|suggested|denies|denied"
+                       r"|insists?|insisted)\b", re.I)
 
 
 # energy and other vital infrastructure in the region that Iran may strike directly: named sites, and kinds of site in
@@ -483,6 +484,8 @@ def events(m):
     ship = "maritime_incident" in flags and kind in ("strike", "blast")
     for p in places:
         if ship:
+            if p in _GENERAL:
+                continue                    # a ship is hit at sea: "a ship in Iran" tells nothing of where
             out.append({"place": p, "step": step, "kind": kind, "t": m["t"],
                         "fa": ("حمله به کشتی در " if kind == "strike" else "انفجار کشتی در ") + _name(p, "fa"),
                         "en": ("Ship attacked in " if kind == "strike" else "Ship explosion in ") + _name(p, "en")})
