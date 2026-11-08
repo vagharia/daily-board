@@ -330,6 +330,10 @@ def is_relevant(item):
     from .mishap import road
     if road(lang, item.get("ti", "") if lang == "fa" else (item.get("en_ti") or item.get("ti", "")), item.get("su", "")):
         return 0.0, False                     # road traffic (a crash, a road toll, car safety): not news of the war
+    from .mishap import far_nature
+    if far_nature(lang, item.get("ti", "") if lang == "fa" else (item.get("en_ti") or item.get("ti", "")),
+                  item.get("su", "")):
+        return 0.0, False                     # a flood, a storm or an earthquake far from the region
     if item.get("lang") == "fa":
         sc, ok = relevance_fa(item.get("ti", ""), item.get("su", ""))
         if ok and _noecon(item.get("s")) and not internet("fa", item.get("ti", ""), item.get("su", "")):

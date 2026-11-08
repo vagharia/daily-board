@@ -194,3 +194,50 @@ def road(lang, t, s=""):
     hit = _ROADNEWS_EN.search(tt) or _road("en", tt) or (mishap("en", tt, s) and re.search(
         r"\b(road|traffic|highway|motorway|bus|buses|truck|lorry|cars?|vehicles?|minibus\w*|van)\b", tt, I))
     return bool(hit) and not _ROAD_WAR_EN.search(lead)
+
+
+# ------------------------------------------------------------------ nature far away
+# a flood, a storm, an earthquake, a wildfire outside Iran and the Middle East (Colorado, Japan, Europe): not our
+# news, dropped even when it names America ("floods destroy roads in Colorado and Arizona")
+_NATURE_EN = re.compile(
+    r"\b(earthquakes?|quakes?|tremors?|aftershocks?|floods?|flooding|flash floods?|landslides?|mudslides?|avalanches?"
+    r"|snowstorms?|blizzards?|cyclones?|hurricanes?|typhoons?|tornado\w*|tsunamis?|volcan\w*|eruptions?|heat ?waves?"
+    r"|droughts?|wildfires?|forest fires?|bush ?fires?|(snow|rain|tropical|winter|severe|dust|sand|ice|wind) ?storms?"
+    r"|torrential rains?|heavy rains?)\b", I)
+_NATURE_FA = fa_rx(["زلزله", "زمین لرزه", "سیل$", "سیلاب", "طغیان رودخانه", "رانش زمین", "بهمن گرفت",
+                    "ریزش بهمن", "کولاک", "طوفان شدید", "توفان شدید", "گردباد", "تندباد", "هاریکن", "تایفون", "سونامی",
+                    "آتشفشان", "فوران", "موج گرما", "خشکسالی", "آتش سوزی جنگل", "آتش سوزی جنگل ها", "باران شدید",
+                    "بارش شدید", "باران های سیل آسا"])
+_REGION_EN = re.compile(
+    r"\b(iran\w*|tehran|persian gulf|gulf of oman|hormuz|middle east|mideast|israel\w*|gaza|west bank|lebanon|lebanese"
+    r"|syria\w*|iraq\w*|jordan\w*|saudi\w*|yemen\w*|oman\w*|uae|emirat\w*|dubai|abu dhabi|qatar\w*|bahrain\w*"
+    r"|kuwait\w*|egypt\w*|red sea|gulf|turk\w*|t[uü]rkiye|pakistan\w*|afghan\w*|azerbaijan\w*|armenia\w*|turkmen\w*"
+    r"|isfahan|shiraz|mashhad|tabriz|ahvaz|bushehr|bandar abbas|kerman\w*|sistan|khuzestan|hormozgan|mazandaran"
+    r"|gilan|golestan)\b", I)
+_REGION_FA = fa_rx(["ایران", "تهران", "خلیج فارس", "دریای عمان", "هرمز$", "هرمزگان", "خاورمیانه", "غرب آسیا",
+                    "اسرائیل", "فلسطین", "غزه", "لبنان", "سوریه", "عراق", "اردن", "عربستان", "یمن", "عمان",
+                    "امارات", "دبی", "قطر", "بحرین", "کویت", "مصر", "دریای سرخ", "ترکیه", "پاکستان", "افغانستان",
+                    "آذربایجان", "ارمنستان", "ترکمنستان", "استان", "شهرستان", "روستا", "اصفهان", "شیراز", "مشهد",
+                    "تبریز", "اهواز", "بوشهر", "بندرعباس", "کرمان", "سیستان", "بلوچستان", "خوزستان", "مازندران",
+                    "گیلان", "گلستان", "لرستان", "کردستان", "خراسان", "فارس$", "یزد", "سمنان", "زنجان", "قزوین",
+                    "اردبیل", "ایلام", "همدان", "مرکزی$", "البرز", "کهگیلویه", "چهارمحال", "هلال احمر"])
+
+
+_FAR_WAR_FA = fa_rx(["حمله", "پهپاد", "موشک", "بمب", "ترور", "اصابت", "شلیک", "انفجار", "تیراندازی", "مسلح",
+                     "تروریست", "سپاه", "ارتش", "نظامی", "ناو$", "ناوگان", "پایگاه", "اسرائیل", "جنگ$", "تحریم",
+                     "انتخابات", "انتخاباتی", "حزب", "کنگره", "بورس", "دلار", "بازار"])
+_FAR_WAR_EN = re.compile(r"\b(carriers?|warships?|navy|naval|bases?|operations?|nuclear|sanction\w*|desert storm"
+                         r"|elections?|electoral|midterms?|votes?|voters?|congress|senate|democrats?|republicans?|gop"
+                         r"|party|polls?|markets?|stocks?|shares)\b", I)
+
+
+def far_nature(lang, t, s=""):
+    """A natural disaster with no place of Iran or the Middle East in the headline or the first sentence."""
+    if lang == "fa":
+        tt = fa_norm(t or "")
+        lead = tt + " " + fa_norm(first_sentences(s or "", 200))
+        return bool(_NATURE_FA.search(tt)) and not _REGION_FA.search(lead) and not _FAR_WAR_FA.search(lead)
+    tt = t or ""
+    lead = tt + " " + first_sentences(s or "", 200)
+    return bool(_NATURE_EN.search(tt)) and not _REGION_EN.search(lead) and not _ROAD_WAR_EN.search(lead) \
+        and not _FAR_WAR_EN.search(lead)
