@@ -390,3 +390,94 @@ def side_front(title, lang="en", flags=(), src="", text=""):
         return "saudi_houthi", g
     g = israel_lebanon(title, lang, flags)
     return ("lebanon", g) if g else None
+
+
+# ------------------------------------------------------------------ the Gulf Arab front: one attack, one story
+# Missiles and drones on a Gulf Arab city (Riyadh, Najran, the Eastern Province, Dubai, Doha, Manama…) are told by
+# each outlet from another side: "explosions heard in Riyadh", "two ballistic missiles intercepted over Riyadh",
+# «حمله هوایی به پایتخت عربستان», "the civil defence reported a missile attack on Riyadh". Their headlines share few
+# words, so the usual rules leave each in a story of its own. gulf_mark() gives such a report's kind ("attack", or
+# "alert" for sirens and civil-defence warnings, which make a story of their own), the places it names and their
+# countries; cluster.same_gulf() joins reports of one kind and place told within two hours. Only for this front: a
+# report naming Iran, Israel or America (the main front) gets no mark, nor a story holding one (cluster.py).
+_GULF_EN = {
+    "riyadh": r"riyadh|saudi(?: arabia'?s?)? capital|capital of saudi(?: arabia)?|(?:the )?kingdom'?s capital",
+    "najran": r"najran", "jizan": r"jizan|jazan|gizan", "abha": r"abha|khamis mushait", "jeddah": r"jeddah|jiddah",
+    "mecca": r"mecca|makkah", "medina": r"medina|madinah", "taif": r"taif", "yanbu": r"yanbu|rabigh",
+    "east": r"eastern (?:province|region)|east(?:ern)? (?:of )?saudi(?: arabia)?|dammam|dhahran|khobar|ras tanura"
+            r"|abqaiq|jubail|qatif|al-?ahsa|hofuf",
+    "dubai": r"dubai", "abu_dhabi": r"abu dhabi|al dhafra|emirati capital|uae'?s? capital", "fujairah": r"fujairah",
+    "sharjah": r"sharjah|ras al[- ]khaimah", "qatar": r"doha|qatar|al udeid|ras laffan", "bahrain": r"bahrain|manama",
+    "kuwait": r"kuwait", "muscat": r"muscat|duqm|salalah|sohar"}
+_GULF_FA = {
+    "riyadh": "ریاض|پایتخت عربستان|پایتخت سعودی", "najran": "نجران", "jizan": "جیزان|جازان", "abha": "ابها|خمیس مشیط",
+    "jeddah": "جده", "mecca": "مکه", "medina": "مدینه", "taif": "طائف", "yanbu": "ینبع|رابغ",
+    "east": "شرق عربستان|استان شرقی|منطقه شرقی|دمام|ظهران|الخبر|راس تنوره|رأس تنوره|ابقیق|جبیل|قطیف|الاحسا",
+    "dubai": "دبی", "abu_dhabi": "ابوظبی|ابوظبى|الظفره", "fujairah": "فجیره", "sharjah": "شارجه|راس الخیمه",
+    "qatar": "قطر|قطری|دوحه|العدید|راس لفان", "bahrain": "بحرین|منامه", "kuwait": "کویت", "muscat": "مسقط|دقم|صلاله|صحار"}
+_GULF_CTRY = {"riyadh": "sa", "najran": "sa", "jizan": "sa", "abha": "sa", "jeddah": "sa", "mecca": "sa", "medina": "sa",
+              "taif": "sa", "yanbu": "sa", "east": "sa", "dubai": "ae", "abu_dhabi": "ae", "fujairah": "ae",
+              "sharjah": "ae", "qatar": "qa", "bahrain": "bh", "kuwait": "kw", "muscat": "om"}
+_GULF_EN_RX = {k: re.compile(r"\b(?:" + v + r")\b", _I) for k, v in _GULF_EN.items()}
+_GULF_FA_RX = {k: re.compile(_w(v)) for k, v in _GULF_FA.items()}
+# the country alone ("over Saudi airspace", «مناطقی از عربستان»); not "Saudi-led strikes" on Yemen
+_GULF_LAND_EN = {"sa": re.compile(r"\b(saudi(?: arabia)?|the kingdom)\b" + _NOT_SAUDI_ACT, _I),
+                 "ae": re.compile(r"\b(uae|emirates|emirati)\b", _I)}
+_GULF_LAND_FA = {"sa": re.compile(_w("عربستان|سعودی")), "ae": re.compile(_w("امارات|اماراتی"))}
+# "Gulf of Oman", "Saudi capital" said of Yemen's capital and the like are not places in these countries
+_GULF_NOT_EN = re.compile(r"\bgulf of oman\b|\byemen'?s capital\b|\b(?:riyadh|saudi|qatar|uae)[- ](?:backed|led|based"
+                          r"|brokered|mediated|hosted)\b", _I)
+_GULF_NOT_FA = re.compile(fa_norm("دریای عمان|خلیج عمان|پایتخت یمن"))
+# sirens and civil-defence warnings (not "X warned Y", a threat or a statement)
+_ALERT_EN = re.compile(r"\b(sirens?|alerts?|early[- ]warnings?|air[- ]raid|take shelter|shelters?|warnings? in"
+                       r"|warning (?:sirens?|systems?|messages?))\b", _I)
+_ALERT_FA = re.compile(fa_norm("آژیر|هشدار زودهنگام|اعلام هشدار|هشدارهای|هشدار در|هشدار برای|هشدار خطر|پناهگاه"
+                               "|وضعیت قرمز|وضعیت اضطراری"))
+_HIT_EN = re.compile(r"\b(explosions?|blasts?|intercept\w*|shot down|shoots? down|downed|destroy\w*|struck|hits?"
+                     r"|impact\w*|attack\w*|strikes?|missiles?|drones?|rockets?|debris|shrapnel)\b", _I)
+_HIT_FA = re.compile(fa_norm("انفجار|رهگیری|رهگیر|سرنگون|ساقط|منهدم|اصابت|حمله|حملات|موشک|پهپاد|راکت|ترکش|بقایای"))
+_CAUGHT_EN = re.compile(r"\b(intercept\w*|shoots? down|shot down|downs?|downed|destroy\w*)\b", _I)
+
+
+def _gulf_places(t, fa):
+    if fa:
+        t = _GULF_NOT_FA.sub(" ", t)
+        cities = {k for k, rx in _GULF_FA_RX.items() if rx.search(t)}
+        land = {k for k, rx in _GULF_LAND_FA.items() if rx.search(t)}
+    else:
+        t = _GULF_NOT_EN.sub(" ", t)
+        cities = {k for k, rx in _GULF_EN_RX.items() if rx.search(t)}
+        land = {k for k, rx in _GULF_LAND_EN.items() if rx.search(t)}
+    return cities, land | {_GULF_CTRY[c] for c in cities}
+
+
+def gulf_main(title, lang="en"):
+    """True if the headline names the main front (Iran, Israel or America)."""
+    fa = lang == "fa"
+    t = fa_norm(title or "") if fa else (title or "")
+    r = _sh_rx(fa)
+    return bool(r["main"].search(t) or r["us"].search(t))
+
+
+def gulf_mark(title, lang="en"):
+    """("attack" or "alert", places, countries) of a report of missiles or drones on a Gulf Arab country, or of the
+    sirens and warnings there; None for anything else, and for a report naming the main front (see above)."""
+    fa = lang == "fa"
+    t = fa_norm(title or "") if fa else (title or "")
+    r = _sh_rx(fa)
+    if not t or r["main"].search(t) or r["us"].search(t):
+        return None
+    cities, ctry = _gulf_places(r["proxy"].sub(" ", t), fa)
+    if not ctry:
+        return None
+    hit = (_HIT_FA if fa else _HIT_EN).search(t)
+    if (_ALERT_FA if fa else _ALERT_EN).search(t) and not hit:
+        return "alert", frozenset(cities), frozenset(ctry)
+    a, w = r["attack"].search(t), r["talk"].search(t)
+    if not a or not hit or r["review"].search(t) or r["future"].search(t) or (w and w.start() < a.start()):
+        return None                      # threats, reactions, talks, markets, analysis
+    if r["toll"].search(t) or r["tally"].search(t):
+        return None                      # casualty figures and counts (mostly of Saudi strikes on Yemen)
+    if not cities and not (r["intercept"] if fa else _CAUGHT_EN).search(t):
+        return None                      # the country alone: only an interception over it ("over Saudi airspace")
+    return "attack", frozenset(cities), frozenset(ctry)

@@ -7,6 +7,7 @@ from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .relevance import FA_CITY, FA_IRAN
 from .sources import BY_ID
+from . import fronts
 from .fronts import MINOR_CAP, SECONDARY_CAP
 from .sport import CAP as SPORT_CAP
 from .util import fa_norm, sha
@@ -394,6 +395,51 @@ def same_strike(a, b):
     if a["days"] and b["days"] and not a["days"] & b["days"]:
         return False
     return True
+# ------------------------------------------------------------------ the Gulf Arab front: one attack, one story
+# News reports (never a Telegram channel or citizen reports) of missiles or drones on a Gulf Arab city are one story
+# when both tell of an attack, name the same city ("explosions heard in Riyadh", "2 Houthi missiles intercepted over
+# Riyadh", «حمله هوایی به پایتخت عربستان»), or one names only the country ("over Saudi airspace"), and the report comes
+# within two hours of the story's first report. Sirens and civil-defence warnings make a story of their own, joined
+# the same way; never an attack's. Only for this front: a report naming Iran, Israel or America gets no mark
+# (fronts.gulf_mark), and a story holding such a report takes no report by this rule; nor does a report that says
+# it is a new or another attack. The main front's rules are untouched.
+GULF_WINDOW = 2 * 3600
+
+
+def gulf_key(m):
+    """(kind, places, countries) of a news report on the Gulf Arab front (fronts.gulf_mark), or None."""
+    if channel(m) or m.get("wit") or _at_sea(m):
+        return None
+    if set(m.get("flags") or []) & {"denial", "past", "controlled", "scheduled", "speculative", "analysis", "opinion",
+                                    "digest", "reaction", "quote"}:
+        return None
+    if set(m.get("ctry") or []) & {"ir", "il", "us"}:
+        return None
+    fa = m.get("lang") == "fa"
+    if any(fronts.gulf_main(x, lang) for x, lang in ((m.get("ti"), m.get("lang") or "en"), (m.get("en_ti"), "en")) if x):
+        return None
+    en = m.get("en_ti") or ("" if fa else m.get("ti")) or ""
+    if _NEW_EN.search(en) or (fa and _NEW_FA.search(fa_norm(m.get("ti") or ""))):
+        return None                                 # "another attack", «موج جدید»: maybe a new one
+    return fronts.gulf_mark(m.get("ti") or "", "fa" if fa else "en") or (fronts.gulf_mark(en, "en") if fa else None)
+
+
+def gulf_main(m):
+    """True if the report names the main front (a story holding one takes no report by the Gulf rule)."""
+    return bool(set(m.get("ctry") or []) & {"ir", "il", "us"}) or any(
+        fronts.gulf_main(x, lang) for x, lang in ((m.get("ti"), m.get("lang") or "en"), (m.get("en_ti"), "en")) if x)
+
+
+def same_gulf(a, b):
+    """Gulf marks of two reports: one attack (or one round of sirens) on one place. 2 = the same city, 1 = one of
+    them names only the country, 0 = not the same."""
+    if not a or not b or a[0] != b[0]:
+        return 0
+    if a[1] and b[1]:
+        return 2 if a[1] & b[1] else 0
+    return 1 if a[2] & b[2] else 0
+
+
 PLACE_TOKENS = {w for v in PLACES.values() for w in tokens(v[1]) if len(w) >= 4} - {"gulf", "island", "persian"}
 NAME_TOKENS = {w for v in PEOPLE.values() for x in v[2] if not x.startswith("re:") for w in tokens(x.rstrip("$"))
                if len(w) >= 4} - set("""minister foreign prime president leader chief commander defense defence staff
@@ -544,7 +590,7 @@ def features(m):
             "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
-            "sk": strike_key(m),
+            "sk": strike_key(m), "gulf": gulf_key(m), "gmain": gulf_main(m),
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
 
 
@@ -914,6 +960,8 @@ class Clusterer:
         self.evacs = {}                                   # (who, country, how far) of an order to leave -> story ids
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
         self.ev = {}                                      # story id -> (earliest, latest): when its event happened
+        self.gulfs = {}                                   # story id -> [Gulf-front marks of its reports] (gulf_key)
+        self.gmain = set()                                # stories with a report naming the main front
         for c in clusters:
             self._index(c)
 
@@ -940,6 +988,10 @@ class Clusterer:
                     self.deps.setdefault(feats[m["k"]]["dep"], set()).add(c["id"])
                 if feats[m["k"]].get("evac"):
                     self.evacs.setdefault(feats[m["k"]]["evac"], set()).add(c["id"])
+                if feats[m["k"]].get("gulf"):
+                    self.gulfs.setdefault(c["id"], []).append(feats[m["k"]]["gulf"])
+                if feats[m["k"]].get("gmain"):
+                    self.gmain.add(c["id"])
                 if feats[m["k"]].get("dup"):
                     self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
@@ -1044,6 +1096,8 @@ class Clusterer:
                 continue                                   # another kind of ship, another flag or another name
             if not self._ev_fits(f, cid):
                 continue                                   # it happened at another time
+            if self._gulf_conflict(f, cid):
+                continue                                   # sirens and the attack itself: two stories (Gulf front)
             late = self._ev_late(item, f, c)
             feats = self.tok.get(cid, {})
             if f["sk"] and (abs(item["t"] - _since(c)) <= STRIKE_WINDOW or late) \
@@ -1062,7 +1116,7 @@ class Clusterer:
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
-                + self._own_matches(item, f):
+                + self._own_matches(item, f) + self._gulf_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
@@ -1088,6 +1142,10 @@ class Clusterer:
             fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
             strike_pair = any(same_strike(x, y) for x in fo.values() for y in fb.values()) or bool(
                 {_own_key(x) for x in fo.values()} & {_own_key(y) for y in fb.values()} - {None})
+            gulf_pair = self._gulf_pair(best, other)
+            if gulf_pair is False:
+                continue                               # sirens and an attack on the Gulf front: kept apart
+            strike_pair = strike_pair or gulf_pair
             if (len(other["m"]) > 8 and not strike_pair) or len(best["m"]) + len(other["m"]) > 60:
                 continue
             if best.get("manual") or other.get("manual"):
@@ -1146,6 +1204,43 @@ class Clusterer:
                     and not self._kind_conflict(f, cid):
                 out.append((0.55, c))
         return out
+
+    def _gulf_matches(self, item, f):
+        """Stories of the same attack (or the same sirens) on the same Gulf Arab place (see GULF_WINDOW)."""
+        out = []
+        if not f.get("gulf"):
+            return out
+        for cid, marks in self.gulfs.items():
+            c = self.byid.get(cid)
+            if not c or cid in self.gmain or len(c["m"]) >= 60 or abs(item["t"] - _since(c)) > GULF_WINDOW:
+                continue
+            n = max(same_gulf(f["gulf"], x) for x in marks)
+            if n and not self._gulf_conflict(f, cid) and self._ev_fits(f, cid):
+                out.append((0.5 + 0.05 * n, c))
+        return out
+
+    def _gulf_conflict(self, f, cid):
+        """True if the report is of one kind on the Gulf front (an attack, or sirens) and the story only of the other."""
+        if not f.get("gulf"):
+            return False
+        marks = self.gulfs.get(cid)
+        if cid in self.gmain:
+            return False
+        return bool(marks) and all(x[0] != f["gulf"][0] for x in marks)
+
+    def _gulf_pair(self, a, b):
+        """Two Gulf-front stories: True if they tell of the same attack (or sirens) on the same place within the
+        window, False if one is of sirens and the other of the attack, None if the Gulf rule says nothing."""
+        ma, mb = self.gulfs.get(a["id"]), self.gulfs.get(b["id"])
+        if not ma or not mb:
+            return None
+        if a["id"] in self.gmain or b["id"] in self.gmain:
+            return None                                # the main front: its own rules
+        if {x[0] for x in ma}.isdisjoint({x[0] for x in mb}):
+            return False
+        if abs(_since(a) - _since(b)) > GULF_WINDOW:
+            return None
+        return any(same_gulf(x, y) for x in ma for y in mb) or None
 
     def _ship_misfit(self, f, cid):
         """True if the report names a kind of ship, a flag or a name that fits none of the story's reports that name
@@ -1390,6 +1485,15 @@ def refresh(c):
                                                        for e, m in zip(eff, ms))):
         # a side front's everyday report (Yemen and Saudi Arabia, Lebanon): many outlets repeating it don't make
         # it red, nor does one outlet's wording that the rules didn't place on that front
+        c["sev"] = min(c["sev"], SECONDARY_CAP)
+        claim = min(claim, SECONDARY_CAP)
+    gk = [gulf_key(m) for m in ms]
+    if len(ms) > 1 and any(gk) and not any("side_major" in m.get("flags", []) or gulf_main(m) for m in ms) \
+            and all((g and "sa" in g[2]) or {"secondary", "side_minor"} & set(m.get("flags", [])) or e < 45
+                    for g, e, m in zip(gk, eff, ms)):
+        # missiles and drones on Saudi soil, or the sirens there, told by several outlets (joined by the Gulf rule,
+        # GULF_WINDOW): orange at most, as the side-front rules have it, however many outlets tell it; a lone report
+        # keeps its own grade
         c["sev"] = min(c["sev"], SECONDARY_CAP)
         claim = min(claim, SECONDARY_CAP)
     if any("side_minor" in m.get("flags", []) for m in ms) and all("side_minor" in m.get("flags", [])
