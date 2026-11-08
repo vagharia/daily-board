@@ -820,13 +820,15 @@ NEVER_AN_EVENT = {"controlled", "scheduled"}
 def drop_never_events(state, clusters):
     """Lines of a news outlet's report whose story is now a controlled detonation or a notice of something planned
     («انفجارهای کنترل‌شده… فردا اجرا می‌شود») are taken off the list, with the incident they opened, so that a real event
-    at that place is announced as new. Lines a channel or citizens sent stay (marked "not confirmed" below). Returns
-    how many were taken off."""
+    at that place is announced as new; so are lines whose story no longer gives any sign of war (a recap read as the
+    moment: "Iran suggests blasts are not US attacks…"). Lines a channel or citizens sent stay (marked "not confirmed"
+    below). Returns how many were taken off."""
     by = {c["id"]: c for c in clusters}
     log_ = state.get("log") or []
     gone = [x for x in log_ if x.get("nw") and (c := by.get(x.get("sid"))) is not None
-            and set(c.get("flags") or []) & NEVER_AN_EVENT
-            and all(set(m.get("flags") or []) & NEVER_AN_EVENT for m in c["m"] if not channel(m))]
+            and ((set(c.get("flags") or []) & NEVER_AN_EVENT
+                  and all(set(m.get("flags") or []) & NEVER_AN_EVENT for m in c["m"] if not channel(m)))
+                 or not any(events(m) for m in c["m"]))]
     if not gone:
         return 0
     state["log"] = [x for x in log_ if x not in gone]
