@@ -451,12 +451,21 @@ def _gulf_places(t, fa):
     return cities, land | {_GULF_CTRY[c] for c in cities}
 
 
-def gulf_main(title, lang="en"):
-    """True if the headline names the main front (Iran, Israel or America)."""
-    fa = lang == "fa"
-    t = fa_norm(title or "") if fa else (title or "")
+# "Iran-backed Houthis" is still this front
+_BACKED_EN = re.compile(r"\b(?:iran|iranian|tehran)[- ](?:backed|aligned|allied|supported|sponsored)\b", _I)
+_BACKED_FA = re.compile(fa_norm("(مورد حمایت|تحت حمایت|وابسته به|نیابتی|متحد) (ایران|تهران|جمهوری اسلامی)"))
+
+
+def _main(t, fa):
     r = _sh_rx(fa)
+    t = (_BACKED_FA if fa else _BACKED_EN).sub(" ", t)
     return bool(r["main"].search(t) or r["us"].search(t))
+
+
+def gulf_main(title, lang="en"):
+    """True if the headline names the main front (Iran, Israel or America; not "Iran-backed Houthis")."""
+    fa = lang == "fa"
+    return _main(fa_norm(title or "") if fa else (title or ""), fa)
 
 
 def gulf_mark(title, lang="en"):
@@ -465,7 +474,7 @@ def gulf_mark(title, lang="en"):
     fa = lang == "fa"
     t = fa_norm(title or "") if fa else (title or "")
     r = _sh_rx(fa)
-    if not t or r["main"].search(t) or r["us"].search(t):
+    if not t or _main(t, fa):
         return None
     cities, ctry = _gulf_places(r["proxy"].sub(" ", t), fa)
     if not ctry:

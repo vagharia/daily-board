@@ -422,8 +422,6 @@ def gulf_key(m):
     if set(m.get("flags") or []) & {"denial", "past", "controlled", "scheduled", "speculative", "analysis", "opinion",
                                     "digest", "reaction", "quote"}:
         return None
-    if set(m.get("ctry") or []) & {"ir", "il", "us"}:
-        return None
     fa = m.get("lang") == "fa"
     if any(fronts.gulf_main(x, lang) for x, lang in ((m.get("ti"), m.get("lang") or "en"), (m.get("en_ti"), "en")) if x):
         return None
@@ -434,8 +432,9 @@ def gulf_key(m):
 
 
 def gulf_main(m):
-    """True if the report names the main front (a story holding one takes no report by the Gulf rule)."""
-    return bool(set(m.get("ctry") or []) & {"ir", "il", "us"}) or any(
+    """True if the report's headline names the main front (a story holding one takes no report by the Gulf rule).
+    The headline only: a Houthi attack whose text mentions Iran is still this front."""
+    return any(
         fronts.gulf_main(x, lang) for x, lang in ((m.get("ti"), m.get("lang") or "en"), (m.get("en_ti"), "en")) if x)
 
 
