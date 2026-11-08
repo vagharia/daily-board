@@ -15,7 +15,8 @@ import time
 import re
 
 from . import evac, http, vessel
-from .cluster import channel
+from . import fronts
+from .cluster import _NEW_EN, _NEW_FA, channel, gulf_key, gulf_main
 from .util import clip_sentence, fa_norm, log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -469,6 +470,141 @@ def _sea_save(sea):
             i["mk"] = {**i["mk"], "nm": sorted(i["mk"]["nm"])}
 
 
+# ------------------------------------------------------------------ the Arab front: one alert per attack
+# An attack in an Arab country of the Middle East (the Gulf states, Jordan, Iraq; not when a headline names Iran,
+# Israel or America) is told all day long and can make more than one red story before the bulletin joins them:
+# "Houthis claim attack on Riyadh financial district, Aramco skyscraper damaged" in the morning, «خسارت به برج آرامکو
+# در ریاض بر اثر سقوط بقایای موشک» in the evening. Telegram gets one alert per attack: a red story is not announced
+# when an alert already told of the same attack, strictly matched by what (an attack, sirens, the Houthis' statement),
+# where (the country, the city, the named target: cluster.gulf_key) and when (the reports' first times, the event's
+# time label). It is announced when it tells of anything new: a target or city the alert didn't name, a report that
+# says it is a new attack ("another", «موج جدید»), an attack told as it happens (sirens, interceptions) hours after,
+# an event time that doesn't meet the alert's. When it adds people killed or hurt and the alert told of none, it goes
+# out as an update (🔄). The bulletin is not affected.
+ARAB_TARGET = 24 * 3600      # the same named target (the Aramco tower in Riyadh): one attack within this
+ARAB_CITY = 6 * 3600         # the same city, later reports only (damage, debris, a video, a confirmation): within this
+ARAB_NOW = 2 * 3600          # the same city, anything: within this; and how long after the alert's story was last
+                             # told it counts as still being told
+ARAB_CLAIM = 16 * 3600       # the Houthis' statement of the same day (same count of operations): within this
+ARAB_SIREN = 2 * 3600        # sirens in the same city: within this
+ARAB_KEEP = 36 * 3600
+_HURT_EN = re.compile(r"\b(killed|kills|dead|deaths?|died|dies|injur\w*|wounded|casualt\w*|hurt)\b", re.I)
+_HURT_FA = re.compile(fa_norm("کشته|زخمی|مجروح|جان باخت|جان باختن|شهید|تلفات|مصدوم|قربانی"))
+
+
+def _arab_print(c):
+    """What, where and when of a story on the Arab front (see above), or None: no such report, or a headline naming
+    the main front."""
+    marks, news, fresh, new, hurt = [], [], False, False, False
+    for m in c["m"]:
+        if gulf_main(m):
+            return None
+        fa = m.get("lang") == "fa"
+        en = m.get("en_ti") or ("" if fa else m.get("ti")) or ""
+        fat = fa_norm(m.get("ti") or "") if fa else ""
+        if _NEW_EN.search(en) or (fa and _NEW_FA.search(fat)):
+            new = True                               # "another attack", «موج جدید»: maybe a new one
+        if _HURT_EN.search(en) or (fa and _HURT_FA.search(fat)):
+            hurt = True
+        g = gulf_key(m, chan_ok=True)
+        if not g:
+            continue
+        marks.append(g)
+        if not channel(m):
+            news.append(g)
+        if g[0] == "attack" and (fronts._FRESH_EN.search(en) or (fa and fronts._FRESH_FA.search(fat))):
+            fresh = True                             # told as it happens: sirens, interceptions, explosions heard
+    if not marks:
+        return None
+    ev = c.get("ev")
+    seen = [g for g in marks if g[0] != "claim"]
+    return {"kinds": {g[0] for g in marks}, "ctry": set().union(*(g[2] for g in marks)),
+            "cities": set().union(*(g[1] for g in seen)) if seen else set().union(*(g[1] for g in marks)),
+            "targets": set().union(*(g[3] for g in marks)),
+            "seen": set().union(*(g[3] for g in seen)) if seen else set(),   # targets reports saw hit, not only claimed
+            "counts": {g[5] for g in marks if g[5]}, "fresh": fresh, "new": new, "hurt": hurt, "t0": c["t"],
+            "u": c["u"], "later": any(g[0] == "attack" for g in news)
+                                 and all(g[4] for g in news if g[0] == "attack"),      # a channel's post doesn't decide
+            "ev": ev if ev and ev[2] >= 1 else None}
+
+
+def _arab_same(n, a):
+    """True if story print n tells of the attack (or sirens, or statement) alert print a already told of, and of
+    nothing new beyond people hurt (strict: see above)."""
+    if n["new"] or not n["ctry"] or not n["ctry"] <= a["ctry"]:
+        return False
+    if n["ev"] and a["ev"] and not vessel.overlap(n["ev"], a["ev"], 2 * 3600):
+        return False                                 # their events happened at different times
+    dt = abs(n["t0"] - a["t0"])
+    active = n["t0"] <= a["u"] + ARAB_NOW            # the alert's story was still being told when this one began
+    a_places = a["cities"] | {c for c in fronts._target_cities(a["targets"])}
+    if n["kinds"] == {"alert"}:
+        return "alert" in a["kinds"] and bool(n["cities"]) and n["cities"] <= a["cities"] and dt <= ARAB_SIREN
+    if "alert" in n["kinds"]:
+        return False
+    if n["seen"]:
+        # a named target seen hit (a target only the Houthis' claim names adds nothing): the same, within a day
+        # while the alert's story is still told, or only later reports (damage, a video) once it has gone quiet: a
+        # report of the same target hours after a quiet spell may be of a new attack
+        return n["seen"] <= a["targets"] and n["cities"] <= a_places and dt <= ARAB_TARGET \
+            and (active or n["later"])
+    if n["kinds"] == {"claim"}:
+        if n["targets"] and n["targets"] <= a["targets"] and dt <= ARAB_TARGET:
+            return True                              # the Houthis claiming the attack already announced
+        return "claim" in a["kinds"] and (not n["counts"] or not a["counts"] or n["counts"] <= a["counts"]) \
+            and n["cities"] <= a_places and dt <= ARAB_CLAIM
+    if not n["cities"] or not n["cities"] <= a_places:
+        return False
+    # the same city: within two hours; while the alert's story is still told, unless this one tells of the attack as
+    # it happens (sirens, interceptions, explosions heard); or later reports only, within six hours
+    return dt <= ARAB_NOW or (active and not n["fresh"]) or (n["later"] and dt <= ARAB_CITY)
+
+
+def _arab_pick(state, clusters, red, sent, t):
+    """Of the new red stories `red`, those to announce on Telegram, as (story, "send" or "update"); the others are
+    held (not marked sent, so a later report of people hurt can still make an update). Announced stories are known by
+    `sent` (their own id or one merged into them); state["arab"] remembers whether each told of people hurt."""
+    ar = state.setdefault("arab", {})
+    told = ar["told"] = {k: v for k, v in ar.get("told", {}).items() if t - v.get("t", 0) <= ARAB_KEEP}
+    held = ar["held"] = {k: v for k, v in ar.get("held", {}).items() if t - v <= ARAB_KEEP}
+    sent = set(sent)
+    known = []
+    for c in clusters:
+        ids = [c["id"]] + list(c.get("merged", []))
+        # announced, or held as the attack announced: its reports tell that attack is still being told
+        if c["tier"] == "red" and t - c["u"] <= ARAB_KEEP and any(x in sent or x in held for x in ids):
+            p = _arab_print(c)
+            if p:
+                p["hurt"] = any(told.get(x, {}).get("hurt") for x in ids)   # what the alert told, not what came since
+                known.append((c, p))
+    out = []
+    for c in sorted(red, key=lambda c: c["t"]):
+        p = _arab_print(c)
+        if not p:
+            out.append((c, "send"))
+            continue
+        same = [(a, q) for a, q in known if _arab_same(p, q)]
+        if not same:
+            how = "send"
+        elif p["hurt"] and not any(q["hurt"] for _, q in same):
+            how = "update"                           # people killed or hurt: the alert told of none
+        else:
+            how = None
+        if how:
+            out.append((c, how))
+            told[c["id"]] = {"t": t, "hurt": p["hurt"] or any(q["hurt"] for _, q in same)}
+            for a, q in same:
+                q["hurt"] = q["hurt"] or p["hurt"]
+                told.setdefault(a["id"], {"t": t})["hurt"] = q["hurt"]
+            held.pop(c["id"], None)
+            known.append((c, p))
+        else:
+            if c["id"] not in held:
+                log("telegram: red story", c["id"], "is the attack announced in", same[0][0]["id"], "- not sent")
+            held[c["id"]] = t
+    return out
+
+
 LATE = 2 * 3600            # a report seen this long after it was published is old news by then: no alert
 LATER_FRESH = 6 * 3600     # a report joining a story already announced gives an update only this soon after it came out
 _NEWS_FA = {"sank": "غرق شدن کشتی", "hurt": "کشته یا زخمی شدن افراد", "who": "معلوم شدن عامل حمله", "seized": "توقیف کشتی"}
@@ -588,6 +724,11 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
             sea["fx"][c["id"]] = {"fx": sorted(_news(c)), "t": t, "kd": _ships(c)["kd"]}
     _sea_save(sea)
     red_msg = keep
+    # the Arab front: one alert per attack (see ARAB_TARGET); a story held back stays out of `sent`
+    picked = _arab_pick(state, clusters, red_msg, sent, t)
+    held = {c["id"] for c in red_msg} - {c["id"] for c, _ in picked}
+    upd |= {c["id"] for c, how in picked if how == "update"}
+    red_msg = [c for c, _ in picked]
     if not first_run:
         red_msg.sort(key=lambda c: -c["sev"])
         for c in red_msg[:4]:
@@ -607,7 +748,8 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
             messages.append(f"📈 <b>شاخص تنش: {index['value']}</b> ({html.escape(index['label_fa'])})")
     # remember state even without a token so enabling alerts later doesn't flood
     for c in red_new:
-        sent.append(c["id"])
+        if c["id"] not in held:
+            sent.append(c["id"])
     state["sent"] = sent[-800:]
     state["lights"] = {l["id"]: l["state"] for l in lights}
     if index:

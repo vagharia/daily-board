@@ -408,22 +408,34 @@ _GULF_EN = {
             r"|abqaiq|jubail|qatif|al-?ahsa|hofuf",
     "dubai": r"dubai", "abu_dhabi": r"abu dhabi|al dhafra|emirati capital|uae'?s? capital", "fujairah": r"fujairah",
     "sharjah": r"sharjah|ras al[- ]khaimah", "qatar": r"doha|qatar|al udeid|ras laffan", "bahrain": r"bahrain|manama",
-    "kuwait": r"kuwait", "muscat": r"muscat|duqm|salalah|sohar"}
+    "kuwait": r"kuwait", "muscat": r"muscat|duqm|salalah|sohar",
+    # the Arab Middle East beyond the Gulf (item 2 of the Gulf rule: later reports of one attack): Jordan and Iraq.
+    # Lebanon and Syria keep their own rules (several strikes a day in one city there are separate stories).
+    "amman": r"amman|aqaba|zarqa|irbid", "baghdad": r"baghdad", "erbil": r"erbil|irbil|arbil",
+    "basra": r"basra|basrah", "kirkuk": r"kirkuk", "mosul": r"mosul", "sulaymaniyah": r"sulaymaniyah|sulaimaniyah",
+    "duhok": r"duhok|dohuk", "najaf": r"najaf", "karbala": r"karbala"}
 _GULF_FA = {
     "riyadh": "ریاض|پایتخت عربستان|پایتخت سعودی", "najran": "نجران", "jizan": "جیزان|جازان", "abha": "ابها|خمیس مشیط",
     "jeddah": "جده", "mecca": "مکه", "medina": "مدینه", "taif": "طائف", "yanbu": "ینبع|رابغ",
     "east": "شرق عربستان|استان شرقی|منطقه شرقی|دمام|ظهران|الخبر|راس تنوره|رأس تنوره|ابقیق|جبیل|قطیف|الاحسا",
     "dubai": "دبی", "abu_dhabi": "ابوظبی|ابوظبى|الظفره", "fujairah": "فجیره", "sharjah": "شارجه|راس الخیمه",
-    "qatar": "قطر|قطری|دوحه|العدید|راس لفان", "bahrain": "بحرین|منامه", "kuwait": "کویت", "muscat": "مسقط|دقم|صلاله|صحار"}
+    "qatar": "قطر|قطری|دوحه|العدید|راس لفان", "bahrain": "بحرین|منامه", "kuwait": "کویت", "muscat": "مسقط|دقم|صلاله|صحار",
+    "amman": "پایتخت اردن|عقبه|زرقاء|اربد", "baghdad": "بغداد", "erbil": "اربیل", "basra": "بصره", "kirkuk": "کرکوک",
+    "mosul": "موصل", "sulaymaniyah": "سلیمانیه", "duhok": "دهوک", "najaf": "نجف", "karbala": "کربلا"}
 _GULF_CTRY = {"riyadh": "sa", "najran": "sa", "jizan": "sa", "abha": "sa", "jeddah": "sa", "mecca": "sa", "medina": "sa",
               "taif": "sa", "yanbu": "sa", "east": "sa", "dubai": "ae", "abu_dhabi": "ae", "fujairah": "ae",
-              "sharjah": "ae", "qatar": "qa", "bahrain": "bh", "kuwait": "kw", "muscat": "om"}
+              "sharjah": "ae", "qatar": "qa", "bahrain": "bh", "kuwait": "kw", "muscat": "om", "amman": "jo",
+              "baghdad": "iq", "erbil": "iq", "basra": "iq", "kirkuk": "iq", "mosul": "iq", "sulaymaniyah": "iq",
+              "duhok": "iq", "najaf": "iq", "karbala": "iq"}
+ARAB = frozenset(_GULF_CTRY.values())        # the Arab countries of the Middle East these rules cover
 _GULF_EN_RX = {k: re.compile(r"\b(?:" + v + r")\b", _I) for k, v in _GULF_EN.items()}
 _GULF_FA_RX = {k: re.compile(_w(v)) for k, v in _GULF_FA.items()}
 # the country alone ("over Saudi airspace", «مناطقی از عربستان»); not "Saudi-led strikes" on Yemen
 _GULF_LAND_EN = {"sa": re.compile(r"\b(saudi(?: arabia)?|the kingdom)\b" + _NOT_SAUDI_ACT, _I),
-                 "ae": re.compile(r"\b(uae|emirates|emirati)\b", _I)}
-_GULF_LAND_FA = {"sa": re.compile(_w("عربستان|سعودی")), "ae": re.compile(_w("امارات|اماراتی"))}
+                 "ae": re.compile(r"\b(uae|emirates|emirati)\b", _I),
+                 "jo": re.compile(r"\b(jordan|jordanian)\b", _I), "iq": re.compile(r"\b(iraq|iraqi)\b", _I)}
+_GULF_LAND_FA = {"sa": re.compile(_w("عربستان|سعودی")), "ae": re.compile(_w("امارات|اماراتی")),
+                 "jo": re.compile(_w("اردن", "ی")), "iq": re.compile(_w("عراق", "ی"))}
 # "Gulf of Oman", "Saudi capital" said of Yemen's capital and the like are not places in these countries
 _GULF_NOT_EN = re.compile(r"\bgulf of oman\b|\byemen'?s capital\b|\b(?:riyadh|saudi|qatar|uae)[- ](?:backed|led|based"
                           r"|brokered|mediated|hosted)\b", _I)
@@ -439,6 +451,83 @@ _HIT_FA = re.compile(fa_norm("انفجار|رهگیری|رهگیر|سرنگون|
 _CAUGHT_EN = re.compile(r"\b(intercept\w*|shoots? down|shot down|downs?|downed|destroy\w*)\b", _I)
 
 
+# ------------------------------------------------------------------ named targets (one building, one airport, one plant)
+# An attack on a named target is told all day long, in many words: "Aramco skyscraper damaged as Riyadh financial
+# district targeted", «خسارت به برج آرامکو در ریاض بر اثر سقوط بقایای موشک», "Houthis claim attack on Riyadh
+# financial centre", «یک ساختمان اداری آرامکو در پی حمله حوثی‌ها آسیب دید». Each target has a key and the city it is
+# in, so a headline naming only the target («فرودگاه ملک خالد», "King Khalad airport" misspelt) still has its city.
+# Reports naming the same target are one story for a day (cluster.TARGET_KEEP). (key, city, English, Persian)
+_TARGETS = [
+    ("kafd", "riyadh", r"riyadh'?s? financial (?:district|centre|center|hub)|financial (?:district|centre|center) (?:of|in)"
+                       r" riyadh|king abdullah financial(?: district| center| centre)?|\bkafd\b",
+     "منطقه مالی ریاض|مرکز مالی ریاض|منطقه مالی ملک عبدالله|مرکز مالی ملک عبدالله|منطقه تجاری ریاض"),
+    ("aramco_bldg", None, r"aramco(?:'s)? (?:tower|skyscraper|high-?rise|building|office building|offices?|headquarters|hq)"
+                          r"|(?:tower|skyscraper|high-?rise|building|offices?|headquarters) (?:of|owned by|belonging to)"
+                          r" (?:saudi )?aramco",
+     "برج آرامکو|ساختمان آرامکو|ساختمان اداری آرامکو|آسمان خراش آرامکو|ساختمان مجلل برج آرامکو|دفتر آرامکو|دفاتر آرامکو"
+     "|مقر آرامکو|ساختمان شرکت آرامکو|برج شرکت آرامکو"),
+    ("riyadh_airport", "riyadh", r"king khal[ae]?d (?:international )?(?:airport|air ?port)|king khalid international"
+                                 r"|riyadh(?:'s)? (?:international )?airport|airport (?:in|of) riyadh",
+     "فرودگاه ملک خالد|فرودگاه بین المللی ملک خالد|فرودگاه ریاض|فرودگاه بین المللی ریاض"),
+    ("jeddah_airport", "jeddah", r"king abdul ?aziz (?:international )?airport|jeddah(?:'s)? (?:international )?airport",
+     "فرودگاه ملک عبدالعزیز|فرودگاه جده|فرودگاه بین المللی جده"),
+    ("abha_airport", "abha", r"abha(?:'s)? (?:international |regional )?airport", "فرودگاه ابها|فرودگاه بین المللی ابها"),
+    ("jizan_airport", "jizan", r"(?:jizan|jazan|gizan)(?:'s)? (?:regional )?airport|king abdullah airport",
+     "فرودگاه جیزان|فرودگاه جازان|فرودگاه ملک عبدالله"),
+    ("dammam_airport", "east", r"king fahd (?:international )?airport|dammam(?:'s)? (?:international )?airport",
+     "فرودگاه ملک فهد|فرودگاه دمام|فرودگاه بین المللی دمام"),
+    ("najran_airport", "najran", r"najran(?:'s)? (?:domestic |regional )?airport", "فرودگاه نجران"),
+    ("abqaiq", "east", r"abqaiq|buqayq", "ابقیق|بقیق"),
+    ("ras_tanura", "east", r"ras tanura|ras tanurah", "راس تنوره|راس التنوره"),
+    ("khurais", "east", r"khurais", "خریص"),
+    ("shaybah", "east", r"shaybah", "شیبه"),
+    ("jizan_refinery", "jizan", r"(?:jizan|jazan|gizan) (?:aramco )?refinery|refinery (?:in|at) (?:jizan|jazan)"
+                                r"|jizan economic city",
+     "پالایشگاه جیزان|پالایشگاه جازان|پالایشگاه آرامکو در جیزان|پالایشگاه آرامکو در جازان"),
+    ("jeddah_plant", "jeddah", r"north jeddah bulk plant|jeddah (?:oil |fuel |aramco )?(?:depot|terminal|bulk plant|"
+                               r"storage)|aramco (?:depot|terminal|plant|facility|facilities) in jeddah",
+     "انبار نفت جده|پایانه نفتی جده|مخازن نفت جده|تاسیسات آرامکو در جده"),
+    ("yanbu_plant", "yanbu", r"yanbu (?:refinery|terminal|port|aramco|industrial)|samref|yasref",
+     "پالایشگاه ینبع|بندر ینبع|پایانه ینبع"),
+    ("rabigh", "yanbu", r"rabigh (?:refinery|plant|terminal)|petro ?rabigh", "پالایشگاه رابغ"),
+    ("dubai_airport", "dubai", r"dubai(?:'s)? (?:international )?airport|\bdxb\b|al maktoum (?:international )?airport",
+     "فرودگاه دبی|فرودگاه بین المللی دبی|فرودگاه آل مکتوم"),
+    ("abu_dhabi_airport", "abu_dhabi", r"abu dhabi(?:'s)? (?:international )?airport|zayed international airport",
+     "فرودگاه ابوظبی|فرودگاه بین المللی ابوظبی"),
+    ("jebel_ali", "dubai", r"jebel ali", "جبل علی"),
+    ("burj_khalifa", "dubai", r"burj khalifa", "برج خلیفه"),
+    ("ruwais", "abu_dhabi", r"ruwais", "رویس|الرویس"),
+    ("musaffah", "abu_dhabi", r"mussafah|musaffah|adnoc (?:fuel )?(?:depot|tanks?)", "مصفح|المصفح"),
+    ("ras_laffan", "qatar", r"ras laffan", "راس لفان"),
+    ("bapco", "bahrain", r"bapco|sitra (?:refinery)?", "بابکو|سیتره"),
+    ("ahmadi", "kuwait", r"mina al-?ahmadi|al-?ahmadi refinery|mina abdullah", "میناءالاحمدی|مینا الاحمدی|پالایشگاه الاحمدی"),
+    ("erbil_airport", "erbil", r"erbil (?:international )?airport", "فرودگاه اربیل"),
+    ("baghdad_airport", "baghdad", r"baghdad (?:international )?airport", "فرودگاه بغداد|فرودگاه بین المللی بغداد"),
+    ("khor_mor", "sulaymaniyah", r"khor ?mor", "خورمور|کورمور"),
+]
+_TARGET_EN = [(k, c, re.compile(r"\b(?:" + e + r")", _I)) for k, c, e, _ in _TARGETS]
+_TARGET_FA = [(k, c, re.compile(_w(f))) for k, c, _, f in _TARGETS]
+
+
+def gulf_targets(t, fa, cities=()):
+    """The named targets a (normalised) headline tells of, as keys. An Aramco building is the tower in Riyadh's
+    financial district unless the headline names another city («ساختمان آرامکو در ظهران»: that city's)."""
+    out = set()
+    for k, c, rx in (_TARGET_FA if fa else _TARGET_EN):
+        if rx.search(t):
+            out.add(k)
+    if "aramco_bldg" in out:
+        out.discard("aramco_bldg")
+        other = sorted(set(cities) - {"riyadh"})
+        out.add("kafd" if not other else "aramco_bldg_" + other[0])
+    return frozenset(out)
+
+
+def _target_cities(targets):
+    city = {k: c for k, c, _, _ in _TARGETS}
+    return {city[k] for k in targets if city.get(k)}
+
+
 def _gulf_places(t, fa):
     if fa:
         t = _GULF_NOT_FA.sub(" ", t)
@@ -448,6 +537,7 @@ def _gulf_places(t, fa):
         t = _GULF_NOT_EN.sub(" ", t)
         cities = {k for k, rx in _GULF_EN_RX.items() if rx.search(t)}
         land = {k for k, rx in _GULF_LAND_EN.items() if rx.search(t)}
+    cities |= _target_cities(gulf_targets(t, fa, cities))     # «فرودگاه ملک خالد»: Riyadh
     return cities, land | {_GULF_CTRY[c] for c in cities}
 
 
@@ -468,25 +558,129 @@ def gulf_main(title, lang="en"):
     return _main(fa_norm(title or "") if fa else (title or ""), fa)
 
 
+# Later reports of one attack (item 2): damage, debris, a video of it, a ministry confirming it, a claim of
+# responsibility. In an Arab country of the Middle East they join the attack's story for longer
+# (cluster.AFTER_SPAN), as long as they tell nothing that is happening now (sirens, explosions heard, interceptions).
+_AFTER_EN = re.compile(r"\b(damag\w*|debris|shrapnel|remnants?|fragments?|wreckage|aftermath|footage|videos?|images?"
+                       r"|photos?|pictures?|smoke|confirm\w*|ministry|responsibility|attempted attack|failed attack"
+                       r"|thwart\w*|foiled|investigat\w*|postpon\w*|witness\w*|eyewitness\w*)\b", _I)
+_AFTER_FA = re.compile(fa_norm("خسارت|خسارات|آسیب|بقایای|ترکش|قطعات|لاشه|فیلم|تصاویر|تصویر|ویدئو|ویدیو|دود|پیامد"
+                               "|جزئیات|تایید|وزارت|مسئولیت|نافرجام|ناموفق|ناکام|شاهدان|به تعویق"))
+_FRESH_EN = re.compile(r"\b(heard|sirens?|alarms?|intercept\w*|shoots? down|shot down|explosions? (?:rock|in|over)"
+                       r"|now|ongoing|under way|underway)\b", _I)
+_FRESH_FA = re.compile(fa_norm("شنیده شد|شنیده می|آژیر|رهگیری|رهگیر|سرنگون|هم اکنون|هم‌اکنون|لحظاتی پیش|در حال"))
+# what makes a report of a failed attempt on a place an attack all the same («تلاش … برای آسیب به … ناموفق ماند»)
+_ATTEMPT_EN = re.compile(r"\b(attempted attack|failed attack|attempt\w* to (?:hit|strike|damage|attack))\b", _I)
+_ATTEMPT_FA = re.compile(fa_norm("نافرجام|ناموفق ماند|ناکام ماند|تلاش (?:[^ ]+ ){0,3}برای (?:آسیب|حمله|هدف)"))
+
+# The Houthis' account of their operations (item 5): their military spokesman's statement, told by each outlet in
+# its own slice ("Houthis say they attacked Aramco facilities in Abqaiq", "Houthis claim attack on King Khalid
+# airport", «جزئیات ۴ عملیات ارتش یمن در عمق خاک عربستان», «حمله یمن به فرودگاه ملک خالد، تأسیسات آرامکو و اهدافی
+# در ریاض»). One day's statements are one story (cluster.CLAIM_SPAN); a count of operations that differs makes
+# another statement. A report that also tells what was seen (damage, witnesses, the Saudi side intercepting) is the
+# attack's, not the statement's.
+_HOUTHI_EN = re.compile(r"\b(houthis?|ansar ?allah|saree|sarea|yemen'?s? (?:army|armed forces|military)"
+                        r"|yemeni (?:army|armed forces|military|forces)|yemen)\b", _I)
+_HOUTHI_FA = re.compile(_w("حوثی|انصارالله|یمن", "ی|ها|های") + "|" + fa_norm("یحیی سریع|ارتش یمن|نیروهای مسلح یمن"))
+_CLAIM_EN = re.compile(r"\b(?:houthis?|ansar ?allah|saree|sarea|yemen'?s? (?:army|armed forces|military)|yemeni (?:army|armed"
+                       r" forces|military|forces)|yemen)\b[^.;:]{0,40}?\b(claim\w*|says?|said|announc\w*|statement)\b"
+                       r"|\b(spokes\w*|operations?|claim(?:s|ed)? responsibility)\b", _I)
+_CLAIM_FA = re.compile(fa_norm("مدعی|ادعا|اعلام کرد|اعلام کردند|بیانیه|سخنگو|جزئیات|عملیات|مسئولیت"))
+_SEEN_EN = re.compile(r"\b(damag\w*|witness\w*|eyewitness\w*|intercept\w*|shot down|shoots? down|debris|ministry"
+                      r"|coalition|civil defen[cs]e|saudi (?:says|said|defen[cs]es?|forces)|fire|ablaze|smoke"
+                      r"|reports? of|reported|sources|media|explosions?|blasts?|heard|died|killed|dead|wounds?|injur\w*"
+                      r"|last (?:month|week|year)|ago)\b", _I)
+_SEEN_FA = re.compile(fa_norm("خسارت|آسیب|شاهدان|رهگیری|رهگیر|سرنگون|بقایای|وزارت|ائتلاف|دفاع مدنی|آتش|دود"
+                              "|گزارش|منابع|رسانه|انفجار|شنیده|خبر حمله|اخبار|کشته|زخمی|مجروح|جان باخت|جان سپرد"
+                              "|ماه گذشته|هفته گذشته|سال گذشته|پیش"))
+# fighting inside Yemen (Saudi-backed forces, «مزدوران سعودی»): not an attack on Saudi soil
+_INSIDE_EN = re.compile(r"\bmercenar\w*|\b(?:saudi[- ]backed|pro-saudi)\b", _I)
+_INSIDE_FA = re.compile(fa_norm("مزدور|تحت فرمان افسران سعودی|نیروهای وابسته"))
+_GENERIC_EN = {"airport": r"airports?", "oil": r"aramco|refiner(?:y|ies)|oil|facilit\w*|plants?|terminals?",
+               "troops": r"troops|forces|military (?:sites?|targets?|positions?)|bases?", "city": r"targets? in"}
+_GENERIC_FA = {"airport": "فرودگاه", "oil": "آرامکو|پالایشگاه|تاسیسات|نفتی", "troops": "نیروهای|مواضع|پایگاه",
+               "city": "اهدافی در|اهداف حساس|اهداف"}
+_GENERIC_EN_RX = {k: re.compile(r"\b(?:" + v + r")\b", _I) for k, v in _GENERIC_EN.items()}
+_GENERIC_FA_RX = {k: re.compile(fa_norm(v)) for k, v in _GENERIC_FA.items()}
+_NUM_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+              "دو": 2, "سه": 3, "چهار": 4, "پنج": 5, "شش": 6, "هفت": 7, "هشت": 8, "نه": 9, "ده": 10}
+_COUNT_EN = re.compile(r"\b(\d{1,2}|two|three|four|five|six|seven|eight|nine|ten) (?:\w+ ){0,3}?operations\b", _I)
+_COUNT_FA = re.compile(fa_norm(r"(\d{1,2}|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده) عملیات"))
+_LATIN = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+
+def _op_count(t, fa):
+    m = (_COUNT_FA if fa else _COUNT_EN).search(t)
+    if not m:
+        return None
+    x = m.group(1).lower().translate(_LATIN)
+    return int(x) if x.isdigit() else _NUM_WORDS.get(x)
+
+
+def gulf_claim(t, fa, targets, cities):
+    """(count of operations or None, several targets) if the (normalised) headline is the Houthis' own account of
+    their operations on an Arab country of the Middle East, else None."""
+    if not (_HOUTHI_FA if fa else _HOUTHI_EN).search(t) or (_SEEN_FA if fa else _SEEN_EN).search(t):
+        return None
+    r = _sh_rx(fa)
+    if r["actor"].search(t) or (_INSIDE_FA if fa else _INSIDE_EN).search(t):
+        return None                      # Saudi Arabia striking («حمله عربستان به الشریه»), fighting inside Yemen
+    if not cities and not targets and (not r["place"].search(r["proxy"].sub(" ", t)) or r["yemen"].search(t)) \
+            and not (fa and re.search(fa_norm("عمق خاک عربستان|خاک عربستان|علیه اهداف سعودی|اهداف سعودی|در عربستان"), t)) \
+            and not (not fa and re.search(r"\b(?:deep )?(?:in|inside|into|on|against) (?:saudi(?: arabia)?|the kingdom)\b"
+                                          r"(?![- ](?:led|backed))|\bsaudi (?:targets|territory|soil)\b", t, _I)):
+        return None                      # no place in the country named: a statement about the fighting in Yemen
+    n = _op_count(t, fa)
+    kinds = {k for k, rx in (_GENERIC_FA_RX if fa else _GENERIC_EN_RX).items() if rx.search(t)}
+    # several targets: two named ones, a named one and another kind («فرودگاه ملک خالد، تأسیسات آرامکو و اهدافی در
+    # ریاض»), or two kinds ("Aramco sites, Riyadh airport and troops")
+    named_kinds = {"airport" if "airport" in k else "oil" for k in targets}
+    multi = len(targets) >= 2 or len(kinds | named_kinds) >= 2 or len(set(cities) - _target_cities(targets)) >= 2
+    if not (_CLAIM_FA if fa else _CLAIM_EN).search(t) and not multi:
+        return None                      # "Houthi missile hits Riyadh": the attack, not a statement
+    if n is not None and n >= 2:
+        multi = True
+    return n, multi
+
+
+_PAST_EN = re.compile(r"\b(last (?:month|week|year)|(?:weeks|months|years) ago|earlier this (?:month|year)|anniversary)\b", _I)
+_PAST_FA = re.compile(fa_norm("ماه گذشته|هفته گذشته|سال گذشته|ماه پیش|هفته پیش|سال پیش|هفته های گذشته|ماه های گذشته|سالگرد"))
+
+
 def gulf_mark(title, lang="en"):
-    """("attack" or "alert", places, countries) of a report of missiles or drones on a Gulf Arab country, or of the
-    sirens and warnings there; None for anything else, and for a report naming the main front (see above)."""
+    """(kind, places, countries, targets, later, count, several) of a report of missiles or drones on an Arab
+    country of the Middle East, of the sirens and warnings there, or of the Houthis' statement of their operations
+    on it; None for anything else, and for a report naming the main front (see above).
+    kind: "attack", "alert" (sirens) or "claim" (the Houthis' statement); targets: the named targets (gulf_targets);
+    later: a later report of the attack (damage, debris, a video, a confirmation; nothing happening now); count: the
+    number of operations a statement gives; several: a statement naming more than one target."""
     fa = lang == "fa"
     t = fa_norm(title or "") if fa else (title or "")
     r = _sh_rx(fa)
-    if not t or _main(t, fa):
-        return None
+    if not t or _main(t, fa) or (_PAST_FA if fa else _PAST_EN).search(t):
+        return None                      # the main front; an attack weeks ago ("died of wounds … last month")
     cities, ctry = _gulf_places(r["proxy"].sub(" ", t), fa)
+    targets = gulf_targets(r["proxy"].sub(" ", t), fa, cities)
+    if not ctry and fa and (_HOUTHI_FA.search(t) and _COUNT_FA.search(t)) and re.search(fa_norm("عربستان|سعودی"), t):
+        ctry = {"sa"}
     if not ctry:
         return None
+    later = bool((_AFTER_FA if fa else _AFTER_EN).search(t)) and not (_FRESH_FA if fa else _FRESH_EN).search(t)
     hit = (_HIT_FA if fa else _HIT_EN).search(t)
     if (_ALERT_FA if fa else _ALERT_EN).search(t) and not hit:
-        return "alert", frozenset(cities), frozenset(ctry)
+        return "alert", frozenset(cities), frozenset(ctry), frozenset(), False, None, False
     a, w = r["attack"].search(t), r["talk"].search(t)
+    if not a and (_ATTEMPT_FA if fa else _ATTEMPT_EN).search(t) and (cities or targets):
+        a = hit = True                   # «تلاش حوثی‌ها برای آسیب به آرامکو در ریاض ناموفق ماند»
+    claim = gulf_claim(t, fa, targets, cities) if (a or (fa and _COUNT_FA.search(t)) or _op_count(t, fa)) else None
+    if claim and not r["review"].search(t) and not r["future"].search(t) and not (w and (not a or w.start() < a.start())
+                                                                                  and not (_CLAIM_FA if fa else _CLAIM_EN).search(w.group(0))):
+        if not r["tally"].search(t) or claim[0]:
+            return "claim", frozenset(cities), frozenset(ctry), targets, False, claim[0], claim[1]
     if not a or not hit or r["review"].search(t) or r["future"].search(t) or (w and w.start() < a.start()):
         return None                      # threats, reactions, talks, markets, analysis
     if r["toll"].search(t) or r["tally"].search(t):
         return None                      # casualty figures and counts (mostly of Saudi strikes on Yemen)
     if not cities and not (r["intercept"] if fa else _CAUGHT_EN).search(t):
         return None                      # the country alone: only an interception over it ("over Saudi airspace")
-    return "attack", frozenset(cities), frozenset(ctry)
+    return "attack", frozenset(cities), frozenset(ctry), targets, later, None, False

@@ -365,9 +365,10 @@ _NEW_EN = re.compile(r"\b(?:new|another|fresh|second|third|again|renewed|more|fu
 _NEW_FA = re.compile(fa_norm("دوباره|مجدد|جدید|تازه|دومین|سومین|بار دیگر|باز هم|موج"))
 
 
-def strike_key(m):
-    """(attacker, places hit, kinds of target) of a news report of an attack, or None (see above)."""
-    if channel(m) or m.get("wit") or event_class(m) != "K":
+def strike_key(m, chan_ok=False):
+    """(attacker, places hit, kinds of target) of a news report of an attack, or None (see above). chan_ok: a
+    Telegram channel's post gets one too (it joins a news story by it, never another channel's: see CHAN_JOIN)."""
+    if (channel(m) and not chan_ok) or m.get("wit") or event_class(m) != "K":
         return None
     if set(m.get("flags") or []) & {"denial", "past", "controlled", "scheduled", "speculative", "threat", "analysis",
                                     "opinion", "quote", "digest", "reaction"}:
@@ -385,11 +386,30 @@ def strike_key(m):
     return who.pop(), frozenset(places), kinds
 
 
+def _chan_win(m):
+    """How long after a news story's latest report a Telegram channel's post may still join it (rule 3 of the Gulf
+    rules, and the same for every story): six hours for a post relaying a named outlet or telling no strike as it
+    happens (a statement, a video, "WSJ: US struck Qeshm on Monday"), two hours for a post of a strike now."""
+    from .citation import outlet_named             # citation builds on this module
+    return CHAN_KEEP if outlet_named(m) or not strike(m) else CHAN_FRESH
+
+
+def _chan_near(f, mf, t, c, k):
+    """A channel's post and a news report of the same strike (same_strike) are one story only within the post's
+    window (_chan_win) of each other: a channel's post hours later may be of a new strike."""
+    if not (f.get("chan") or mf.get("chan")):
+        return True
+    tk = next((m["t"] for m in c["m"] if m["k"] == k), c["t"])
+    return abs(t - tk) <= (f["cwin"] if f.get("chan") else CHAN_FRESH)
+
+
 def same_strike(a, b):
     """Features of two news reports: the same strike, told in other words (see above)."""
     ka, kb = a.get("sk"), b.get("sk")
     if not ka or not kb or ka[0] != kb[0] or ka[1] != kb[1]:
         return False
+    if a.get("chan") and b.get("chan"):
+        return False                                # two channels: their short posts repeat for separate events
     if ka[2] and kb[2] and not ka[2] & kb[2]:
         return False                                # a port and an air-defence site: two targets
     if a["days"] and b["days"] and not a["days"] & b["days"]:
@@ -408,16 +428,46 @@ def same_strike(a, b):
 GULF_WINDOW = 2 * 3600
 GULF_GAP = 1 * 3600           # still being told: within this of the story's latest report…
 GULF_SPAN = 4 * 3600          # …and this of its first
+# Beyond those windows (fronts.gulf_mark gives what each needs):
+# 1. one named target (the Aramco tower in Riyadh's financial district, King Khalid airport, Abqaiq; fronts._TARGETS):
+#    the reports naming it are one story for a day after its first report, unless one says it is a new attack;
+# 2. a later report of an attack in an Arab country of the Middle East (damage, debris, a video, a ministry
+#    confirming it, a claim of responsibility; nothing happening now) joins the attack on its city for twelve hours;
+# 3. a Telegram channel's post joins a news story by these rules (never another channel's), within six hours of the
+#    story's latest report, so a post retelling what the news has told is not a story of its own;
+# 4. the Houthis' statement of their operations (fronts.gulf_claim), told by each outlet in its own slice, is one
+#    story for sixteen hours after its first report, unless the counts of operations differ; a slice naming one
+#    target also joins that target's attack story, one naming several stays with the statement.
+TARGET_KEEP = 24 * 3600
+AFTER_SPAN = 12 * 3600
+CHAN_KEEP = 6 * 3600          # a channel's post relaying an outlet, or telling no strike, joins this long after…
+CHAN_FRESH = 2 * 3600         # …a post of a strike as it happens only this long (it may be a new strike)
+CHAN_SCORE = 0.4              # a post joining after the story's usual window needs a headline this close
+CLAIM_SPAN = 16 * 3600
+TARGET_FULL = 120             # a story with 60 reports takes no more, but one naming its target up to this many
 
 
 def _gulf_time(t, c):
-    """The report at time t comes within the Gulf rule's time window of story c."""
-    return abs(t - _since(c)) <= GULF_WINDOW or (t - c["u"] <= GULF_GAP and t - c["t"] <= GULF_SPAN)
+    """The report at time t comes within the Gulf rule's time window of story c. "Still being told" counts from
+    the start of the story's latest run of reports (none two hours apart), not from an early report a later one
+    joined to it hours before."""
+    return abs(t - _since(c)) <= GULF_WINDOW or (abs(t - c["u"]) <= GULF_GAP and t - _run_start(c) <= GULF_SPAN)
 
 
-def gulf_key(m):
-    """(kind, places, countries) of a news report on the Gulf Arab front (fronts.gulf_mark), or None."""
-    if channel(m) or m.get("wit") or _at_sea(m):
+def _run_start(c):
+    ts = sorted((m["t"] for m in c["m"]), reverse=True)
+    start = ts[0] if ts else c["t"]
+    for x in ts[1:]:
+        if start - x > GULF_WINDOW:
+            break
+        start = x
+    return min(start, c["u"]) if not c.get("ongoing") else c["u"]
+
+
+def gulf_key(m, chan_ok=False):
+    """(kind, places, countries, targets, later, count, several) of a news report on the Gulf Arab front
+    (fronts.gulf_mark), or None. chan_ok: a Telegram channel's post gets one too (rule 3 above)."""
+    if (channel(m) and not chan_ok) or m.get("wit") or _at_sea(m):
         return None
     if set(m.get("flags") or []) & {"denial", "past", "controlled", "scheduled", "speculative", "analysis", "opinion",
                                     "digest", "reaction", "quote"}:
@@ -438,14 +488,67 @@ def gulf_main(m):
         fronts.gulf_main(x, lang) for x, lang in ((m.get("ti"), m.get("lang") or "en"), (m.get("en_ti"), "en")) if x)
 
 
+def gulf_fit(a, b):
+    """Two Gulf marks can be of one story: sirens only with sirens; the Houthis' statement with a statement, or,
+    a slice of it naming one target only, with an attack on that target."""
+    if a[0] == b[0]:
+        return True
+    if "alert" in (a[0], b[0]):
+        return False
+    c = a if a[0] == "claim" else b
+    return bool(c[3]) and not c[6]
+
+
+def _statement(x):
+    """A Gulf mark of the Houthis' statement as a whole: several targets, a count, or no target named."""
+    return x[0] == "claim" and (x[6] or not x[3])
+
+
+def gulf_apart(a, marks):
+    """True if a report with Gulf mark a is of a kind the story's marks keep apart: sirens and an attack; the
+    Houthis' statement as a whole and an attack's story (a slice of it naming one target goes either way)."""
+    if not marks:
+        return False
+    if not any(gulf_fit(a, x) for x in marks):
+        return True
+    if _statement(a) and any(x[0] == "attack" for x in marks):
+        return True
+    return a[0] == "attack" and any(_statement(x) for x in marks)
+
+
 def same_gulf(a, b):
-    """Gulf marks of two reports: one attack (or one round of sirens) on one place. 2 = the same city, 1 = one of
-    them names only the country, 0 = not the same."""
-    if not a or not b or a[0] != b[0]:
+    """Gulf marks of two reports: one attack (or one round of sirens, or one statement) on one place. 3 = the same
+    named target, 2 = the same city, 1 = one of them names only the country, 0 = not the same."""
+    if not a or not b or not gulf_fit(a, b):
         return 0
+    if a[0] != b[0]:                                # a statement's slice naming one target, and an attack on it
+        return 3 if a[3] & b[3] else 0
+    if a[3] and b[3] and a[3] & b[3]:
+        return 3
+    if a[0] == "claim":                             # one statement: the same count, a place in common or none named
+        if a[5] and b[5] and a[5] != b[5]:
+            return 0
+        if not a[2] & b[2]:
+            return 0
+        pa, pb = a[1] | a[3], b[1] | b[3]
+        return 2 if (not pa or not pb or pa & pb) else 0
     if a[1] and b[1]:
         return 2 if a[1] & b[1] else 0
     return 1 if a[2] & b[2] else 0
+
+
+def gulf_when(t, c, n, a, b, chan):
+    """A report at time t with Gulf mark a, matching story c's mark b at level n (same_gulf), comes within the time
+    the rules above give. chan: 0, or how long after the story's latest report a channel's post may join (_chan_win)."""
+    if chan and abs(t - c["u"]) > chan:
+        return False
+    if a[0] == "claim" and b[0] == "claim":
+        return abs(t - _since(c)) <= CLAIM_SPAN
+    if n == 3:
+        return abs(t - _since(c)) <= TARGET_KEEP
+    if n == 2 and (a[4] or b[4]) and a[2] & b[2] <= fronts.ARAB and abs(t - _since(c)) <= AFTER_SPAN:
+        return True
+    return _gulf_time(t, c)
 
 
 PLACE_TOKENS = {w for v in PLACES.values() for w in tokens(v[1]) if len(w) >= 4} - {"gulf", "island", "persian"}
@@ -598,7 +701,8 @@ def features(m):
             "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
-            "sk": strike_key(m), "gulf": gulf_key(m), "gmain": gulf_main(m),
+            "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True), "gmain": gulf_main(m),
+            "cwin": _chan_win(m) if channel(m) else 0,
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
 
 
@@ -968,7 +1072,7 @@ class Clusterer:
         self.evacs = {}                                   # (who, country, how far) of an order to leave -> story ids
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
         self.ev = {}                                      # story id -> (earliest, latest): when its event happened
-        self.gulfs = {}                                   # story id -> [Gulf-front marks of its reports] (gulf_key)
+        self.gulfs = {}                                   # story id -> [(Gulf-front mark, channel's, time)] (gulf_key)
         self.gmain = set()                                # stories with a report naming the main front
         for c in clusters:
             self._index(c)
@@ -997,7 +1101,7 @@ class Clusterer:
                 if feats[m["k"]].get("evac"):
                     self.evacs.setdefault(feats[m["k"]]["evac"], set()).add(c["id"])
                 if feats[m["k"]].get("gulf"):
-                    self.gulfs.setdefault(c["id"], []).append(feats[m["k"]]["gulf"])
+                    self.gulfs.setdefault(c["id"], []).append((feats[m["k"]]["gulf"], feats[m["k"]]["chan"], m["t"]))
                 if feats[m["k"]].get("gmain"):
                     self.gmain.add(c["id"])
                 if feats[m["k"]].get("dup"):
@@ -1058,6 +1162,12 @@ class Clusterer:
         return bool(lab) and lab[2] != EV_ANCHOR and item["t"] - c["u"] <= EV_EXTEND \
             and vessel.overlap(f["evp"], lab, EV_SLACK)
 
+    def _chan_late(self, item, f, c):
+        """A Telegram channel's post retelling a news story: it may join beyond the usual windows, within its window
+        (_chan_win) of the story's latest report, if the story has a news report (rule 3 of the Gulf rules)."""
+        return bool(f.get("chan")) and c["t"] <= item["t"] and item["t"] - c["u"] <= f["cwin"] \
+            and any(not channel(m) for m in c["m"])
+
     def _rare(self, w, t):
         """True if at most RARE_STORIES stories of the two days around t use the word."""
         ids = self.index.get(w, ())
@@ -1087,7 +1197,7 @@ class Clusterer:
         for cid, n in cand.items():
             c = self.byid.get(cid)
             if c and (abs(item["t"] - _since(c)) <= (STRIKE_WINDOW if f["sk"] else WINDOW["other"])
-                      or self._ev_late(item, f, c)):
+                      or self._ev_late(item, f, c) or self._chan_late(item, f, c)):
                 ranked.append((n, cid))
         matches = []
         for _, cid in sorted(ranked, reverse=True)[:40]:
@@ -1109,18 +1219,20 @@ class Clusterer:
             late = self._ev_late(item, f, c)
             feats = self.tok.get(cid, {})
             if f["sk"] and (abs(item["t"] - _since(c)) <= STRIKE_WINDOW or late) \
-                    and any(same_strike(f, mf) for mf in feats.values()):
+                    and any(same_strike(f, mf) and _chan_near(f, mf, item["t"], c, k) for k, mf in feats.items()):
                 matches.append((0.55, c))                  # the same strike told in other words (see same_strike)
                 continue
             physical = f["cls"] in PHYSICAL or any(x["cls"] in PHYSICAL for x in feats.values())
             win = WINDOW["event" if physical else "other"]
             if f["spk"] and f["spk"][0] and any((x.get("spk") or (None,))[0] == f["spk"][0] for x in feats.values()):
                 win = max(win, SPEECH_WINDOW)              # one person's words, retold for hours
-            if abs(item["t"] - _since(c)) > win and not late:
+            if abs(item["t"] - _since(c)) > win and not late and not self._chan_late(item, f, c):
                 continue                                   # when: measured from the story's first report
             times = {m["k"]: m["t"] for m in c["m"]}
             score = max((same_story(f, mf, abs(item["t"] - times.get(k, c["t"])), rare) for k, mf in feats.items()),
                         default=0.0)
+            if score and score < CHAN_SCORE and abs(item["t"] - _since(c)) > win and not late:
+                continue                                   # a channel's late post: only a close headline (rule 3)
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
@@ -1148,11 +1260,17 @@ class Clusterer:
             # the report fits two stories: fold the smaller one in only if the two also match each other
             # directly (not merely through this report), remembering its id so its alert isn't sent twice
             fb, fo = self.tok.get(best["id"], {}), self.tok.get(other["id"], {})
-            strike_pair = any(same_strike(x, y) for x in fo.values() for y in fb.values()) or bool(
+            tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
+            strike_pair = any(same_strike(x, y) and (not (x["chan"] or y["chan"])
+                                                     or abs(to.get(kx, 0) - tb.get(ky, 0)) <= CHAN_KEEP)
+                              for kx, x in fo.items() for ky, y in fb.items()) or bool(
                 {_own_key(x) for x in fo.values()} & {_own_key(y) for y in fb.values()} - {None})
             gulf_pair = self._gulf_pair(best, other)
             if gulf_pair is False:
                 continue                               # sirens and an attack on the Gulf front: kept apart
+            if gulf_pair is None and f.get("gulf") and f["gulf"][4] and self._gulf_news(best) \
+                    and self._gulf_news(other):
+                continue                               # bridged by a later report only: the Gulf rule's times decide
             strike_pair = strike_pair or gulf_pair
             if (len(other["m"]) > 8 and not strike_pair) or len(best["m"]) + len(other["m"]) > 60:
                 continue
@@ -1167,7 +1285,6 @@ class Clusterer:
             if self.sids.get(other["id"]) and self.sids.get(best["id"]) and not any(
                     vessel.ships_fit(x, y) for x in self.sids[other["id"]] for y in self.sids[best["id"]]):
                 continue                               # two stories about different ships
-            tb, to = {m["k"]: m["t"] for m in best["m"]}, {m["k"]: m["t"] for m in other["m"]}
             if not strike_pair and not any(same_story(x, y, abs(to.get(kx, 0) - tb.get(ky, 0))) for kx, x in fo.items()
                        for ky, y in fb.items()):
                 continue
@@ -1214,41 +1331,64 @@ class Clusterer:
         return out
 
     def _gulf_matches(self, item, f):
-        """Stories of the same attack (or the same sirens) on the same Gulf Arab place (see GULF_WINDOW)."""
+        """Stories of the same attack (or the same sirens, or the same Houthi statement) on the same place in an Arab
+        country of the Middle East (see GULF_WINDOW and the rules after it)."""
         out = []
         if not f.get("gulf"):
             return out
         for cid, marks in self.gulfs.items():
             c = self.byid.get(cid)
-            if not c or cid in self.gmain or len(c["m"]) >= 60 or not _gulf_time(item["t"], c):
+            if not c or cid in self.gmain or len(c["m"]) >= TARGET_FULL:
                 continue
-            n = max(same_gulf(f["gulf"], x) for x in marks)
+            n = 0
+            for x, xch, _ in marks:
+                if f["chan"] and xch:
+                    continue                           # a channel's post joins the news, never another channel
+                k = same_gulf(f["gulf"], x)
+                if k > n and gulf_when(item["t"], c, k, f["gulf"], x, f["cwin"] if f["chan"] else (CHAN_FRESH if xch else 0)):
+                    n = k
+            if len(c["m"]) >= 60 and n < 3:
+                continue                               # a full story takes only reports naming its target
             if n and not self._gulf_conflict(f, cid) and self._ev_fits(f, cid):
-                out.append((0.5 + 0.05 * n, c))
+                # of two stories that fit as well, the one told most recently
+                out.append((0.5 + 0.05 * n - min(abs(item["t"] - c["u"]), 86400) / 8640000, c))
         return out
 
+    def _gulf_news(self, c):
+        return c["id"] not in self.gmain and any(not ch for _, ch, _ in self.gulfs.get(c["id"], ()))
+
     def _gulf_conflict(self, f, cid):
-        """True if the report is of one kind on the Gulf front (an attack, or sirens) and the story only of the other."""
+        """True if the report is of one kind on the Gulf front (an attack, sirens, the Houthis' statement naming
+        several targets) and the story only of another (gulf_fit)."""
         if not f.get("gulf"):
             return False
-        marks = self.gulfs.get(cid)
         if cid in self.gmain:
             return False
-        return bool(marks) and all(x[0] != f["gulf"][0] for x in marks)
+        return gulf_apart(f["gulf"], [x for x, _, _ in self.gulfs.get(cid, ())])
 
     def _gulf_pair(self, a, b):
-        """Two Gulf-front stories: True if they tell of the same attack (or sirens) on the same place within the
-        window, False if one is of sirens and the other of the attack, None if the Gulf rule says nothing."""
+        """Two Gulf-front stories: True if they tell of the same attack (or sirens, or statement) on the same place
+        within the rules' times, False if they are of kinds kept apart (sirens and an attack; a statement naming
+        several targets and an attack), None if the Gulf rule says nothing."""
         ma, mb = self.gulfs.get(a["id"]), self.gulfs.get(b["id"])
         if not ma or not mb:
             return None
         if a["id"] in self.gmain or b["id"] in self.gmain:
             return None                                # the main front: its own rules
-        if {x[0] for x in ma}.isdisjoint({x[0] for x in mb}):
+        xs, ys = [x for x, _, _ in ma], [y for y, _, _ in mb]
+        if any(gulf_apart(x, ys) for x in xs if x[0] != "claim" or _statement(x)) \
+                or any(gulf_apart(y, xs) for y in ys if y[0] != "claim" or _statement(y)) \
+                or not any(gulf_fit(x, y) for x in xs for y in ys):
             return False
-        if not (_gulf_time(_since(b), a) or _gulf_time(_since(a), b)):
-            return None
-        return any(same_gulf(x, y) for x in ma for y in mb) or None
+        for x, xch, xt in ma:
+            for y, ych, yt in mb:
+                if xch and ych:
+                    continue
+                n = same_gulf(x, y)
+                w = CHAN_FRESH if xch or ych else 0
+                if n and (gulf_when(_since(b), a, n, y, x, w) or gulf_when(_since(a), b, n, x, y, w)):
+                    return True
+        return None
 
     def _ship_misfit(self, f, cid):
         """True if the report names a kind of ship, a flag or a name that fits none of the story's reports that name
