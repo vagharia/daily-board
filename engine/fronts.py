@@ -626,9 +626,9 @@ def gulf_claim(t, fa, targets, cities):
     if r["actor"].search(t) or (_INSIDE_FA if fa else _INSIDE_EN).search(t):
         return None                      # Saudi Arabia striking («حمله عربستان به الشریه»), fighting inside Yemen
     if not cities and not targets and (not r["place"].search(r["proxy"].sub(" ", t)) or r["yemen"].search(t)) \
-            and not (fa and re.search(fa_norm("عمق خاک عربستان|خاک عربستان|علیه اهداف سعودی|اهداف سعودی|در عربستان"), t)) \
+            and not (fa and re.search(fa_norm("عمق خاک عربستان|خاک عربستان|علیه اهداف سعودی|اهداف سعودی|در عربستان|علیه دشمن سعودی|دشمن سعودی"), t)) \
             and not (not fa and re.search(r"\b(?:deep )?(?:in|inside|into|on|against) (?:saudi(?: arabia)?|the kingdom)\b"
-                                          r"(?![- ](?:led|backed))|\bsaudi (?:targets|territory|soil)\b", t, _I)):
+                                          r"(?![- ](?:led|backed))|\bsaudi (?:targets|territory|soil)\b|\bthe saudi enemy\b", t, _I)):
         return None                      # no place in the country named: a statement about the fighting in Yemen
     n = _op_count(t, fa)
     kinds = {k for k, rx in (_GENERIC_FA_RX if fa else _GENERIC_EN_RX).items() if rx.search(t)}
