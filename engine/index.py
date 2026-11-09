@@ -514,6 +514,29 @@ def compute_index(clusters, av, sea, hist, markets=None):
             "signals": p["signals"], "parts": parts, "delta24": delta, "history": thin}, hist
 
 
+# Saudi Arabia is fighting the Houthis, and part of its sky is already closed: its flights suspended or airports shut
+# (or flights to them cancelled) say nothing new about the war with Iran, so they don't light the airspace lamp. Iraq,
+# the Emirates, Jordan... closing theirs is a sign, and so is a report naming one of them next to Saudi Arabia.
+_SAUDI_AIR = re.compile(r"\b(saudi|riyadh|jeddah|jiddah|dammam|abha|jizan|jazan|najran|khamis mushait|taif|medina"
+                        r"|mecca|tabuk|aramco)\b|عربستان|سعودی|ریاض|جده|دمام|ابها|جیزان|جازان|نجران|خمیس|طائف|مدینه"
+                        r"|مکه|تبوک|آرامکو", re.I)
+_OTHER_AIR = re.compile(r"\b(iran\w*|iraq\w*|jordan\w*|israel\w*|qatar\w*|kuwait\w*|bahrain\w*|oman\w*|syria\w*"
+                        r"|lebanon|tehran|baghdad|amman|doha|manama|muscat)\b|ایران|عراق|اردن|اسرائیل|قطر|کویت|بحرین"
+                        r"|عمان|سوریه|لبنان|تهران|بغداد|دوحه|منامه|مسقط", re.I)
+_UAE_AIR = re.compile(r"\b(uae|emirat\w*|dubai|abu dhabi|sharjah)\b|امارات|دبی|ابوظبی|شارجه", re.I)
+_TO_SAUDI = re.compile(r"\bto (saudi|riyadh|jeddah|dammam)|به (عربستان|ریاض|جده|دمام)", re.I)
+
+
+def saudi_air(m):
+    """An airspace report about Saudi Arabia alone: its airports, its sky, flights to it (lamp: not counted)."""
+    if m.get("front") == "saudi_houthi":
+        return True
+    head = " ".join(x for x in (m.get("ti"), m.get("en_ti")) if x)
+    if not _SAUDI_AIR.search(head) or _OTHER_AIR.search(head):
+        return False
+    return not (_UAE_AIR.search(head) and not _TO_SAUDI.search(head))
+
+
 def _ev_cluster(c, flags=()):
     """A story as a lamp's evidence line. Its headline is the story's own when the item it comes from carries the
     lamp's flag; otherwise the headline of the item that lit the lamp ("flights suspended at Riyadh airport" under a
@@ -528,6 +551,8 @@ def _ev_cluster(c, flags=()):
     def lit(m):
         if told:
             return bool(set(m.get("tf") or []) & told) and "digest" not in (m.get("flags") or [])
+        if flags == {"airspace"} and saudi_air(m):
+            return False
         return bool(set(m.get("flags") or []) & flags)
 
     byk = {m["k"]: m for m in c.get("m", [])}
@@ -599,6 +624,9 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
                 continue
             if c.get("unconf"):
                 continue                       # one Telegram channel's report doesn't light a lamp
+            air = [m for m in c["m"] if "airspace" in (m.get("flags") or [])]
+            if flags == {"airspace"} and air and all(saudi_air(m) for m in air):
+                continue                       # Saudi Arabia's own sky, closed in its war with the Houthis (saudi_air)
             told = flags & {"deploy", "ultimatum"}
             if told and not any(set(m.get("tf") or []) & told and "digest" not in (m.get("flags") or [])
                                 for m in c["m"]):
