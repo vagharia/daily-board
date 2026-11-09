@@ -1749,9 +1749,27 @@ _HOME_EN = re.compile(r"\b(midterms?|elections?|republicans?|democrats?|gop|impe
                       r"|approval|ratings?)\b", I)
 
 
+# a market report that also mentions what Trump said ("Stocks Rise as Investors Shrug Off Nvidia Probe; Trump Says
+# Iran Strikes Unlikely"): the headline begins with a market other than oil, so it is not Trump's words on the war
+_MKT_LEAD_EN = re.compile(r"^\W*(markets?|(stock |equity |us |u\.s\. )?futures|investors|traders)\b", re.I)
+_MKT_LEAD_FA = re.compile(r"^\W*(?:" + "|".join(fa_norm(x) for x in ("بازار", "بازارها", "معاملات آتی", "سرمایه گذاران",
+                                                                     "سرمایه‌گذاران")) + r")(?![" + "ؠ-ۿ" + r"])")
+
+
+_WSJ = re.compile(r"^\W*(the )?wall street journal|^\W*" + fa_norm("وال ?استریت ?ژورنال"), re.I)   # the paper
+
+
+def _market_report(m):
+    if m.get("lang") == "fa":
+        t = fa_norm(m.get("ti") or "")
+        return not _WSJ.search(t) and (_other_market("fa", t) or bool(_MKT_LEAD_FA.search(t)))
+    t = m.get("en_ti") or m.get("ti") or ""
+    return not _WSJ.search(t) and (_other_market("en", t) or bool(_MKT_LEAD_EN.search(t)))
+
+
 def _trump_speaks(m):
     """(headline, language) when the report's headline gives Trump's own words on Iran, else None."""
-    if set(m.get("flags") or []) & _TRUMP_NOT:
+    if set(m.get("flags") or []) & _TRUMP_NOT or _market_report(m):
         return None
     if m.get("lang") == "fa":
         t = fa_norm(m.get("ti") or "")
