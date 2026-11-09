@@ -57,7 +57,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Not of the moment: statements, relayed outlets, past times, videos, a channel retelling the news | `flash.py` → `told_later`, `_news_ok`, `news0` in `process` |
 | Lights: deployment/ultimatum only from a headline (`tf`) | `index.py` → `compute_lights`; `classify.py` sets `item["tf"]` |
 | Tension index, direct strikes, lights; one strike counted once: a later story at the same place with no report as it comes (blasts heard, air defence, «هم‌اکنون», "again") is what followed it, up to 24 h; America firing on a cargo ship/tanker for the blockade is shipping, not war at sea (unless a warship is named); a direct strike counts 12 h from its first report (retellings don't extend it) | `index.py` → `index_value`, `direct_strikes`, `distinct`, `_live`, `_sea_war`, `pressure`, `compute_lights` |
-| Citizen reports (witness), cities | `witness.py` |
+| Citizen reports (witness), cities; their messages also read front_places.IRAN (towns, districts, sites; `places_in`), while `cities_in` (bulletin matching) keeps witness.CITIES only | `witness.py` → `parse`, `places_in`, `place_name` |
 | X posts (manual screenshots in `engine/xmanual/posts.json`) | `xposts.py` |
 | Israel election (Knesset) | `election.py` → branch `election` |
 | US midterms (AP feed) | `uselection.py` → branch `uselection` |

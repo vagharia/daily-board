@@ -9,6 +9,7 @@ unconfirmed report until a news outlet reports something that happened in the sa
 import re
 from collections import Counter
 
+from . import front_places
 from .util import fa_norm, to_latin_digits
 
 HEADER = re.compile(r"^\W*(?:" + "|".join(re.escape(fa_norm(x)).replace(r"\ ", r"\s*") for x in (
@@ -72,6 +73,25 @@ OFFICIAL = re.compile(fa_norm(r"رزمایش|مانور|تست\s*پدافند|آ
 _TIME = re.compile(r"(?<!\d)([01]?\d|2[0-3])\s*[:：٫.]\s*([0-5]\d)(?!\d)")
 
 
+# more places for the messages of a post (towns, Tehran's districts, bases, sites, islands: front_places.IRAN); only
+# the post's own reading uses them (parse, texts), not cities_in, which the bulletin's matching reads
+_SITES = front_places.IRAN
+_SITE_FA = [(k, re.compile(rf"(?<![{_L}])(?:" + "|".join(re.escape(fa_norm(x)).replace(r"\ ", r"\s*") for x in v[2])
+                           + rf")(?![{_L}])")) for k, v in _SITES.items()]
+
+
+def places_in(text):
+    """Cities and the other Iranian places a citizen's message names; a site stands for its city."""
+    t = fa_norm(text or "")
+    sites = {k for k, rx in _SITE_FA if rx.search(t)}
+    return (cities_in(text) - {_SITES[k][4] for k in sites}) | sites
+
+
+def place_name(key, lang="fa"):
+    v = CITIES.get(key) or _SITES.get(key)
+    return (v[0] if lang == "fa" else v[1]) if v else key
+
+
 def cities_in(text, lang="fa"):
     """City keys named in a text."""
     if lang == "fa":
@@ -97,8 +117,8 @@ def parse(raw):
     for b in blocks:
         tags = set()
         for h in re.findall(r"#([^\s#]+)", b):
-            tags |= cities_in(h.replace("_", " "))
-        here = cities_in(re.sub(r"#\S+", " ", b)) | tags
+            tags |= places_in(h.replace("_", " "))
+        here = places_in(re.sub(r"#\S+", " ", b)) | tags
         b_plain = re.sub(r"#\S+", " ", b)
         ks = {k for k, rx in _KIND_RX if rx.search(b_plain)}
         if tags and not ks and len(b_plain.strip()) < 3:
@@ -150,14 +170,14 @@ def texts(w):
     ks = [k for k, _ in KINDS if w["kinds"].get(k)]
     top = sorted(w["cities"], key=lambda c: -w["cities"][c])
     shown = top[:3]
-    fa_c = [CITIES[c][0] for c in shown] + (["چند شهر دیگر"] if len(top) > 3 else [])
-    en_c = [CITIES[c][1] for c in shown] + (["other cities"] if len(top) > 3 else [])
+    fa_c = [place_name(c, "fa") for c in shown] + (["چند شهر دیگر"] if len(top) > 3 else [])
+    en_c = [place_name(c, "en") for c in shown] + (["other cities"] if len(top) > 3 else [])
     fa_where = f" در {_join(fa_c, 'fa')}" if fa_c else ""
     en_where = f" in {_join(en_c, 'en')}" if en_c else ""
     fa_ti = f"گزارش‌های مردمی از {_join([KIND_FA[k] for k in ks], 'fa')}{fa_where}{_when(w['times'], 'fa')}"
     en_ti = f"Reports from residents of {_join([KIND_EN[k] for k in ks], 'en')}{en_where}{_when(w['times'], 'en')}"
-    per_fa = "، ".join(f"{_fa_digits(str(w['cities'][c]))} از {CITIES[c][0]}" for c in top[:4])
-    per_en = ", ".join(f"{w['cities'][c]} from {CITIES[c][1]}" for c in top[:4])
+    per_fa = "، ".join(f"{_fa_digits(str(w['cities'][c]))} از {place_name(c, 'fa')}" for c in top[:4])
+    per_en = ", ".join(f"{w['cities'][c]} from {place_name(c, 'en')}" for c in top[:4])
     n = w["n"]
     fa_su = f"{_fa_digits(str(n))} پیام مردمی" + (f"؛ {per_fa}" if per_fa else "") + "."
     en_su = f"{n} message{'s' if n != 1 else ''} from the public" + (f": {per_en}" if per_en else "") + "."
