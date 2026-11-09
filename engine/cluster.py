@@ -21,7 +21,7 @@ amid amidst near via per vs live update updates breaking news video watch photos
 day days week weeks month months year years today tonight yesterday tomorrow first second third one two three
 up down out off back amid amidst within without across around official officials source sources state media
 middle east region regional another again further yet still now more have has had same different past
-strait but all any some such very much many both each other only even own its also amid among whether
+strait but all any some such very much many both each other only even own its also amid among whether exclusive scoop
 """.split())
 
 # "Iran war live: …", "War in the Middle East: …", "Middle East crisis | …" — the prefix says nothing about the event
@@ -56,6 +56,11 @@ SYN = {
     # and "carries" with "carried" (the stemmer made them "carrie" and "carri")
     "limited": "minor", "small": "minor", "little": "minor", "partial": "minor",
     "carries": "carried",
+    # a cyber attack and the fridges of the French supermarkets, told in other words ("cyber attack" is made one word
+    # in tokens, as is "cooling system")
+    "hack": "cyberattack", "hacks": "cyberattack", "hacked": "cyberattack", "hacking": "cyberattack",
+    "hacker": "cyberattack", "hackers": "cyberattack", "cyberattacks": "cyberattack",
+    "fridges": "fridge", "refrigerator": "fridge", "refrigerators": "fridge", "refrigeration": "fridge",
     "two": "2", "three": "3", "four": "4", "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
     "ten": "10", "eleven": "11", "twelve": "12", "dozen": "12",
 }
@@ -67,7 +72,7 @@ SAME = {"america": "us", "kremlin": "russia", "russian": "russia", "russians": "
         "mediator": "mediate", "mediators": "mediate", "mediation": "mediate", "mediates": "mediate",
         "mediated": "mediate", "mediating": "mediate", "readiness": "ready",
         "offers": "offer", "offered": "offer", "proposal": "offer", "proposals": "offer", "propose": "offer",
-        "proposes": "offer", "proposed": "offer"}
+        "proposes": "offer", "proposed": "offer", "french": "france", "store": "supermarket", "stores": "supermarket"}
 # words too common to make two headlines the same story by themselves
 _GENERIC = {"us", "iran", "israel", "russia", "uk", "france", "china", "war", "say", "new", "report"}
 _SAME_PHRASES = (("white house", "us"), ("downing street", "uk"), ("élysée", "france"), ("elysee", "france"))
@@ -293,6 +298,8 @@ def tokens(title: str, same=False):
         for a, b in _SAME_PHRASES:
             t = t.replace(a, b)
     t = re.sub(r"\banti[- ]?aircraft\b|\bair[- ]defen[cs]es?\b", " airdefense ", t)
+    t = re.sub(r"\bcyber[\s-]*attack", "cyberattack", t)
+    t = re.sub(r"\bcooling[\s-]+systems?\b", "fridge", t)
     t = re.sub(r"[^a-z0-9\s]", " ", t)
     out = set()
     for w in t.split():
@@ -840,6 +847,8 @@ def _text_close(x, y, physical):
 
 ANCHOR_DT = 2 * 3600       # reports this close in time may also match on rare shared words (see same_story)
 RARE_STORIES = 5           # a word found in at most this many stories counts as rare
+LONG_POST = 16             # a channel's post this many words long is its whole text, not a headline…
+LONG_HOLD = 0.75           # …and it is a headline's story if it holds this much of the headline's words
 
 
 def same_story(a, b, dt=0, rare=frozenset()):
@@ -900,6 +909,18 @@ def same_story(a, b, dt=0, rare=frozenset()):
                 j = _text_close(x, y, physical)
                 if j > 0.5 and len(x & y) >= 3 and len((x & y) - _GENERIC) >= 2:
                     jac = max(jac, j)
+    if not jac and rare and dt <= CHAN_KEEP and not physical:
+        # a channel's post with no headline, its whole text in one (Vahidonline): it can't be as close as two headlines,
+        # but it holds a news headline of the story nearly whole, a rare word with it
+        for x in a.get("svars", ()):
+            for y in b.get("svars", ()):
+                lx, sy = (x, y) if a["chan"] and len(x) >= LONG_POST > len(y) else \
+                    (y, x) if b["chan"] and len(y) >= LONG_POST > len(x) else (None, None)
+                if lx is None or len(sy) < 4:
+                    continue
+                inter = lx & sy
+                if len(inter) / len(sy) >= LONG_HOLD and inter & rare and len(inter - _GENERIC) >= 3:
+                    jac, anchored = max(jac, 0.4), True
     if not jac:
         return False
     if (ka is None) != (kb is None) and jac < 0.5:
@@ -1640,8 +1661,9 @@ def refresh(c):
         eff = [min(e, UNCONFIRMED_CAP) if channel(m) else e for e, m in zip(eff, ms)]
     c["sev"] = cluster_severity(eff, c["ns"], max_rel)
     top = ms[max(range(len(ms)), key=lambda i: eff[i])]
-    if not set(top.get("flags", [])) & EVENT_FLAGS:
-        # many outlets repeating a threat or a plan make it a big story, not a strike
+    if not set(top.get("flags", [])) & EVENT_FLAGS and not ("cyber_war" in top.get("flags", []) and max(eff) >= 70):
+        # many outlets repeating a threat or a plan make it a big story, not a strike (a cyber attack on the main front
+        # against something military or vital stays red: classify.cyber)
         c["sev"] = min(c["sev"], 69.0)
     if "secondary" in top.get("flags", []) or (any("secondary" in m.get("flags", []) for m in ms)
                                                and not any("side_major" in m.get("flags", []) for m in ms)

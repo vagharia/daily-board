@@ -506,6 +506,71 @@ def _cleric(lang, t):
     return bool((_CLERIC_FA if fa else _CLERIC_EN).search(fa_norm(t) if fa else (t or "")))
 
 
+# cyber attacks and hacks: never a strike ("cyber attack on stores" is not a kinetic "attack on"), orange at most;
+# red only in the war of Iran with Israel and America, against something military or vital (the army's systems, air
+# defence, a nuclear site, the national grid, fuel, ports, the banking system), told as done, not threatened. A ministry's
+# website hacked by an Iranian group stays orange; so does France blaming the Guards for its supermarket fridges.
+CYBER_CAP, CYBER_RED_SEV, CYBER_FRONT_SEV = 64.0, 72.0, 52.0
+_CYBER_EN = re.compile(r"\bcyber(?!space|security|crime)\w*|\bhack(s|ed|ing|ers?)?\b|\bhacktivists?\b|\bransomware\b|\bmalware\b"
+                       r"|\bwiper\b|\bddos\b", re.I)
+_CYBER_FA = re.compile(fa_norm("سایبری|هکر|هکری|هک شد|هک کرد|هک کردند|هک شدن|بدافزار|باج افزار|باج‌افزار"))
+# an attack or a hack done (not "cyberspace", "cyber security")
+_CYBER_ACT_EN = re.compile(r"\bcyber[- ]?(attack\w*|operations?|offensive|sabotage|intrusions?|breach\w*|assaults?)"
+                           r"|\bhack(s|ed|ing|ers?)?\b|\bhacktivists?\b|\bransomware\b|\bmalware\b|\bwiper\b|\bddos\b", re.I)
+_CYBER_ACT_FA = re.compile(fa_norm("حمله سایبری|حملات سایبری|حمله‌ی سایبری|حمله ی سایبری|عملیات سایبری|نفوذ سایبری|هکر|هکری"
+                                   "|هک شد|هک کرد|هک کردند|هک شدن|بدافزار|باج افزار|باج‌افزار"))
+# a real attack told in the same headline (missiles, drones, bombs, the dead): the rules' reading stands
+_CYBER_PHYS_EN = re.compile(r"\b(missiles?|rockets?|drones?|uavs?|air ?strikes?|airstrikes?|bomb\w*|shell(ed|ing)"
+                            r"|explosions?|blasts?|projectiles?|ballistic|warplanes?|fighter jets?|killed|dead"
+                            r"|casualties|wounded|injured|struck|invad\w*|troops)\b|\bstrikes? (on|against|at|in)\b", re.I)
+_CYBER_PHYS_FA = re.compile(fa_norm("موشک|پهپاد|راکت|بمب|انفجار|حمله هوایی|حملات هوایی|پرتابه|جنگنده|کشته|شهید"
+                                    "|زخمی|مجروح|اصابت|حمله نظامی|حملات نظامی|حمله هوایی"))
+# who: the main front only (Iran with Israel or America), or the war's known hacking groups
+_CYBER_GROUPS_EN = re.compile(r"\b(predatory sparrow|gonjeshke darande|handala|hanzala\w*|cyber ?av3ngers"
+                              r"|cyber ?avengers)\b", re.I)
+_CYBER_GROUPS_FA = re.compile(fa_norm("گنجشک درنده|حنظله|سایبر اونجرز"))
+_CYBER_SIDES = {"ir", "il", "us"}
+# what: military or vital to the country
+_CYBER_BIG_EN = re.compile(r"\b(military|army|armed forces|idf|air ?defen[cs]es?|radars?|missile (systems?|defen[cs]e"
+                           r"|batter\w*)|iron dome|navy|naval|air ?force|command and control|centcom|pentagon"
+                           r"|defen[cs]e (ministry|systems?|networks?)|nuclear|natanz|fordow|dimona|centrifuges?"
+                           r"|enrichment|power grid|electricity (grid|network)|national grid|nationwide|blackout"
+                           r"|fuel (stations?|distribution|system)|gas stations|petrol stations|ports?|airports?"
+                           r"|central bank|banking (system|network)|water (system|supply|network)|refiner(y|ies)"
+                           r"|oil (ministry|terminals?|facilit\w*))\b", re.I)
+_CYBER_BIG_FA = re.compile(fa_norm("نظامی|ارتش|نیروهای مسلح|پدافند|رادار|سامانه موشکی|سامانه های موشکی|گنبد آهنین"
+                                   "|نیروی دریایی|نیروی هوایی|وزارت دفاع|سنتکام|پنتاگون|هسته ای|هسته‌ای|نطنز|فردو"
+                                   "|دیمونا|سانتریفیوژ|غنی سازی|شبکه برق|برق سراسری|خاموشی|سراسری|جایگاه های سوخت"
+                                   "|جایگاه‌های سوخت|پمپ بنزین|سوخت رسانی|بندر|فرودگاه|بانک مرکزی|شبکه بانکی"
+                                   "|نظام بانکی|شبکه آب|پالایشگاه|پایانه نفتی|وزارت نفت"))
+# not done: a threat, a warning, a plan, a question
+_CYBER_NOT_EN = re.compile(r"\b(will|would|could|may|might|threat\w*|warn\w*|plan\w*|prepar\w*|vows?|risk|fears?"
+                           r"|possible|potential|if|denie[sd]|deny|rumou?rs?|no|not|never|false|fake|foiled|thwarted|repelled)\b|n't\b|\?", re.I)
+_CYBER_NOT_FA = re.compile(fa_norm("تهدید|هشدار|احتمال|ممکن است|خواهد|قصد|برنامه|اگر|در صورت|تکذیب|شایعه|؟|هیچ"
+                                   "|صورت نگرفته|نگرفت|نشده|نشد|نبوده|نیست|دروغ|کذب|ناکام|خنثی|دفع|رد کرد"))
+
+
+def cyber(lang, t, s=""):
+    """None if the headline is not about a cyber attack or a hack; else 'red' for one in the war of Iran with Israel
+    and America against something military or vital, told as done ("Iranian hackers paralyse Israeli army radars"),
+    'front' for any other done in that war (a ministry's website hacked: orange), 'orange' for the rest, which keep
+    their grade up to orange ("France blames the Guards for hacks on supermarket fridges"), and 'strike' when the
+    headline also tells of a real attack (missiles, bombs, the dead), whose reading by the rules stands."""
+    fa = lang == "fa"
+    h = fa_norm(t) if fa else (t or "")
+    if not (_CYBER_FA if fa else _CYBER_EN).search(h):
+        return None
+    if (_CYBER_PHYS_FA if fa else _CYBER_PHYS_EN).search(h):
+        return "strike"
+    sides = set(match_keys(COUNTRIES_RX, "" if fa else h, h if fa else ""))
+    group = (_CYBER_GROUPS_FA if fa else _CYBER_GROUPS_EN).search(h)
+    front = (sides and sides <= _CYBER_SIDES) or (group and sides <= _CYBER_SIDES)
+    done = (_CYBER_ACT_FA if fa else _CYBER_ACT_EN).search(h) and not (_CYBER_NOT_FA if fa else _CYBER_NOT_EN).search(h)
+    if front and done and (_CYBER_BIG_FA if fa else _CYBER_BIG_EN).search(h):
+        return "red"
+    return "front" if front and done else "orange"
+
+
 # mediators in Tehran in person: who comes, and that they have come (not "ready to mediate", "will visit")
 MEDIATOR_VISIT_SEV = 55.0
 _MED_WHO_EN = (r"(?:qatar\w*|oman\w*|saudi\w*|pakistan\w*|russia\w*|chin(?:a|ese)|egypt\w*|turk\w*|iraq\w*"
@@ -1583,6 +1648,19 @@ def classify(item):
         flags = set(flags) | {"us_sea_op"}
         topics = set(topics) | {"maritime", "military"}
         sev = US_SEA_SEV
+    cy = cyber(lang, fa_t or en_t)
+    if cy and cy != "strike":
+        # a cyber attack or a hack: no strike, orange at most (at least orange in the war itself); red only on the main
+        # front against something military or vital (see cyber)
+        flags = (set(flags) - HARD_EVENTS) | {"cyber"}
+        if cy == "red" and not set(flags) & {"speculative", "analysis", "opinion", "past", "denial", "scheduled",
+                                             "digest", "feature", "secondary", "side_minor"}:
+            flags |= {"cyber_war"}
+            sev = max(sev, CYBER_RED_SEV)
+        else:
+            sev = min(sev, CYBER_CAP)
+            if cy == "front" and not set(flags) & {"speculative", "analysis", "opinion", "past", "denial", "digest"}:
+                sev = max(sev, CYBER_FRONT_SEV)         # a hack in the war itself: orange
     if _cleric(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
         flags = set(flags) | {"cleric"}
         sev = min(sev, CLERIC_CAP)
