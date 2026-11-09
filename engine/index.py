@@ -235,9 +235,27 @@ def _at_sea(c):
     return bool(set(c.get("flags", [])) & _SEA_FLAGS)
 
 
+# ships of commerce: America's forces firing on a cargo ship or a tanker to enforce the blockade, or a tanker on a
+# mine, is shipping, not war between the forces ("US forces disabled cargo vessel in Gulf of Oman")
+_COMMERCE = re.compile(r"\b(cargo|commercial|merchant|mercantile|tankers?|bulk ?carriers?|bulkers?|container ships?"
+                       r"|freighters?|blockade|sanctions?)\b|"
+                       + "|".join(fa_norm(x) for x in ("کشتی باری", "کشتی تجاری", "نفتکش", "فله بر", "کانتینربر",
+                                                        "محاصره", "تحریم")), re.I)
+# a warship named is war whatever else the headline says ("IRGC boats fire on US destroyer escorting tankers")
+_WARSHIP = re.compile(r"\b(warships?|destroyers?|aircraft carriers?|uss [a-z]|frigates?)\b|"
+                      + "|".join(fa_norm(x) for x in ("ناو آمریکا", "ناوشکن", "ناو هواپیمابر", "ناو اسرائیل",
+                                                       "ناو جنگی")), re.I)
+
+
 def _sea_war(c):
     """An incident at sea between Iran and America's or Israel's own forces (not ships of commerce)."""
-    return any(_MIL_SEA.search(fa_norm(m.get("ti") or "") + " " + (m.get("en_ti") or "")) for m in c.get("m", []))
+    for m in c.get("m", []):
+        if "us_sea_op" in (m.get("flags") or []):
+            continue
+        text = fa_norm(m.get("ti") or "") + " " + (m.get("en_ti") or "")
+        if _MIL_SEA.search(text) and (_WARSHIP.search(text) or not _COMMERCE.search(text)):
+            return True
+    return False
 
 
 def direct_strikes(clusters, t, hours=12, since=None):
@@ -293,14 +311,35 @@ def independent(c):
     return False
 
 
+# a report of a strike as it comes (blasts heard, air defence firing, "now"), or one that says it is another strike
+_LIVE = re.compile(r"\b(explosions?|blasts?) (were |was |are )?(heard|rock\w*|reported)|sounds? of (explosions?|blasts?)"
+                   r"|heard (explosions?|blasts?)|air defen[cs]es? (activated|fired|active)|sirens?|right now|just now"
+                   r"|(new|fresh|another|second|renewed) (wave of )?(strikes?|attacks?|wave)|\bagain\b|"
+                   + "|".join(fa_norm(x) for x in ("صدای انفجار", "صدای چند انفجار", "شنیده شدن", "شنیده شد",
+                                                    "شنیده‌شدن", "پدافند", "هم اکنون", "هم‌اکنون", "همین الان",
+                                                    "دقایقی پیش", "لحظاتی پیش", "آژیر", "موج جدید", "حمله جدید",
+                                                    "حملات جدید", "دوباره", "مجدد", "بار دیگر")), re.I)
+RETOLD_SPAN = 24 * 3600     # a story without a report as it comes joins a strike at the same place this long after it
+
+
+def _live(c):
+    """A story that tells a strike as it happens (or a new one), not only what followed one."""
+    if "witness" in c.get("flags", []):
+        return True
+    return any(_LIVE.search(fa_norm(m.get("ti") or "") + " " + (m.get("en_ti") or "")) for m in c.get("m", []))
+
+
 def distinct(cs):
     """Strikes counted once per incident: stories of the same kind (ships, or anything else) at the same place within
-    six hours are one incident told twice ("UKMTO: a ship on fire in Hormuz" and "IRGC: three tankers exploded")."""
+    six hours are one incident told twice ("UKMTO: a ship on fire in Hormuz" and "IRGC: three tankers exploded").
+    A later story at the same place with no report as it comes ("official: no damage from the US strike on Qeshm",
+    "Trump confirms strikes on Qeshm", an analysis) is what followed the strike, up to 24 hours after it."""
     out = []
     for c in sorted(cs, key=lambda c: c.get("t", c["u"])):
         where = set(c.get("geo", [])) or set(c.get("ctry", []))
         ship = "maritime_incident" in c.get("flags", [])
-        if not any(abs(c.get("t", c["u"]) - o.get("t", o["u"])) <= 6 * 3600 and ship == ("maritime_incident" in o.get("flags", []))
+        span = 6 * 3600 if _live(c) else RETOLD_SPAN
+        if not any(abs(c.get("t", c["u"]) - o.get("t", o["u"])) <= span and ship == ("maritime_incident" in o.get("flags", []))
                    and where & (set(o.get("geo", [])) or set(o.get("ctry", []))) for o in out):
             out.append(c)
     return out
@@ -328,7 +367,7 @@ def pressure(clusters, t, pre=None):
     Iran of the last day, and military build-ups of the last three days (carriers, bombers, tankers; 1.5 when they
     are near Iran). Each story counts once however many outlets carry it."""
     acts = threats = build = 0.0
-    seen_acts = []                              # (time, place) of attacks counted, so one attack told in several
+    seen_acts = []                              # (latest, first report, place) of attacks counted, so one attack told in several
     for c in sorted(clusters, key=lambda c: c["u"]):          # stories counts once
 
         age = t - c["u"]
@@ -342,8 +381,12 @@ def pressure(clusters, t, pre=None):
         near = bool(set(c.get("geo", [])) & NEAR_IRAN or "ir" in c.get("ctry", []))
         if age <= 24 * 3600 and fl & ACT_FLAGS and s >= 70 and "secondary" not in fl and _confirmed(c):
             where = frozenset(c.get("geo", [])) or frozenset(c.get("ctry", []))
-            if not any(abs(c["u"] - u) <= 6 * 3600 and where & pl for u, pl in seen_acts):
-                seen_acts.append((c["u"], where))
+            # what followed a strike (no report as it comes) is that strike, up to a day after it began
+            retold = not _live(c)
+            if not any(where & pl and (abs(c["u"] - u) <= 6 * 3600
+                                       or retold and abs(c.get("t", c["u"]) - t0) <= RETOLD_SPAN)
+                       for u, t0, pl in seen_acts):
+                seen_acts.append((c["u"], c.get("t", c["u"]), where))
                 # a big turn on a side front counts as half an attack
                 acts += (1.5 if iran_side(c) else 1.0 if w >= 0.5 else 0.5) * k
         elif age <= 24 * 3600 and fl & (THREAT_FLAGS - {"deploy"}) and s >= 55 and w >= 0.7:
