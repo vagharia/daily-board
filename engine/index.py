@@ -264,9 +264,9 @@ def direct_strikes(clusters, t, hours=12, since=None):
     out = []
     for c in clusters:
         got = _counted(c, t)
-        # at sea (tankers, Hormuz), from the story's first report: outlets retelling an incident keep its latest
-        # report fresh for many hours
-        last = c.get("t", c["u"]) if _at_sea(c) else c["u"]
+        # from the story's first report, on land and at sea: outlets retelling a strike or an incident keep its
+        # latest report fresh for many hours
+        last = c.get("t", c["u"])
         if not got or t - last > hours * 3600 or (since and c.get("t", c["u"]) < since):
             continue
         fl, _ = got
