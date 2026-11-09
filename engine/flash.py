@@ -140,7 +140,8 @@ def told_later(m):
         return True                         # a channel relaying an outlet's report ("وال‌استریت ژورنال گزارش داد…")
     if (_STATEMENT_FA if fa else _STATEMENT_EN).search(t):
         return True
-    return bool((_PAST_FA if fa else _PAST_EN).search(t) or (_PAST_FA if fa else _PAST_EN).search(su))
+    return bool((_PAST_FA if fa else _PAST_EN).search(t) or (_PAST_FA if fa else _PAST_EN).search(su)
+                or vessel.past_day(m))      # "on Sunday, November 8" in a report of Monday afternoon
 
 
 # a statement ("Iran FM: …", "… says"): the general names (Iran, Israel) don't make it news of a place

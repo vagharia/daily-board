@@ -791,6 +791,113 @@ def _weekday(t, i):
     return (lo - 6 * H, min(t, lo + 86400 + 6 * H))
 
 
+# ------------------------------------------------------------------ an earlier day the report itself names
+# "Saudi Arabia intercepted … on Sunday, November 8, …" in a report of Monday afternoon: yesterday's news retold.
+# Only a full date (day and month: "November 8", «۸ نوامبر», «۱۸ آبان») said as the day of the event ("on Sunday,
+# November 8", «روز یکشنبه ۱۸ آبان»), in the headline or the first sentence of the summary, one date only, of 1-7
+# days before the report's day in Tehran, and never with a word of something new («جدید», "another", "latest") or
+# of today; and only once that day is well over (8 a.m. Tehran the next day; an American "Sunday" runs late).
+_DATED_MONTHS_FA = {fa_norm(m): i + 1 for i, m in enumerate(
+    ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"])}
+_DATED_MONTHS_FA.update({fa_norm(k): v for k, v in {"می": 5, "جولای": 7, "آگوست": 8}.items()})
+_DATED_EN = re.compile(
+    r"\b(?:(?P<on>on|late on|early on|on the night of|in the early hours of)\s+)?(?:(?P<wd>" + "|".join(_WEEKDAYS_EN)
+    + r")\s*,?\s*)?(?:(?P<m1>" + "|".join(_MONTHS) + r")\s+(?P<d1>\d{1,2})(?:st|nd|rd|th)?|(?P<d2>\d{1,2})(?:st|nd|rd|th)?"
+    r"\s+(?P<m2>" + "|".join(_MONTHS) + r"))\b(?!\s*(?:,\s*)?\d{4}\s*(?:-|to)\b)", re.I)
+_DATED_FA_WD = "(?:" + "|".join(sorted({fa_norm(w).replace(" ", r"\s*") for w in _WEEKDAYS_FA} |
+                                       {fa_norm("یک شنبه").replace(" ", r"\s*"),
+                                        fa_norm("پنج شنبه").replace(" ", r"\s*")}, key=len, reverse=True)) + ")"
+_DATED_FA = re.compile(
+    "(?P<on>" + fa_norm("روز|در|بامداد|صبح|ظهر|عصر|شب|شامگاه|سحرگاه") + r")?\s*(?:(?<![ء-ۿ])(?P<wd>" + _DATED_FA_WD
+    + r")\s*(?:" + fa_norm("گذشته") + r")?\s*[،,]?\s*)?(?<![\d])(?P<d>\d{1,2})\s*(?P<mon>"
+    + "|".join(sorted({**_DATED_MONTHS_FA, **{fa_norm(m): 0 for m in ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد",
+                                                                    "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن",
+                                                                    "اسفند"]}}, key=len, reverse=True))
+    + r")(?![ء-ۿ])")
+_SOLAR_FA = {fa_norm(m): i + 1 for i, m in enumerate(
+    ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"])}
+# what puts the date in the background ("a day after the November 8 attack", «پس از حمله ۱۸ آبان»)
+_DATED_CTX_EN = re.compile(r"\b(after|since|following|before|until|till|than|from|between|ahead of|anniversary|"
+                           r"of|by|through|as of)\s+(?:the\s+)?(?:\w+\s+)?$", re.I)
+_DATED_CTX_FA = re.compile(r"(?<![ء-ۿ])" + fa_norm("(?:پس از|بعد از|پیش از|قبل از|از|تا|سالگرد|ماجرای)")
+                           + r"\s+(?:\S+\s+)?$")
+_DATED_NEW_EN = re.compile(r"\b(new|another|fresh|again|renewed|latest|second|third|wave|today|tonight|this "
+                           r"(?:morning|afternoon|evening)|now|ongoing|hours? ago|minutes ago)\b", re.I)
+_DATED_NEW_FA = re.compile(fa_norm("جدید|تازه|دوباره|مجدد|بار دیگر|باز هم|موج|امروز|امشب|هم اکنون|لحظاتی پیش"
+                                   "|دقایقی پیش|ساعاتی پیش|در حال"))
+
+
+def _first_sentence(s):
+    s = (s or "")[:400]
+    x = re.search(r"[.!?؟۔](?:\s|$)|\n", s)
+    return s[:x.start()] if x else s
+
+
+def past_day(m):
+    """(earliest, latest) of the earlier day the report names as the day of what it tells (see above), or None."""
+    import calendar
+    import time as _t
+    t = m["t"]
+    fa = m.get("lang") == "fa"
+    if fa:
+        texts = [to_latin_digits(fa_norm(m.get("ti") or "")), to_latin_digits(fa_norm(_first_sentence(m.get("su"))))]
+        rx, new, ctx = _DATED_FA, _DATED_NEW_FA, _DATED_CTX_FA
+    else:
+        texts = [m.get("en_ti") or m.get("ti") or "", _first_sentence(m.get("en_su") or m.get("su"))]
+        rx, new, ctx = _DATED_EN, _DATED_NEW_EN, _DATED_CTX_EN
+    if any(new.search(x) for x in texts):
+        return None                                      # maybe a new one, or something of today
+    tg = _t.gmtime(t + TEHRAN)
+    today = calendar.timegm((tg.tm_year, tg.tm_mon, tg.tm_mday, 0, 0, 0)) // 86400
+    days = set()
+    for x in texts:
+        for d in rx.finditer(x):
+            if ctx.search(x[:d.start()][-30:]):
+                return None                              # the date of something else the report recalls
+            if not (d.group("on") or d.group("wd")):
+                return None                              # not said as the day of the event
+            try:
+                if fa:
+                    day, name = int(d.group("d")), d.group("mon")
+                    if name in _SOLAR_FA:
+                        from .scheduled import gregorian, jalali
+                        import datetime as _dt
+                        jy = jalali(_dt.date(tg.tm_year, tg.tm_mon, tg.tm_mday))[0]
+                        g = gregorian(jy, _SOLAR_FA[name], day)
+                        if (g - _dt.date(tg.tm_year, tg.tm_mon, tg.tm_mday)).days > 0:
+                            g = gregorian(jy - 1, _SOLAR_FA[name], day)
+                        y, mon, day = g.year, g.month, g.day
+                    else:
+                        y, mon = tg.tm_year, _DATED_MONTHS_FA[name]
+                else:
+                    day = int(d.group("d1") or d.group("d2"))
+                    mon = _MONTHS[(d.group("m1") or d.group("m2")).lower()]
+                    y = tg.tm_year
+                n = calendar.timegm((y, mon, day, 0, 0, 0)) // 86400
+                if n > today:
+                    n = calendar.timegm((y - 1, mon, day, 0, 0, 0)) // 86400
+                if _t.gmtime(n * 86400).tm_mday != day:
+                    return None                          # no such day ("February 30")
+            except (ValueError, KeyError):
+                return None
+            wd = d.group("wd")
+            if wd:
+                names = _WEEKDAYS_FA if fa else _WEEKDAYS_EN
+                w = wd.replace(" ", "").lower()
+                i = next((k for k, v in enumerate(names) if fa_norm(v).replace(" ", "") == w or v == w), None)
+                if i is None or _t.gmtime(n * 86400).tm_wday != i:
+                    return None                          # the weekday and the date disagree
+            days.add(n)
+    if len(days) != 1:
+        return None
+    n = days.pop()
+    if not 1 <= today - n <= 7:
+        return None
+    lo = n * 86400 - TEHRAN - 3 * H                      # that day in Tehran, give or take the night around it
+    hi = lo + 33 * H
+    return (lo, hi) if t >= hi + 2 * H else None
+
+
 def overlap(a, b, slack=3 * H):
     return a[0] - slack <= b[1] and b[0] - slack <= a[1]
 

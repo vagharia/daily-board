@@ -1035,6 +1035,9 @@ def _ev_report(m, f):
         return (p[0], p[1], EV_TOLD)
     if w and w[1] - w[0] <= EV_NARROW:
         return (w[0], w[1], EV_TOLD)
+    d = None if f["chan"] else vessel.past_day(m)   # "on Sunday, November 8" in the summary's first sentence
+    if d:
+        return (d[0], d[1], EV_TOLD)
     if _first_hand(m, f):
         return (m["t"] - EV_FRESH, m["t"], EV_INFER)
     return None
@@ -1161,6 +1164,18 @@ class Clusterer:
         lab = self.ev.get(c["id"])
         return bool(lab) and lab[2] != EV_ANCHOR and item["t"] - c["u"] <= EV_EXTEND \
             and vessel.overlap(f["evp"], lab, EV_SLACK)
+
+    def _ev_back(self, item, f, c):
+        """A report naming an earlier day (vessel.past_day) whose time meets the story's, or the day of its reports
+        when the story has no better label: the same named target's attack retold the next day joins it (up to two
+        days after its latest report)."""
+        if not EV_ON or not f.get("evp") or f["evp"][2] != EV_TOLD or item["t"] - c["u"] > EV_EXTEND:
+            return False
+        if not vessel.past_day(item):
+            return False
+        lab = self.ev.get(c["id"])
+        span = lab if lab and lab[2] != EV_ANCHOR else (c["t"] - EV_FIRST, c["u"])
+        return vessel.overlap(f["evp"], span, EV_SLACK)
 
     def _chan_late(self, item, f, c):
         """A Telegram channel's post retelling a news story: it may join beyond the usual windows, within its window
@@ -1345,7 +1360,8 @@ class Clusterer:
                 if f["chan"] and xch:
                     continue                           # a channel's post joins the news, never another channel
                 k = same_gulf(f["gulf"], x)
-                if k > n and gulf_when(item["t"], c, k, f["gulf"], x, f["cwin"] if f["chan"] else (CHAN_FRESH if xch else 0)):
+                if k > n and (gulf_when(item["t"], c, k, f["gulf"], x, f["cwin"] if f["chan"] else (CHAN_FRESH if xch else 0))
+                              or (k == 3 and self._ev_back(item, f, c))):
                     n = k
             if len(c["m"]) >= 60 and n < 3:
                 continue                               # a full story takes only reports naming its target
