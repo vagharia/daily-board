@@ -15,7 +15,7 @@ The announcements are also kept as a list (state["log"]) for the bulletin."""
 import html
 import re
 
-from . import witness
+from . import front_places, witness
 from . import vessel
 from .classify import _digest_part, first_item, multi_parts
 from .cluster import blast, channel
@@ -65,7 +65,13 @@ def _rx_en(forms):
     return re.compile(r"\b(?:" + "|".join(re.escape(x) for x in forms) + r")\b", re.I)
 
 
+_FRONT.update(front_places.ABROAD)          # Israel's towns, bases and sites, America's bases and carriers
+# Iran's towns, districts, bases and sites beyond witness.CITIES (front_places.py): key -> (fa, en, fa forms, en forms,
+# the city it lies in)
+_IRAN = front_places.IRAN
+_IRAN_KEYS = set(witness.CITIES) | set(_IRAN)
 _FRONT_RX = [(k, _rx_fa(v[2]), _rx_en(v[3])) for k, v in _FRONT.items()]
+_IRAN_RX = [(k, _rx_fa(v[2]), _rx_en(v[3])) for k, v in _IRAN.items()]
 _GENERAL_RX = [(k, _rx_fa(v[2]), _rx_en(v[3])) for k, v in _GENERAL.items()]
 # another front named in the headline: not the main one, unless an Iranian city is named too
 _OTHER_FA = re.compile(fa_norm("لبنان|بیروت|غزه|سوریه|دمشق|یمن|صنعا|حوثی|عراق|بغداد|اربیل|عربستان|ریاض|اردن|کرانه باختری"
@@ -240,7 +246,7 @@ _TOWARD_EN = re.compile(r"\b(towards?|aimed at|fired at|launched at)\b|\b(fires?
 
 def _object_of_strike(p, fa_t, en_t):
     """The place is what was struck: named right after on/in/at/near/hit, or «به/در/حوالی/نزدیک»."""
-    v = witness.CITIES.get(p) or _FRONT.get(p)
+    v = witness.CITIES.get(p) or _FRONT.get(p) or _IRAN.get(p)
     if not v:
         return False
     if fa_t:
@@ -339,8 +345,8 @@ def _infra_events(m, fa_t, en_t, step, kind):
 
 
 def _name(key, lang):
-    v = witness.CITIES.get(key) or _FRONT.get(key) or _GENERAL.get(key) or INFRA.get(key) or _ABROAD.get(key) \
-        or _GULF.get(key)
+    v = witness.CITIES.get(key) or _FRONT.get(key) or _IRAN.get(key) or _GENERAL.get(key) or INFRA.get(key) \
+        or _ABROAD.get(key) or _GULF.get(key)
     if v is None:
         return key
     return v[0] if lang == "fa" else v[1]
@@ -352,8 +358,10 @@ def _places(fa_t, en_t):
     if (fa_t and _OTHER_FA.search(fa_t)) or (en_t and _OTHER_EN.search(en_t)):
         return set()                        # "Tehran strikes a Kurdish base in Iraq": another front
     cities = witness.cities_in(fa_t, "fa") | witness.cities_in(en_t, "en")
+    sites = {k for k, rf, re_ in _IRAN_RX if (fa_t and rf.search(fa_t)) or (en_t and re_.search(en_t))}
+    cities -= {_IRAN[k][4] for k in sites}  # "Fordow, near Qom": the site is the place, its city not told again
     front = {k for k, rf, re_ in _FRONT_RX if (fa_t and rf.search(fa_t)) or (en_t and re_.search(en_t))}
-    out = cities | front
+    out = cities | sites | front
     if "hormuz" in out and "hormuz_island" in out:
         out.discard("hormuz")
     if not out and not ((fa_t and _SAID_FA.search(fa_t)) or (en_t and _SAID_EN.search(en_t))):
@@ -475,8 +483,8 @@ def events(m):
         return [{"place": a, "step": step, "kind": kind, "t": m["t"],
                  "fa": f"{fa_k} از {_name(a, 'fa')} به سمت {_name(b, 'fa')}",
                  "en": f"{en_k} from {_name(a, 'en')} towards {_name(b, 'en')}"}]
-    if places & set(witness.CITIES):
-        places &= set(witness.CITIES)       # "missiles from Sirik towards Hormuz": the city is the place
+    if places & _IRAN_KEYS:
+        places &= _IRAN_KEYS                # "missiles from Sirik towards Hormuz": the city is the place
     if kind == "strike":
         # a strike names the place it hit ("airstrikes hit Isfahan", "حمله هوایی به اصفهان"), not a capital speaking for
         # its government ("Tehran says…") nor the country in general ("new Iran strikes")
@@ -585,8 +593,8 @@ def _forms(place):
     if place in witness.CITIES:
         fa, en, faf, enf = witness.CITIES[place]
         return [fa] + list(faf), [en.lower()] + list(enf)
-    if place in _FRONT:
-        v = _FRONT[place]
+    if place in _FRONT or place in _IRAN:
+        v = _FRONT.get(place) or _IRAN[place]
         return list(v[2]), list(v[3])
     return None
 
