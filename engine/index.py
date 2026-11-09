@@ -124,7 +124,7 @@ ACT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
 THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "talks_fail", "retaliation", "alert"}
 SKIP_FLAGS = {"denial", "past", "opinion", "analysis", "powers_soft", "sport"}
 IR_LAND = {"tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas", "kharg", "tabriz", "shiraz", "chabahar",
-           "baluchestan", "w_border"}
+           "baluchestan", "w_border", "qeshm", "kish", "abu_musa"}     # the islands are Iran's soil
 IR_SEA = {"hormuz", "persian_gulf", "gulf_oman"}
 NEAR_IRAN = IR_LAND | IR_SEA | {"arabian_sea"}
 PROXY = {"yemen", "lebanon", "iraq", "syria"}
