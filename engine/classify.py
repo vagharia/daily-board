@@ -654,6 +654,28 @@ def _hijab(lang, t):
     return bool((_HIJAB_FA if fa else _HIJAB_EN).search(fa_norm(t) if fa else (t or "")))
 
 
+# schools and education at home ("Shiraz education threatens students over IRGC camps", school closures, exams,
+# teachers): a yellow story, not the IRGC's "threat"; a school hit in an attack is scored as it is
+SCHOOL_CAP = 40.0
+_SCHOOL_FA = re.compile(fa_norm("آموزش و پرورش|آموزش وپرورش|آموزش‌وپرورش|مدرسه|مدارس|دانش آموز|دانش‌آموز|دبیرستان|دبستان"
+                                "|هنرستان|معلم|معلمان|فرهنگیان|کنکور|امتحانات نهایی|کلاس درس|سال تحصیلی"))
+_SCHOOL_EN = re.compile(r"\b(schools?|schoolchildren|schoolboys?|schoolgirls?|pupils|teachers?|education (ministry"
+                        r"|minister|department|office)|ministry of education|department of education|classrooms?"
+                        r"|school year|entrance exams?)\b", re.I)
+_SCHOOL_WAR_FA = re.compile(fa_norm("حمله|حملات|موشک|پهپاد|انفجار|بمباران|اصابت|کشته|زخمی|مجروح|شهید|ویران|تخریب"
+                                    "|آتش|تیراندازی|شلیک|گروگان"))
+_SCHOOL_WAR_EN = re.compile(r"\b(strikes?|struck|attack\w*|missiles?|drones?|blasts?|explosions?|bomb\w*|shell\w*"
+                            r"|killed|dead|wounded|injured|destroyed|damaged|hit|fire|shoot\w*|shot|hostages?)\b", re.I)
+
+
+def _school(lang, t):
+    if lang == "fa":
+        t = fa_norm(t or "")
+        return bool(_SCHOOL_FA.search(t)) and not _SCHOOL_WAR_FA.search(t)
+    t = t or ""
+    return bool(_SCHOOL_EN.search(t)) and not _SCHOOL_WAR_EN.search(t)
+
+
 # a headline that strings several items together (a newsletter, a briefing, "…, and other Mideast news"): its own
 # stories carry the news, so the bundle is yellow and not an attack. "U.S. and Israel" is not a second item: the
 # second sentence must start with "And," or "Plus,".
@@ -1503,7 +1525,12 @@ def classify(item):
     if _hijab(lang, fa_t or en_t):
         flags = (set(flags) - HARD_EVENTS - {"threat", "ultimatum"}) | {"domestic"}
         sev = min(sev, HIJAB_CAP)
-    dom = _domestic_attack(lang, fa_t or en_t, fa_s or en_s)
+    if _school(lang, fa_t or en_t) and not set(flags) & HARD_EVENTS:
+        # schools and education at home (IRGC camps for pupils, closures, exams): yellow
+        flags = (set(flags) - {"threat", "ultimatum", "retaliation"}) | {"domestic", "school"}
+        topics = set(topics) - {"military"}
+        sev = min(sev, SCHOOL_CAP)
+    dom =_domestic_attack(lang, fa_t or en_t, fa_s or en_s)
     if dom:
         # insurgents in Sistan and Baluchestan: the attack is orange, the report of its dead yellow (unless five or
         # more were killed); never red, never a strike of the war
