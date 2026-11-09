@@ -52,7 +52,7 @@ The owner writes in Persian and wants answers in Persian. Often he asks for anal
 | Deployments (count, kind, destination) | `deploy.py` |
 | Evacuation orders (one story per order, 7 days; stale "effective <date>") | `evac.py` |
 | Telegram red alerts, sea rules, lights, late-report rule | `alerts.py` → `run`, `_sea_pick`, `_late` |
-| Main-front panel + instant Telegram alerts (flash), "not confirmed" mark | `flash.py` → `events`, `process`, `_news_ok`, `mark_denied` |
+| Main-front panel + instant Telegram alerts (flash), "not confirmed" mark; a plain «حمله (آمریکا/اسرائیل…) به X» / "missiles hit X" / "attack on X" is a strike when X is a front place named right after, not cyber/verbal, not a threat/possibility or a retelling (crime file, memorial, play, details) | `flash.py` → `events`, `process`, `_news_ok`, `mark_denied`, `_step` (`_PLAIN`, `_SOFT_*`, `_IF_*`) |
 | Main-front places beyond Iran's cities (panel and its alerts only; the bulletin doesn't read them): Iranian towns, Tehran districts, bases, nuclear/missile/energy sites, ports, islands (a site replaces its city); Israel's towns, bases, sites; US bases and carriers. Common words only in a longer form («جزیره هنگام», «فرودگاه بن گوریون») | `front_places.py` → `IRAN`, `ABROAD`; `flash.py` → `_IRAN`, `_places` |
 | Not of the moment: statements, relayed outlets, past times, videos, a channel retelling the news | `flash.py` → `told_later`, `_news_ok`, `news0` in `process` |
 | Lights: deployment/ultimatum only from a headline (`tf`) | `index.py` → `compute_lights`; `classify.py` sets `item["tf"]` |

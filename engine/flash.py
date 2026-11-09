@@ -86,6 +86,11 @@ _STEPS = [
     (4, "strike", fa_norm("حمله هوایی|حملات هوایی|حمله موشکی|حملات موشکی|حمله پهپادی|بمباران|هدف قرار گرفت|هدف حمله"),
      r"\b(air ?strikes?|missile strikes?|drone strikes?|strikes? on|(?<!-)bomb(ed|ing|s)?|attacked|raids? on)\b"
      r"|\b(israel\w*|u\.?s\.?|america\w*|iran\w*|irgc)\b[^.;]{0,12}\bstrikes?\b"),
+    # a plain «حمله به …» / "missiles hit …": the place must be named right after (_object_of_strike)
+    (4, "strike", fa_norm(r"(?:حمله|حملات)(?:\s+(?:نظامی|تازه|جدید|گسترده))?(?:\s+(?:ارتش\s+)?(?:آمریکا|امریکا|آمریکایی"
+                          r"|امریکایی|اسرائیل|اسراییل|اسرائیلی|صهیونیست|صهیونیستی|رژیم\s+صهیونیستی|دشمن))?\s+به"),
+     r"\b(missiles?|rockets?|drones?|projectiles?)\b[^.;]{0,15}\b(hit|hits|struck|slam(?:s|med)? into|land(?:s|ed)? (?:in|on|near))\b"
+     r"|\battacks? on\b"),
     (3, "launch", fa_norm("پرتاب موشک|شلیک موشک|موشک ها شلیک|موشک ها پرتاب|موشک پرتاب|موشک شلیک|پرتاب شد|شلیک شد"),
      r"\b(launch(ed|es|ing)?|fires?|fired|firing)\b[^.;]{0,25}\bmissiles?\b|\bmissiles?\b[^.;]{0,20}\b(launch(ed|es)?"
      r"|fired)\b|\bmissile launch(es)?\b"),
@@ -96,6 +101,7 @@ _STEPS = [
     (1, "siren", fa_norm("آژیر|اژیر"), r"\bsirens?\b"),
 ]
 _STEPS = [(n, k, re.compile(fa), re.compile(en, re.I)) for n, k, fa, en in _STEPS]
+_PLAIN = 2                  # the plain «حمله به …» / "missiles hit …" above
 _WIT_STEP = {"strike": 4, "blast": 4, "launch": 3, "airdef": 2, "jet": 1, "drone": 1, "siren": 1, "infra": 4}
 # a report that is not of something happening now
 _NOT_NOW = {"denial", "controlled", "scheduled", "past", "speculative", "threat", "analysis", "opinion", "reaction", "verbal",
@@ -255,7 +261,7 @@ def _object_of_strike(p, fa_t, en_t):
             return True
     if en_t:
         forms = "|".join(re.escape(x) for x in [v[1].lower(), *v[3]])
-        if re.search(r"\b(?:on|in|at|near|over|hits?|struck|strikes?|targets?|targeted)\s+(?:\S+\s+){0,2}(?:" + forms + r")\b",
+        if re.search(r"\b(?:on|in|at|near|over|into|hits?|struck|strikes?|targets?|targeted)\s+(?:\S+\s+){0,2}(?:" + forms + r")\b",
                      en_t, re.I):
             return True
     return False
@@ -369,9 +375,27 @@ def _places(fa_t, en_t):
     return out
 
 
+# not an attack of arms: words, the internet, the press ("حمله لفظی به…", "cyber attack on…")
+_SOFT_FA = re.compile(fa_norm("لفظی|سایبری|رسانه ای|تبلیغاتی|انتقاد|هکری|هک"))
+_SOFT_EN = re.compile(r"\b(cyber\w*|verbal\w*|rhetori\w*|hack\w*|criticism|criticis\w+|media attack|smear)\b", re.I)
+# the plain «حمله به …» told as a threat or a possibility: no attack yet
+_IF_FA = re.compile(fa_norm("تهدید|احتمال|اگر|در صورت|هشدار|آماده|برنامه|طرح|قصد|ممکن|خواهد|می کند|می‌کند"
+                            # or retold: a crime file, a memorial, a play, the details later
+                            "|جنایت|دادسرا|پرونده|سند|اسناد|فراموش|یادبود|یاد |نمایش|تئاتر|فیلم|کتاب|جزئیات|روایت|ماجرای"
+                            "|شهدای|قربانیان|تروریستی"))
+_IF_EN = re.compile(r"\b(threat\w*|warns?|warning|could|would|may|might|plans?|planning|possible|possibility|if|ready|prepar\w+"
+                    r"|will|stage|play|film|documentary|memorial|remember\w*|book|court|lawsuit|crimes?|victims|details)\b",
+                    re.I)
+
+
 def _step(fa_t, en_t):
-    for n, k, rf, re_ in _STEPS:
+    soft = (fa_t and _SOFT_FA.search(fa_t)) or (en_t and _SOFT_EN.search(en_t))
+    for i, (n, k, rf, re_) in enumerate(_STEPS):
         if (fa_t and rf.search(fa_t)) or (en_t and re_.search(en_t)):
+            if k == "strike" and soft:
+                continue
+            if i == _PLAIN and ((fa_t and _IF_FA.search(fa_t)) or (en_t and _IF_EN.search(en_t))):
+                continue
             return n, k
     return 0, None
 
