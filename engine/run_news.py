@@ -604,7 +604,8 @@ def news_round(full=True):
     sea_out = sea.run(sea_state)
     ticker = load_json(data_path("ticker.json"), {}) or {}
     idx, idx_hist = compute_index(clusters, av, sea_out, idx_hist, ticker)
-    lights = compute_lights(clusters, av, sea_out, ticker)
+    lights = compute_lights(clusters, av, sea_out, ticker,
+                            translate=lambda texts: tr.translate_many(texts, "en", "fa"))
     log(f"index={idx['value']} news={idx['news']} signals={idx['signals']} lights="
         f"{[l['id'] for l in lights if l['state'] == 'on']}")
 

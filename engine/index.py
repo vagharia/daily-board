@@ -514,9 +514,36 @@ def compute_index(clusters, av, sea, hist, markets=None):
             "signals": p["signals"], "parts": parts, "delta24": delta, "history": thin}, hist
 
 
-def _ev_cluster(c):
-    return {"type": "cluster", "id": c["id"], "fa": c.get("fa", {}).get("ti", ""), "en": c.get("en", {}).get("ti", ""),
+def _ev_cluster(c, flags=()):
+    """A story as a lamp's evidence line. Its headline is the story's own when the item it comes from carries the
+    lamp's flag; otherwise the headline of the item that lit the lamp ("flights suspended at Riyadh airport" under a
+    story titled with the Houthis' claim), so the line says why the lamp is on."""
+    line = {"type": "cluster", "id": c["id"], "fa": c.get("fa", {}).get("ti", ""), "en": c.get("en", {}).get("ti", ""),
             "tier": c["tier"], "t": c["u"]}
+    flags = set(flags)
+    if not flags:
+        return line
+    told = flags & {"deploy", "ultimatum"}
+
+    def lit(m):
+        if told:
+            return bool(set(m.get("tf") or []) & told) and "digest" not in (m.get("flags") or [])
+        return bool(set(m.get("flags") or []) & flags)
+
+    byk = {m["k"]: m for m in c.get("m", [])}
+    if any(lit(byk[k]) for k in (c.get("en_from"), c.get("fa_from")) if k in byk):
+        return line
+    ms = sorted((m for m in c.get("m", []) if lit(m)), key=lambda m: (m.get("lang") != "fa", -m.get("sev", 0),
+                                                                      -m.get("rel", 0)))
+    if not ms:
+        return line
+    m = ms[0]
+    if m.get("lang") == "fa":
+        line["fa"], line["en"] = m["ti"], m.get("en_ti") or m["ti"]
+    else:
+        line["fa"] = line["en"] = m["ti"]
+        line["_tr"] = m["ti"]                  # an English headline: compute_lights translates it for the Persian line
+    return line
 
 
 def _event_keys(c):
@@ -557,7 +584,7 @@ def _distinct(cs, n):
     return out
 
 
-def compute_lights(clusters, av, sea, markets, t=None):
+def compute_lights(clusters, av, sea, markets, t=None, translate=None):
     t = t or now()
     recent = [c for c in clusters if t - c["u"] <= 72 * 3600]
 
@@ -611,19 +638,32 @@ def compute_lights(clusters, av, sea, markets, t=None):
     on_c, watch_c = by_flag({"oil_spike"}, 50)
     res["oil"] = (on_c if data else [], watch_c + (on_c if not data else []), data)
 
+    lamp_flags = {"strike": {"kinetic"}, "hormuz": {"maritime_incident", "hormuz_closure"}, "airspace": {"airspace"},
+                  "deploy": {"deploy"}, "evac": {"evac"}, "ultimatum": {"ultimatum"}, "oil": {"oil_spike"}}
     out = []
     for key, fa, en in LIGHTS:
         on, watch, data = res[key]
+        lf = lamp_flags[key]
         state = "on" if (on or data) else ("watch" if watch else "off")
         ev = [{"type": "data", **d} if "type" not in d else d for d in data]
         # one line per event: two stories of one event (the same deployment, the same incident at sea, nearly the
         # same headline) show once
-        ev += [_ev_cluster(c) for c in _distinct(sorted(on, key=lambda c: -c["sev"]), 4)]
+        ev += [_ev_cluster(c, lf) for c in _distinct(sorted(on, key=lambda c: -c["sev"]), 4)]
         if state != "on":
             ws = sorted(watch, key=lambda c: -c.get("sev", 0))
-            ev += ([_ev_cluster(c) for c in _distinct([c for c in ws if "_data" not in c], 3)]
+            ev += ([_ev_cluster(c, lf) for c in _distinct([c for c in ws if "_data" not in c], 3)]
                    + [c["_data"] for c in ws if "_data" in c])[:3]
         out.append({"id": key, "fa": fa, "en": en, "state": state, "evidence": ev})
+    src = [e["_tr"] for o in out for e in o["evidence"] if e.get("_tr")]
+    if src:
+        try:
+            res_tr = translate(src) if translate else {}
+        except Exception:  # noqa: BLE001 - an untranslated line keeps its English headline
+            res_tr = {}
+        for o in out:
+            for e in o["evidence"]:
+                if "_tr" in e:
+                    e["fa"] = res_tr.get(e.pop("_tr")) or e["fa"]
     return out
 
 
