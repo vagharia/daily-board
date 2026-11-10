@@ -14,7 +14,7 @@ import time
 
 import re
 
-from . import evac, http, vessel
+from . import deploy, evac, http, pullback, vessel
 from . import fronts
 from .cluster import _NEW_EN, _NEW_FA, channel, gulf_key, gulf_main
 from .util import clip_sentence, fa_norm, log, now, truncate
@@ -700,6 +700,53 @@ def _dated(c):
     return bool(news) and all(vessel.past_day(m) for m in news)
 
 
+# one event, one alert: a red story telling of the same forces taken out of the same place (pullback.mark), the same
+# order to leave a country (evac.mark) or the same deployment (deploy.mark) as a story already announced, whose first
+# report came out within this of its own, is not announced again. The bulletin's clustering joins such reports into
+# one story; this keeps a story it left apart from sending a second alert.
+SAME_EVENT = 12 * 3600
+
+
+def _event_marks(c):
+    out = set()
+    for m in c["m"]:
+        x = pullback.mark(m)
+        if x and x[1]:                                  # a report naming no country stands for no event
+            out.add(("p", x))
+        for k, f in (("e", evac.mark), ("d", deploy.mark)):
+            x = f(m)
+            if x:
+                out.add((k, x))
+    return out
+
+
+def _same_event(a, b):
+    return any(ka == kb and (pullback.fits(x, y) if ka == "p" else x == y) for ka, x in a for kb, y in b)
+
+
+def _told_event(red, clusters, sent):
+    """The red stories (oldest first) to announce, and those left out: the same event as a story announced (or
+    announced just before in this round) whose first report is within SAME_EVENT of theirs."""
+    told = set(sent)
+    marks = {}
+    past = []
+    for c in clusters:
+        if c["id"] in told or any(x in told for x in c.get("merged", [])):
+            mk = _event_marks(c)
+            if mk:
+                past.append((c["t"], mk))
+    keep, drop = [], []
+    for c in sorted(red, key=lambda c: c["t"]):
+        mk = marks.setdefault(c["id"], _event_marks(c))
+        if mk and any(abs(c["t"] - t) <= SAME_EVENT and _same_event(mk, x) for t, x in past):
+            drop.append(c)
+            continue
+        keep.append(c)
+        if mk:
+            past.append((c["t"], mk))
+    return keep, drop
+
+
 def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None, seen=None):
     """flash_msgs: the main front's instant alerts (flash.py), sent first; flash_keys: reports they cover, whose
     stories don't also get the red-story alert."""
@@ -742,6 +789,7 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     held = {c["id"] for c in red_msg} - {c["id"] for c, _ in picked}
     upd |= {c["id"] for c, how in picked if how == "update"}
     red_msg = [c for c, _ in picked]
+    red_msg, _ = _told_event(red_msg, clusters, sent)
     if not first_run:
         red_msg.sort(key=lambda c: -c["sev"])
         for c in red_msg[:4]:

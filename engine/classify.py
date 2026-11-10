@@ -9,7 +9,7 @@ import datetime
 import math
 import re
 
-from . import config, deesc, sport, witness
+from . import config, deesc, pullback, sport, witness
 from .classify_fa import STRONG as STRONG_FA, score_fa
 from . import scheduled
 from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
@@ -598,6 +598,18 @@ def _mediator_visit(lang, t):
     if fa:
         return bool(_MED_FA.search(t)) and not _MED_NOT_FA.search(t)
     return bool(_MED_EN.search(t)) and not _MED_NOT_EN.search(t)
+
+
+# forces, a base or people taken out of a place (pullback.py). Where it happens decides: out of a Middle East country
+# it is an evacuation (red, the evacuation lamp) if they were evacuated or fled, or any danger is given as the reason
+# (a routine drawdown is not); anywhere else (Europe, Diego Garcia, Asia) it is never an evacuation of the war: orange,
+# or red when the headline gives a threat from Iran as the reason, and it lights no lamp either way. Moving forces out
+# of a place is not a deployment.
+PULL_ME_SEV = 76.0
+PULL_IRAN_SEV = 72.0
+PULL_FAR_CAP = 62.0
+_PULL_NOT = {"speculative", "analysis", "opinion", "past", "denial", "digest", "feature", "scheduled", "tribute",
+             "side_minor", "commemoration", "statement_only"}
 
 
 # the US military at sea on the main front, mostly told by CENTCOM: a ship disabled or fired on for running the blockade
@@ -1648,6 +1660,23 @@ def classify(item):
         flags = set(flags) | {"us_sea_op"}
         topics = set(topics) | {"maritime", "military"}
         sev = US_SEA_SEV
+    pb = pullback.read(lang, fa_t or en_t)
+    if not pb and "evac" in flags:
+        # an order to leave told with other words ("ordered departure", «خروج اتباع»): placed all the same
+        w, pl, ir = pullback.place(lang, fa_t or en_t)
+        pb = {"run": True, "where": w, "places": pl, "iran": ir, "risk": True, "mil": False}
+    if pb and pb["where"] == "me" and pb["mil"] and (pb["run"] or pb["risk"]):
+        flags = (set(flags) - {"deploy"}) | {"evac", "pullback"}
+        if not set(flags) & _PULL_NOT:
+            sev = max(sev, PULL_ME_SEV)
+    elif pb and pb["where"] == "far" and (pb["mil"] or "evac" in flags):
+        flags = (set(flags) - {"evac", "deploy"}) | {"pullback"}
+        if pb["iran"] and not set(flags) & _PULL_NOT:
+            sev = max(sev, PULL_IRAN_SEV)
+        else:
+            sev = min(sev, PULL_FAR_CAP)
+    elif pb and pb["mil"] and pb["where"] == "me":
+        flags = set(flags) - {"deploy"}               # a drawdown: forces taken out, not sent
     cy = cyber(lang, fa_t or en_t)
     if cy and cy != "strike":
         # a cyber attack or a hack: no strike, orange at most (at least orange in the war itself); red only on the main

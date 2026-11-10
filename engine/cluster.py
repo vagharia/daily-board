@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import config, deploy, evac, vessel, witness
+from . import config, deploy, evac, pullback, vessel, witness
 from .classify import cluster_severity, tier, trump_level
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -136,7 +136,7 @@ _IRAN_EN = re.compile(r"\b(iran\w*|tehran|isfahan|esfahan|tabriz|shiraz|mashhad|
                       r"|bandar abbas|bushehr|urmia|kerman|yazd|rasht|zahedan|hamedan|arak|sanandaj|ilam|khorramabad"
                       r"|abadan|khorramshahr|chabahar|kish|qeshm)\b", re.I)
 EVENT_FLAGS = {"deesc_event", "kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum", "nuclear_red",
-               "alert", "kinetic_threat"}
+               "alert", "kinetic_threat", "pullback"}
 
 
 # the same incident told in other words ("explosion of a home in Jafarabad, Kermanshah" / "building destroyed by an
@@ -211,7 +211,7 @@ def unconf_kind(ms):
 
 # a channel's analysis, summary or guesswork, not a report of something that happened: an analysis, an opinion or a
 # guess as the classifier reads it, or a piece about a market (oil, gold, the dollar, shares) and its worries
-_EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "deploy", "ultimatum",
+_EVENT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "airspace", "evac", "pullback", "deploy", "ultimatum",
                 "nuclear_red", "witness", "internet", "cable_cut"}
 _MARKET_FA = re.compile(fa_norm("قیمت نفت|نفت خام|برنت|طلا|دلار|بورس|سهام|بازار|معامله گران|معامله‌گران|سرمایه گذاران"
                                 "|ریسک|پوشش ریسک"))
@@ -323,7 +323,7 @@ def tokens(title: str, same=False):
 # AND they agree on: what happened (the kind of event), where (places, else countries), when (a time window from
 # the story's first report; named weekdays), who said it and who reported it (for statements), and the figures.
 CLASS_ORDER = [("M", {"maritime_incident", "hormuz_closure"}), ("K", {"kinetic"}), ("A", {"airspace"}),
-               ("V", {"evac"}), ("D", {"deploy"}), ("U", {"ultimatum"}), ("N", {"nuclear_red"}), ("S", {"sanctions"}),
+               ("V", {"evac", "pullback"}), ("D", {"deploy"}), ("U", {"ultimatum"}), ("N", {"nuclear_red"}), ("S", {"sanctions"}),
                ("T", {"threat", "retaliation", "kinetic_threat", "talks_fail"})]
 PHYSICAL = {"M", "K", "A", "V", "D"}            # something happened somewhere; anything else is said or decided
 # the classifier can tag one outlet's report of an attack at sea as maritime and another's as kinetic, so these
@@ -739,7 +739,8 @@ def features(m):
             "chan": channel(m), **dict(zip(("cities", "spots", "blast"), place(m))),
             "wit": bool(m.get("wit")), "wcity": _wcities(m), "wtime": _wtimes(m),
             "strike_ok": not set(m.get("flags") or []) & NOT_A_STRIKE,
-            "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "evac": evac.mark(m), "dup": _dup_key(m),
+            "ship": vessel.mark(m), "sgen": _general(m), "dep": deploy.mark(m), "evac": evac.mark(m),
+            "pull": pullback.mark(m), "dup": _dup_key(m),
             "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
@@ -1129,6 +1130,7 @@ class Clusterer:
         self.owns = {}                                    # (whose ship, sea area) -> story ids
         self.deps = {}                                    # (count, kind, destination) of a deployment -> story ids
         self.evacs = {}                                   # (who, country, how far) of an order to leave -> story ids
+        self.pulls = {}                                   # story id -> [(forces taken out of a place: pullback.mark, time)]
         self.dups = {}                                    # a long headline, exactly -> [(story id, time, text)]
         self.ev = {}                                      # story id -> (earliest, latest): when its event happened
         self.gulfs = {}                                   # story id -> [(Gulf-front mark, channel's, time)] (gulf_key)
@@ -1159,6 +1161,8 @@ class Clusterer:
                     self.deps.setdefault(feats[m["k"]]["dep"], set()).add(c["id"])
                 if feats[m["k"]].get("evac"):
                     self.evacs.setdefault(feats[m["k"]]["evac"], set()).add(c["id"])
+                if feats[m["k"]].get("pull"):
+                    self.pulls.setdefault(c["id"], []).append((feats[m["k"]]["pull"], m["t"]))
                 if feats[m["k"]].get("gulf"):
                     self.gulfs.setdefault(c["id"], []).append((feats[m["k"]]["gulf"], feats[m["k"]]["chan"], m["t"]))
                 if feats[m["k"]].get("gmain"):
@@ -1307,7 +1311,7 @@ class Clusterer:
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
-                + self._own_matches(item, f) + self._gulf_matches(item, f):
+                + self._own_matches(item, f) + self._gulf_matches(item, f) + self._pull_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
@@ -1497,6 +1501,24 @@ class Clusterer:
         return out
 
 
+    def _pull_matches(self, item, f):
+        """The story of the same forces taken out of the same place (pullback.mark: whose, the country, the base, the
+        round), whatever verb its reports use ("evacuated", "pulls", "moves … from", «فرار», «خارج کرد»), for PULL_KEEP
+        after its latest report. The report's label must fit every label of the story; of several such stories, the
+        latest. A report that names no country joins only when one story fits."""
+        x = f.get("pull")
+        if not x:
+            return []
+        fit = []
+        for cid, marks in self.pulls.items():
+            c = self.byid.get(cid)
+            if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= PULL_KEEP \
+                    and all(pullback.fits(x, y) for y, _ in marks):
+                fit.append(c)
+        if not fit or (x[1] is None and len(fit) > 1):
+            return []
+        return [(0.6, max(fit, key=lambda c: c["u"]))]
+
     def _kind_conflict(self, f, cid):
         """An Iranian statement about ships never joins a story of an incident told independently, nor the reverse;
         and at sea, a report whose time doesn't meet the story's never joins it."""
@@ -1552,6 +1574,7 @@ SHIP_OWNER = 12 * 3600     # reports of one country's ship of one kind in one se
 STMT_KEEP = 12 * 3600      # reports of the same Iranian statement join its story this long after its latest report
 EVAC_KEEP = 7 * 86400      # reports of the same order to leave a country join its story this long after its latest report
 DEP_KEEP = 24 * 3600       # reports of the same deployment join its story this long after its latest report
+PULL_KEEP = 24 * 3600      # reports of the same forces taken out of the same place join its story this long after its latest
 SHIP_KEEP = 24 * 3600      # reports placing an incident at sea at the same spot join its story this long after its latest
 SHIP_FRESH = 6 * 3600      # a report about one ship that gives no place joins the one incident placed in that sea area
                            # this soon after its latest placed report
