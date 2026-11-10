@@ -111,6 +111,17 @@ _AT_EN = {k: re.compile(r"\b(?:from|in|out of|at|leave|leaves|leaving|left|acros
                         + _BASE_EN + r"\b", re.I) for k, (e, _, _) in _PLACE.items()}
 _AT_FA = {k: re.compile(fa_norm(r"(?:(?<!\S)(?:از|در)|پایگاه\S*|خاک)\s+(?:\S+\s+){0,3}?(?:" + f + r")"))
           for k, (_, f, _) in _PLACE.items()}
+# forces going somewhere: a deployment or a mission, never a pullback ("B-52s leave Fairford for the Middle East",
+# "tankers fly from UK bases to support strikes", «انتقال بمب‌افکن‌ها از انگلیس به خاورمیانه»). Iran is never the
+# destination ("due to Iran threat", «به بهانه تهدید ایران»).
+_DEST_EN = re.compile(r"\b(?:to|for|toward|towards|into)\s+(?:the\s+)?(?:eastern\s+|western\s+)?(?:[\w'.-]+\s+){0,1}?(?:"
+                      + "|".join(e for k, (e, _, _) in _PLACE.items() if k != "iran") + r")\b"
+                      r"|\b(?:bound for|head(?:s|ed|ing)? (?:to|for|toward)|en route|on (?:its|their) way|deploy\w*|dispatch\w*"
+                      r"|send(?:s|ing)?|sent|arriv\w*|land(?:s|ed|ing)? (?:in|at)|to support|to join|reinforce\w*"
+                      r"|for (?:strikes|operations|missions|attacks)|sorties?|missions?|after (?:strikes|bombing|raids|attacks)"
+                      r"|(?:strikes?|raids?|bombing) on)\b", re.I)
+_DEST_FA = re.compile(fa_norm(r"(?<!\S)به\s+(?:\S+\s+){0,1}?(?:" + "|".join(f for k, (_, f, _) in _PLACE.items() if k != "iran")
+                              + r")|به سمت|به سوی|عازم|راهی|اعزام|ارسال|ورود|فرود|استقرار|پشتیبانی از|ماموریت|برای حمله"))
 _WHO_EN = {k: re.compile(r"\b(?:" + e + r")\b", re.I) for k, (e, _) in _WHO.items()}
 _WHO_FA = {k: re.compile(r"(?<!\S)(?:" + fa_norm(f) + r")") for k, (_, f) in _WHO.items()}
 _BASE_RX = {k: (re.compile(r"\b(?:" + e + r")\b", re.I), re.compile(fa_norm(f))) for k, (e, f) in _BASES.items()}
@@ -159,6 +170,8 @@ def read(lang, head):
         mil = bool(_ASSET_FA.search(t))
         if not ((mil or _PEOPLE_FA.search(t)) and _OUT_FA.search(t)) or _SHIP_FA.search(t):
             return None
+        if mil and _DEST_FA.search(t):
+            return None                              # forces sent somewhere: a deployment
         run = bool(_RUN_FA.search(t))
         if not run and not _FROM_FA.search(t) and not re.search(fa_norm(r"«?ترک»?\s*کرد|خارج"), t):
             return None                              # «انتقال هواپیماها به …»: a move to a place, not out of one
@@ -170,6 +183,8 @@ def read(lang, head):
             return None
         if not (_OUT_EN.search(t) or _MOVE_EN.search(t)):
             return None
+        if mil and _DEST_EN.search(t):
+            return None                              # forces sent somewhere: a deployment
         run = bool(_RUN_EN.search(t))
         risk = bool(_CAUSE_EN.search(t) or _RISK_EN.search(t))
     where, places, iran = place(lang, head)
@@ -184,8 +199,8 @@ def mark(m):
     lang = "fa" if fa else "en"
     head = fa or en
     r = read(lang, head)
-    if not r or not r["mil"]:
-        return None
+    if not r or not r["mil"] or not (r["run"] or r["risk"]) or "gulf" in r["places"]:
+        return None                                  # a drawdown, or "the region" as a whole: no one event to name
     rest = _strip(_CAUSE_FA if fa else _CAUSE_EN, head)
     who = [k for k, rx in (_WHO_FA if fa else _WHO_EN).items() if rx.search(rest)]
     who = [k for k in who if _HOME.get(k) not in r["places"]]             # "British base": a place, not the forces' owner
