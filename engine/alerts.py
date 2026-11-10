@@ -478,7 +478,8 @@ def _sea_save(sea):
 # when an alert already told of the same attack, strictly matched by what (an attack, sirens, the Houthis' statement),
 # where (the country, the city, the named target: cluster.gulf_key) and when (the reports' first times, the event's
 # time label). It is announced when it tells of anything new: a target or city the alert didn't name, a report that
-# says it is a new attack ("another", «موج جدید»), an attack told as it happens (sirens, interceptions) hours after,
+# says it is a new attack ("another", «موج جدید»; not one naming the target the alert told of while its story is
+# still being told, with nothing happening now), an attack told as it happens (sirens, interceptions) hours after,
 # an event time that doesn't meet the alert's. When it adds people killed or hurt and the alert told of none, it goes
 # out as an update (🔄). The bulletin is not affected.
 ARAB_TARGET = 24 * 3600      # the same named target (the Aramco tower in Riyadh): one attack within this
@@ -531,8 +532,11 @@ def _arab_print(c):
 def _arab_same(n, a):
     """True if story print n tells of the attack (or sirens, or statement) alert print a already told of, and of
     nothing new beyond people hurt (strict: see above)."""
-    if n["new"] or not n["ctry"] or not n["ctry"] <= a["ctry"]:
+    if not n["ctry"] or not n["ctry"] <= a["ctry"]:
         return False
+    if n["new"] and not (n["seen"] and not n["fresh"] and n["seen"] <= a["targets"] and n["t0"] <= a["u"] + ARAB_NOW):
+        return False                                 # "another attack": a new one, unless it names the target the
+                                                     # alert told of, while its story is still told, nothing as it happens
     if n["ev"] and a["ev"] and not vessel.overlap(n["ev"], a["ev"], 2 * 3600):
         return False                                 # their events happened at different times
     dt = abs(n["t0"] - a["t0"])

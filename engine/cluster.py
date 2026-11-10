@@ -437,7 +437,10 @@ GULF_GAP = 1 * 3600           # still being told: within this of the story's lat
 GULF_SPAN = 4 * 3600          # …and this of its first
 # Beyond those windows (fronts.gulf_mark gives what each needs):
 # 1. one named target (the Aramco tower in Riyadh's financial district, King Khalid airport, Abqaiq; fronts._TARGETS):
-#    the reports naming it are one story for a day after its first report, unless one says it is a new attack;
+#    the reports naming it are one story for a day after its first report while the story is still being told
+#    (TARGET_QUIET); after a quiet spell only later reports (damage, a confirmation) join, and one telling it as it
+#    happens (sirens, explosions heard) two hours after the story went quiet is a new attack. A report saying it is
+#    a new attack joins only within two hours of the story's latest report (gulf_key: new_ok);
 # 2. a later report of an attack in an Arab country of the Middle East (damage, debris, a video, a ministry
 #    confirming it, a claim of responsibility; nothing happening now) joins the attack on its city for twelve hours;
 # 3. a Telegram channel's post joins a news story by these rules (never another channel's), within six hours of the
@@ -446,6 +449,7 @@ GULF_SPAN = 4 * 3600          # …and this of its first
 #    story for sixteen hours after its first report, unless the counts of operations differ; a slice naming one
 #    target also joins that target's attack story, one naming several stays with the statement.
 TARGET_KEEP = 24 * 3600
+TARGET_QUIET = 4 * 3600       # a named target's story quiet this long takes only later reports of its attack
 AFTER_SPAN = 12 * 3600
 CHAN_KEEP = 6 * 3600          # a channel's post relaying an outlet, or telling no strike, joins this long after…
 CHAN_FRESH = 2 * 3600         # …a post of a strike as it happens only this long (it may be a new strike)
@@ -471,9 +475,19 @@ def _run_start(c):
     return min(start, c["u"]) if not c.get("ongoing") else c["u"]
 
 
-def gulf_key(m, chan_ok=False):
+class GulfMark(tuple):
+    """A Gulf mark (a tuple, as fronts.gulf_mark gives it) and what the headline says of its time: new (it says it
+    is a new attack: "another", «جدید») and fresh (told as it happens: sirens, interceptions, explosions heard)."""
+    new = False
+    fresh = False
+
+
+def gulf_key(m, chan_ok=False, new_ok=False):
     """(kind, places, countries, targets, later, count, several) of a news report on the Gulf Arab front
-    (fronts.gulf_mark), or None. chan_ok: a Telegram channel's post gets one too (rule 3 above)."""
+    (fronts.gulf_mark), or None. chan_ok: a Telegram channel's post gets one too (rule 3 above). new_ok: a report
+    saying it is a new attack on a named target, and telling nothing happening now, gets a mark too (marked new):
+    outlets call an attack "new" against earlier weeks' ("Saudi Arabia reports new attack on East-West pipeline"),
+    so it joins that target's story while the story is still being told (gulf_when)."""
     if (channel(m) and not chan_ok) or m.get("wit") or _at_sea(m):
         return None
     if set(m.get("flags") or []) & {"denial", "past", "controlled", "scheduled", "speculative", "analysis", "opinion",
@@ -483,9 +497,19 @@ def gulf_key(m, chan_ok=False):
     if any(fronts.gulf_main(x, lang) for x, lang in ((m.get("ti"), m.get("lang") or "en"), (m.get("en_ti"), "en")) if x):
         return None
     en = m.get("en_ti") or ("" if fa else m.get("ti")) or ""
-    if _NEW_EN.search(en) or (fa and _NEW_FA.search(fa_norm(m.get("ti") or ""))):
+    fat = fa_norm(m.get("ti") or "") if fa else ""
+    fresh = bool(fronts._FRESH_EN.search(en) or (fa and fronts._FRESH_FA.search(fat)))
+    new = bool(_NEW_EN.search(en) or (fa and _NEW_FA.search(fat)))
+    if new and not new_ok:
         return None                                 # "another attack", «موج جدید»: maybe a new one
-    return fronts.gulf_mark(m.get("ti") or "", "fa" if fa else "en") or (fronts.gulf_mark(en, "en") if fa else None)
+    g = fronts.gulf_mark(m.get("ti") or "", "fa" if fa else "en") or (fronts.gulf_mark(en, "en") if fa else None)
+    if not g:
+        return None
+    if new and (g[0] != "attack" or not g[3] or fresh):
+        return None                                 # a new attack on a city, or one told as it happens
+    g = GulfMark(g)
+    g.new, g.fresh = new, fresh
+    return g
 
 
 def gulf_main(m):
@@ -528,6 +552,9 @@ def same_gulf(a, b):
     named target, 2 = the same city, 1 = one of them names only the country, 0 = not the same."""
     if not a or not b or not gulf_fit(a, b):
         return 0
+    ra, rb = a[3] & fronts._ROUTES.keys(), b[3] & fronts._ROUTES.keys()
+    if ra or rb:                                    # a long pipeline (no one city) is its own place: only the same
+        return 3 if ra & rb else 0                  # pipeline, never another attack in that country
     if a[0] != b[0]:                                # a statement's slice naming one target, and an attack on it
         return 3 if a[3] & b[3] else 0
     if a[3] and b[3] and a[3] & b[3]:
@@ -551,8 +578,16 @@ def gulf_when(t, c, n, a, b, chan):
         return False
     if a[0] == "claim" and b[0] == "claim":
         return abs(t - _since(c)) <= CLAIM_SPAN
+    if getattr(a, "new", False):
+        return n == 3 and abs(t - c["u"]) <= GULF_WINDOW   # "new attack" on the target: only while still told
     if n == 3:
-        return abs(t - _since(c)) <= TARGET_KEEP
+        # the same named target, within a day of the story's first report, while it is still being told (no quiet
+        # spell of TARGET_QUIET), or a later report (damage, a confirmation, a video); a report telling it as it
+        # happens (sirens, explosions heard) after GULF_WINDOW of quiet is a new attack
+        quiet = t - c["u"]
+        if getattr(a, "fresh", False) and quiet > GULF_WINDOW:
+            return False
+        return abs(t - _since(c)) <= TARGET_KEEP and (quiet <= TARGET_QUIET or bool(a[4]))
     if n == 2 and (a[4] or b[4]) and a[2] & b[2] <= fronts.ARAB and abs(t - _since(c)) <= AFTER_SPAN:
         return True
     return _gulf_time(t, c)
@@ -708,7 +743,7 @@ def features(m):
             "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
-            "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True), "gmain": gulf_main(m),
+            "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True, new_ok=True), "gmain": gulf_main(m),
             "cwin": _chan_win(m) if channel(m) else 0,
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
 
