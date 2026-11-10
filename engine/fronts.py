@@ -504,7 +504,50 @@ _TARGETS = [
     ("erbil_airport", "erbil", r"erbil (?:international )?airport", "فرودگاه اربیل"),
     ("baghdad_airport", "baghdad", r"baghdad (?:international )?airport", "فرودگاه بغداد|فرودگاه بین المللی بغداد"),
     ("khor_mor", "sulaymaniyah", r"khor ?mor", "خورمور|کورمور"),
+    # long pipelines: no one city (see _ROUTES)
+    ("ew_pipeline", None, r"east[- ]west (?:oil |crude |crude oil )?pipeline|petroline|saudi (?:arabia'?s? )?(?:key |main "
+                          r"|vital |major |crucial |critical )?(?:oil |crude )?pipeline|pipeline (?:in|across|to) saudi"
+                          r"|saudi (?:arabia'?s? )?(?:red sea |yanbu )?(?:oil )?export pipeline",
+     "خط لوله (?:نفتی |نفت |اصلی |اصلی نفت |حیاتی )?(?:شرق|شرقی)(?: به |\\s*-\\s*|\\s*–\\s*| و | )(?:غرب|غربی)"
+     "|خط لوله (?:نفتی |نفت )?(?:عربستان|سعودی)|پترولاین"),
+    ("adcop", None, r"habshan[- –](?:to[- ])?fujairah (?:oil |crude )?pipeline|abu dhabi crude (?:oil )?pipeline|\badcop\b"
+                    r"|(?:uae|emirati|adnoc) (?:oil |crude |export )*pipeline",
+     "خط لوله (?:نفتی |نفت )?حبشان|خط لوله (?:نفتی |نفت )?(?:ابوظبی|امارات) به فجیره|خط لوله (?:نفتی |نفت )?امارات"),
+    # oil and gas sites (Saudi Arabia)
+    ("riyadh_refinery", "riyadh", r"riyadh (?:oil |aramco )?refinery|refinery (?:in|near) riyadh", "پالایشگاه ریاض"),
+    ("jubail_plant", "east", r"satorp|sadara|jubail (?:refinery|industrial(?: city)?|petrochemical\w*|plant)",
+     "پالایشگاه جبیل|شهر صنعتی جبیل|پتروشیمی جبیل|ساتورپ|صدارا"),
+    ("juaymah", "east", r"ju'?aymah", "جعیمه"),
+    ("jafurah", "east", r"jafurah", "جافوره"),
+    ("hawiyah", "east", r"hawiyah|haradh", "حویه|حرض"),
+    ("shedgum", "east", r"shedgum|ghawar|uthmaniyah", "شدقم|غوار|عثمانیه"),
+    ("safaniya", "east", r"safaniy?ah?|manifa|marjan|zuluf|berri (?:field|oil|gas)", "سفانیه|منیفه|مرجان"),
+    # the Emirates
+    ("fujairah_oil", "fujairah", r"fujairah (?:oil |fuel |petroleum |storage )*(?:terminals?|storage|port|tanks?|depots?"
+                                 r"|refinery|hub|facilit\w*|installations?|industry zone)|port of fujairah|\bfoiz\b"
+                                 r"|(?:terminals?|storage|tanks?|depots?|facilit\w*|refinery) (?:in|at|of) fujairah",
+     "بندر فجیره|پایانه نفتی فجیره|پایانه فجیره|مخازن نفت فجیره|مخازن فجیره|انبار نفت فجیره|تاسیسات نفتی فجیره"
+     "|تأسیسات نفتی فجیره|پالایشگاه فجیره|منطقه صنعتی نفت فجیره|تاسیسات (?:نفتی |آرامکو |ادنوک )?در فجیره"),
+    ("habshan", "abu_dhabi", r"habshan|bab (?:oil )?field|shah gas|asab (?:oil )?field|bu ?hasa", "حبشان|میدان باب|میدان شاه"),
+    ("das_island", "abu_dhabi", r"das island|zirku|zirkuh|mubarraz|jebel dhanna", "جزیره داس|زرکوه|زیرکو|مبرز|جبل الظنه"),
+    ("hamriyah", "sharjah", r"hamriyah|sajaa (?:gas)?", "الحمریه|حمریه"),
+    # Oman
+    ("duqm_refinery", "muscat", r"duqm (?:oil )?(?:refinery|port|terminal|storage)|ras markaz", "پالایشگاه دقم|بندر دقم|راس مرکز"),
+    ("sohar_plant", "muscat", r"sohar (?:oil )?(?:refinery|port|terminal|industrial|aluminium|aluminum)",
+     "پالایشگاه صحار|بندر صحار"),
+    ("mina_fahal", "muscat", r"mina al[- ]?fahal", "مینا الفحل|میناء الفحل"),
+    ("salalah_port", "muscat", r"salalah port|port of salalah", "بندر صلاله"),
+    ("oman_lng", "muscat", r"oman lng|qalhat", "قلهات|ال ان جی عمان"),
+    # Qatar, Kuwait, Iraq
+    ("mesaieed", "qatar", r"mesaieed|umm said|dukhan", "مسیعید|ام سعید|دخان"),
+    ("zour", "kuwait", r"al-?zour (?:refinery|terminal|plant)|az-?zour", "پالایشگاه الزور|پالایشگاه زور"),
+    ("basra_oil", "basra", r"rumaila|west qurna|majnoon|zubair (?:oil )?field|basra (?:oil )?terminal|basrah oil terminal",
+     "رمیله|غرب قرنه|مجنون|میدان زبیر|پایانه نفتی بصره"),
 ]
+# Where a long pipeline runs: a city of its route named with it («خط لوله شرق به غرب در منطقه مدینه») is a place
+# along the pipeline, not another attack. A pipeline's country stands for its city in gulf_mark.
+_ROUTES = {"ew_pipeline": ("sa", frozenset({"medina", "yanbu"})),
+           "adcop": ("ae", frozenset({"abu_dhabi", "fujairah"}))}
 _TARGET_EN = [(k, c, re.compile(r"\b(?:" + e + r")", _I)) for k, c, e, _ in _TARGETS]
 _TARGET_FA = [(k, c, re.compile(_w(f))) for k, c, _, f in _TARGETS]
 
@@ -537,7 +580,11 @@ def _gulf_places(t, fa):
         t = _GULF_NOT_EN.sub(" ", t)
         cities = {k for k, rx in _GULF_EN_RX.items() if rx.search(t)}
         land = {k for k, rx in _GULF_LAND_EN.items() if rx.search(t)}
-    cities |= _target_cities(gulf_targets(t, fa, cities))     # «فرودگاه ملک خالد»: Riyadh
+    targets = gulf_targets(t, fa, cities)
+    cities |= _target_cities(targets)                         # «فرودگاه ملک خالد»: Riyadh
+    for k in targets & _ROUTES.keys():                        # a long pipeline: its country; a city of its route
+        land.add(_ROUTES[k][0])                               # named with it is a place along it
+        cities -= _ROUTES[k][1] - _target_cities(targets)
     return cities, land | {_GULF_CTRY[c] for c in cities}
 
 
@@ -681,6 +728,7 @@ def gulf_mark(title, lang="en"):
         return None                      # threats, reactions, talks, markets, analysis
     if r["toll"].search(t) or r["tally"].search(t):
         return None                      # casualty figures and counts (mostly of Saudi strikes on Yemen)
-    if not cities and not (r["intercept"] if fa else _CAUGHT_EN).search(t):
-        return None                      # the country alone: only an interception over it ("over Saudi airspace")
+    if not cities and not targets and not (r["intercept"] if fa else _CAUGHT_EN).search(t):
+        return None                      # the country alone: only an interception over it ("over Saudi airspace");
+                                         # a long pipeline named stands for a place
     return "attack", frozenset(cities), frozenset(ctry), targets, later, None, False
