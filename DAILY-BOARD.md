@@ -58,15 +58,14 @@ Map only: what and where, plus the intent that must not drift. Thresholds, windo
 | Tension index, direct strikes (one strike counted once), lights (deployment/ultimatum only from a headline, `tf`) | `index.py` → `index_value`, `direct_strikes`, `distinct`, `_live`, `_sea_war`, `pressure`, `compute_lights`; `classify.py` sets `item["tf"]` |
 | Citizen reports (witness): `places_in` reads front_places too, `cities_in` (bulletin) only witness.CITIES | `witness.py` → `parse`, `places_in`, `place_name` |
 | X posts (manual screenshots in `engine/xmanual/posts.json`) | `xposts.py` |
-| Israel election; US midterms (AP feed) | `election.py`, `uselection.py` → branches `election`, `uselection` |
 
-Workflows: `live.yml` (news engine; push on `engine/**` restarts it), `election.yml`, `uselection.yml`, `ticker.yml`,
-`news.yml`, `assets.yml`. Files at the repo root and in `docs/` don't trigger the engine.
+Workflows: `live.yml` (news engine; push on `engine/**` restarts it), `ticker.yml`, `news.yml`,
+`assets.yml`. Files at the repo root and in `docs/` don't trigger the engine.
 
 ## App (docs/)
 `app.js` sections (search the banner comments `// ---- name`): strings (fa/en dicts), stories, story tray,
-Israel's election, the US midterms, main front (flash), sheet, map, X, Economist, refresh loop, what's new.
-Styles in `app.css` (US story at the end). Map shapes: `docs/us-states.json`. Version: `APP_REL`, `APP_BUILD`
+main front (flash), sheet, map, X, Economist, refresh loop, what's new.
+Styles in `app.css`. Version: `APP_REL`, `APP_BUILD`
 in `app.js`; `?v=N` in `index.html`; `SHELL` in `sw.js`; `docs/release.json` (`v` = popup, `build` = silent).
 
 ## Procedures
