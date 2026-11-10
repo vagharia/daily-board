@@ -79,6 +79,15 @@ _OTHER_FA = re.compile(fa_norm("لبنان|بیروت|غزه|سوریه|دمشق
 _OTHER_EN = re.compile(r"\b(leban\w*|beirut|gaza|syria\w*|damascus|yemen\w*|sanaa|houthis?|iraq\w*|baghdad|erbil|saudi"
                        r"|riyadh|jordan\w*|west bank|ukrain\w*|russia\w*|kyiv)\b", re.I)
 
+# "destroyed" is air defence only for something in the air ("پهپاد متخاصم منهدم شد", "drone destroyed"), not for
+# a site or a system on the ground or at sea ("انهدام سامانه‌های کمک‌ناوبری…")
+_AIR_FA = fa_norm("(?:پهپاد|ریزپرنده|پرنده|موشک|کروز|جنگنده|هواپیما|بالگرد|هلیکوپتر|شی پرنده|شیء پرنده|اف ۳۵|اف-۳۵|اف ۱۶)")
+_DESTROYED_AIR_FA = (fa_norm("(?:منهدم|انهدام)") + r"[^.؛:،]{0,30}?" + _AIR_FA + "|" + _AIR_FA
+                     + r"[^.؛:،]{0,40}?" + fa_norm("(?:منهدم|انهدام)"))
+_AIR_EN = r"(?:drones?|uavs?|missiles?|rockets?|jets?|aircraft|planes?|helicopters?|f-35s?|f-16s?|projectiles?)"
+_DESTROYED_AIR_EN = (r"\bdestroy(?:s|ed|ing)?\b[^.;:]{0,30}?\b" + _AIR_EN + r"\b|\b" + _AIR_EN
+                     + r"\b[^.;:]{0,40}?\bdestroy(?:s|ed)?\b")
+
 # the steps, strongest first; each with the words that tell it (Persian and English headlines)
 _STEPS = [
     (4, "blast", fa_norm("انفجار|منفجر|اصابت|صدای مهیب|موج انفجار"),
@@ -89,8 +98,8 @@ _STEPS = [
     (3, "launch", fa_norm("پرتاب موشک|شلیک موشک|موشک ها شلیک|موشک ها پرتاب|موشک پرتاب|موشک شلیک|پرتاب شد|شلیک شد"),
      r"\b(launch(ed|es|ing)?|fires?|fired|firing)\b[^.;]{0,25}\bmissiles?\b|\bmissiles?\b[^.;]{0,20}\b(launch(ed|es)?"
      r"|fired)\b|\bmissile launch(es)?\b"),
-    (2, "airdef", fa_norm("پدافند|ضدهوایی|ضد هوایی|رهگیری|رهگیر|منهدم|سرنگون|انهدام|شکار"),
-     r"\b(air defen[cs]es?|anti-aircraft|intercept\w*|shot down|shoots? down|downed|destroy(?:s|ed)?)\b"),
+    (2, "airdef", fa_norm("پدافند|ضدهوایی|ضد هوایی|رهگیری|رهگیر|سرنگون|شکار") + "|" + _DESTROYED_AIR_FA,
+     r"\b(air defen[cs]es?|anti-aircraft|intercept\w*|shot down|shoots? down|downed)\b|" + _DESTROYED_AIR_EN),
     (1, "jet", fa_norm("جنگنده|جت|هواپیمای نظامی|دیوار صوتی"), r"\b(fighter jets?|warplanes?|jets?|sonic boom)\b"),
     (1, "drone", fa_norm("پهپاد|ریزپرنده"), r"\b(drones?|uavs?)\b"),
     (1, "siren", fa_norm("آژیر|اژیر"), r"\bsirens?\b"),
@@ -579,9 +588,12 @@ _NEWS_NOT = {"analysis", "speculative", "quote", "reaction", "denial", "past", "
 _LIVE_HEAD = re.compile(r"\blive\b|\bwhat we know\b|\bexplainer\b|\brecap\b|\bround-?up\b|\bmore on\b"
                         r"|\bquestions?\b|\bwhat(?:'s| is) (?:ahead|next)\b|\bwhat (?:it|this) means\b|^\W*(?:watch|video)\b",
                         re.I)
-# a video of the moment published later ("ببینید/ لحظه رهگیری…", "فیلم/ …", "سپاه ویدئوی لحظه انهدام… را منتشر کرد")
+# a video of the moment published later ("ببینید/ لحظه رهگیری…", "فیلم/ …", "سپاه ویدئوی لحظه انهدام… را منتشر کرد",
+# "انهدام سامانه‌های… + فیلم")
 _VIDEO_FA = re.compile(r"^\W*" + fa_norm("(?:ببینید|فیلم|ویدئو|ویدیو|ویدئوی|کلیپ|تصاویر|تصویری|تصویر|عکس|لحظه)")
-                       + "|" + fa_norm("(?:ویدئو|ویدیو|فیلم|تصاویر|کلیپ)\\S*\\s+(?:\\S+\\s+){0,1}لحظه"))
+                       + "|" + fa_norm("(?:ویدئو|ویدیو|فیلم|تصاویر|کلیپ)\\S*\\s+(?:\\S+\\s+){0,1}لحظه")
+                       # "… + فیلم", "… (ویدئو)", "…/ تصاویر" at the end of the headline
+                       + r"|[+＋(\[/|-]\s*" + fa_norm("(?:فیلم|ویدئو|ویدیو|کلیپ|تصاویر|عکس|تصویر)") + r"\s*[)\]]?\W*$")
 _PREP_EN = r"(?:in|at|near|over|off|outside|across|around|into|onto|towards?|on|of|hit|hits|struck|strikes? on|attacks? on)"
 _PREP_FA = fa_norm("(?:در|به|نزدیک|بر فراز|حوالی|اطراف|سمت|سوی|شهر|جزیره|بندر|تنگه|آسمان|انفجار|حمله|اصابت|پایگاه)")
 
