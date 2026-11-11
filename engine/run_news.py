@@ -355,6 +355,14 @@ def news_round(full=True):
         misc["tg_cut"] = 2
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
+    if misc.get("verb_attack") != 1:
+        # once, when attacks told with the verb were first read (attack_verb.py): stories they turn red now are
+        # old news, so no alert goes for them; new reports alert as usual
+        sent = alerts_state.setdefault("sent", [])
+        old_red = [c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent]
+        sent.extend(old_red)
+        misc["verb_attack"] = 1
+        log(f"attacks told with a verb: {len(old_red)} stories already red, marked as sent")
     if misc.get("live_fix") != 1:
         log(f"live-page reports retimed: {fix_live_pages(clusters, seen)}")
         misc["live_fix"] = 1

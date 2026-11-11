@@ -14,6 +14,7 @@ from .classify_fa import STRONG as STRONG_FA, score_fa
 from . import cause, scheduled
 from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
+from .attack_verb import actor_strikes_en
 from .mishap import air_nature, border_only, mishap
 from .strike_sense import calm_en
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
@@ -203,6 +204,7 @@ PATTERNS = [
 ]
 
 KINETIC_BASE = 70
+VERB_ATTACK = 76            # attack_verb: an actor striking a place or a target, as "strikes on …"
 
 POWERS_SOFT_CAP = 40.0
 CABLE_THREAT_SEV, CABLE_CUT_SEV, CABLE_ATTACK_SEV = 60.0, 64.0, 72.0
@@ -1343,6 +1345,12 @@ def score_en(title: str, summary: str):
         topics |= tp
         flags |= fl
         best = max(best, val)
+    if actor_strikes_en(t):
+        # an actor of the war striking a place or a target, told with the verb ("US strikes Iran's Qeshm Island",
+        # "Iran strikes Kurdish region of Iraq"): an attack, as strong as "strikes on …" (attack_verb.py)
+        best, title_best, kinetic_in_title = max(best, VERB_ATTACK), max(title_best, VERB_ATTACK), True
+        topics.add("military")
+        flags.add("kinetic")
     if best == 0:
         best = 22.0
     if DENIAL.search(t) and best >= 45:

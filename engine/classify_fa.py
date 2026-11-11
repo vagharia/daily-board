@@ -6,10 +6,12 @@ threats and plans, quotes, reactions, questions, analysis, past events, denials,
 speeches. The English translation is never scored for a Persian report."""
 import re
 
+from .attack_verb import actor_strikes_fa
 from .strike_sense import calm_fa
 from .util import fa_norm, to_latin_digits
 
 KINETIC_BASE = 70
+VERB_ATTACK = 74            # attack_verb: as «حمله … به ایران»
 HARD_EVENTS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
 # letters, not ، ؛ ؟ or digits; written as regex escapes so that normalising a pattern (R) can't alter the class
 _L = r"\u0621-\u063A\u0641-\u065F\u066E-\u06D3\u06D5\u06EE\u06EF\u06FA-\u06FF"
@@ -423,6 +425,12 @@ def score_fa(title: str, summary: str):
         topics |= tp
         flags |= fl
         best = max(best, val)
+    if actor_strikes_fa(t):
+        # an actor of the war striking a place or a target («حمله اسرائیل به جنوب لبنان»، «آمریکا جزیره قشم را هدف
+        # قرار داد»، «قشم هدف حمله آمریکا قرار گرفت»): an attack, as strong as «حمله … به ایران» (attack_verb.py)
+        best, title_best, kinetic_in_title = max(best, VERB_ATTACK), max(title_best, VERB_ATTACK), True
+        topics.add("military")
+        flags.add("kinetic")
     if best == 0:
         best = 22.0
     strong = bool(STRONG.search(t)) and not FUTURE_ACT.search(t)
