@@ -241,3 +241,38 @@ def far_nature(lang, t, s=""):
     lead = tt + " " + first_sentences(s or "", 200)
     return bool(_NATURE_EN.search(tt)) and not _REGION_EN.search(lead) and not _ROAD_WAR_EN.search(lead) \
         and not _FAR_WAR_EN.search(lead)
+
+
+# ------------------------------------------------------------------ flights stopped by nature
+# Flights halted or an airport shut by an earthquake, a storm, fog or snow ("earthquake briefly halts flights at
+# Israel's Ramon Airport", «تعلیق پروازها در فرودگاه رامون پس از زمین‌لرزه»): no airspace event of the war, so no
+# airspace flag and no airspace lamp. A word of the war in the headline or the first sentence leaves it as it is.
+_AIR_NATURE_EN = re.compile(
+    r"\b(earthquakes?|quakes?|tremors?|aftershocks?|seismic|storms?|sandstorms?|dust ?storms?|snow\w*|blizzards?"
+    r"|fog|floods?|flooding|volcan\w*|ash cloud|heavy rain|bad weather|weather)\b", I)
+_AIR_WAR_EN = re.compile(
+    r"\b(attack\w*|strikes?|struck|air ?strikes?|drones?|uavs?|missiles?|rockets?|bomb\w*|intercept\w*|shell\w*"
+    r"|war|warplanes?|military|army|troops|irgc|hezbollah|houthis?|hostile|threat\w*|security|escalat\w*"
+    r"|retaliat\w*|gps|jamming|spoof\w*|explo\w+|blasts?)\b", I)
+_NATURE_VERB_EN = re.compile(
+    r"\b(earthquakes?|quakes?|tremors?|aftershocks?|storms?|sandstorms?|dust ?storms?|blizzards?|floods?)"
+    r"(\s+(that|which))?\s+(strikes?|struck|hits?|rock\w*|jolt\w*)\b", I)
+_AIR_NATURE_FA = fa_rx(["زلزله", "زمین لرزه", "پس لرزه", "لرزه", "طوفان", "توفان", "گرد و غبار", "گردوغبار",
+                        "ریزگرد", "مه گرفتگی", "مه غلیظ", "برف", "کولاک", "سیل$", "سیلاب", "آتشفشان",
+                        "شرایط جوی", "وضعیت جوی", "آب و هوا", "بارندگی"])
+_AIR_WAR_FA = fa_rx(["حمله", "حملات", "پهپاد", "موشک", "بمب", "رهگیری", "پدافند", "اصابت", "شلیک", "جنگ$",
+                     "جنگنده", "نظامی", "سپاه", "ارتش", "حزب الله", "حوثی", "انصارالله", "تهدید", "امنیتی",
+                     "تنش", "انتقام", "انفجار", "جی پی اس", "اختلال"])
+
+
+def air_nature(lang, t, s=""):
+    """Flights or an airport stopped by an earthquake or the weather, with no word of the war."""
+    if lang == "fa":
+        tt = fa_norm(t or "")
+        lead = tt + " " + fa_norm(first_sentences(s or "", 200))
+        return bool(_AIR_NATURE_FA.search(lead)) and not _AIR_WAR_FA.search(lead)
+    tt = t or ""
+    lead = tt + " " + first_sentences(s or "", 200)
+    # "earthquake strikes Gulf of Aqaba", "storm hit": the quake's verb, not an attack
+    calm = _NATURE_VERB_EN.sub(" ", lead)
+    return bool(_AIR_NATURE_EN.search(lead)) and not _AIR_WAR_EN.search(calm)

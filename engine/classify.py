@@ -14,7 +14,7 @@ from .classify_fa import STRONG as STRONG_FA, score_fa
 from . import cause, scheduled
 from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
-from .mishap import border_only, mishap
+from .mishap import air_nature, border_only, mishap
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
 from .util import fa_norm, first_sentences, strip_dateline, to_latin_digits
 
@@ -1594,6 +1594,10 @@ def classify(item):
         # news of the war, yellow whatever the toll (mishap.py)
         flags = (set(flags) - HARD_EVENTS - {"threat"}) | {"domestic", "accident"}
         topics = set(topics) - {"military"}
+        sev = min(sev, MISHAP_CAP)
+    if "airspace" in flags and air_nature(lang, fa_t or en_t, fa_s or en_s):
+        # flights or an airport stopped by an earthquake or the weather: no airspace event, no airspace lamp
+        flags = (set(flags) - {"airspace"}) | {"accident"}
         sev = min(sev, MISHAP_CAP)
     if border_only(lang, fa_t or en_t) == "violent":
         # clashes or an attack in a neighbouring country, Iran named only as the border it is near ("clashes in
