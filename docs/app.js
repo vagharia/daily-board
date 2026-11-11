@@ -22,9 +22,9 @@
     set: function (k, v) { try { localStorage.setItem('db.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   };
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
-  var APP_REL = 23;
+  var APP_REL = 24;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 35;
+  var APP_BUILD = 36;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -85,9 +85,9 @@
       xGeo: 'سیاسی و نظامی', xEcon: 'نفت و طلا', xNote: 'ایکس API رایگان ندارد؛ این‌ها پست‌های حساب‌های معتبرند که رسانه‌های معتبر نقل کرده‌اند، به‌علاوه پست‌های تروث‌سوشال ترامپ.',
       xEmpty: 'هنوز پستی از حساب‌های منتخب ثبت نشده. با هر به‌روزرسانی اضافه می‌شود.', cites: '{n} رسانه نقل کرده', openX: 'باز کردن', telegram: 'تلگرام',
       newRed: 'خبر خیلی مهم جدید', refreshed: 'به‌روز شد', loading: 'در حال دریافت…', stories: '{n} خبر',
-      tEcon: 'اکونومیست', ecIssue: 'شماره‌ی {d}', ecCount: '{n} مطلب برگزیده', ecImpact: 'اثرات',
-      ecRead: 'متن کامل در سایت اکونومیست', ecPage: 'صفحه‌ی {n}', ecEmpty: 'این هفته در اکونومیست مطلبی برای دسته‌ی «{c}» نبود.',
-      ecTierEmpty: 'با این سطح‌ها مطلبی نیست.', ecNone: 'هنوز شماره‌ای از اکونومیست ثبت نشده.',
+      tEcon: 'اکونومیست', ecIssue: 'شماره‌ی {d}', ecCount: '{n} مطلب برگزیده، به ترتیب مجله', ecImpact: 'اثرات', ecAll: 'همه',
+      ecRead: 'متن کامل در سایت اکونومیست', ecPage: 'صفحه‌ی {n}', ecEmpty: 'این هفته در اکونومیست مطلبی برای «{c}» نبود.',
+      ecNone: 'هنوز شماره‌ای از اکونومیست ثبت نشده.',
       ecNote: 'خلاصه‌ها برداشت آزاد از مقاله‌هاست، نه ترجمه‌ی متن کامل. تصویرها پیش‌نمایش خود سایت اکونومیست‌اند.',
       cats: { tanker: 'سوخت‌رسان', isr: 'شناسایی', bomber: 'بمب‌افکن', transport: 'ترابری', other: 'سایر' }
     },
@@ -144,9 +144,9 @@
       xGeo: 'Politics & military', xEcon: 'Oil & gold', xNote: 'X has no free API; these are posts from credible accounts cited by reputable media, plus Trump\'s Truth Social posts.',
       xEmpty: 'No posts from the selected accounts yet. They are added with each update.', cites: 'cited by {n} outlets', openX: 'Open', telegram: 'Telegram',
       newRed: 'New critical story', refreshed: 'Updated', loading: 'Loading…', stories: '{n} stories',
-      tEcon: 'Economist', ecIssue: 'Issue of {d}', ecCount: '{n} selected articles', ecImpact: 'Why it matters',
+      tEcon: 'Economist', ecIssue: 'Issue of {d}', ecCount: '{n} selected articles, in magazine order', ecImpact: 'Why it matters', ecAll: 'All',
       ecRead: 'Read on economist.com', ecPage: 'p. {n}', ecEmpty: 'No Economist article for “{c}” this week.',
-      ecTierEmpty: 'No articles at these levels.', ecNone: 'No Economist issue yet.',
+      ecNone: 'No Economist issue yet.',
       ecNote: 'Summaries are free paraphrases, not translations. Pictures are the site’s own previews.',
       cats: { tanker: 'Tankers', isr: 'ISR', bomber: 'Bombers', transport: 'Transport', other: 'Other' }
     }
@@ -180,22 +180,23 @@
     TIER_ORDER.forEach(function (k) { out[k] = v && typeof v[k] === 'boolean' ? v[k] : def[k]; });
     return out.red || out.orange || out.yellow ? out : Object.assign({}, def);
   }
-  // the Economist tab: five fixed categories (one may be empty in a given week), sections of the magazine
-  var EC_CATS = ['pol', 'gold', 'oil', 'money', 'ai'];
-  var EC_CAT = { pol: ['سیاسی و نظامی', 'Politics & military', 'shield'], gold: ['طلا', 'Gold', 'gold'], oil: ['نفت', 'Oil', 'drop'],
-    money: ['پولی و بانکی', 'Money & banking', 'bank'], ai: ['هوش مصنوعی', 'AI', 'chip'] };
-  var EC_SEC = { leaders: ['سرمقاله', 'Leaders'], briefing: ['گزارش ویژه', 'Briefing'], wtw: ['رویدادهای هفته', 'The world this week'],
+  // the Economist tab: fixed categories (one may be empty in a given week), shown as tags on each article and used as a
+  // filter; sections of the magazine
+  var EC_CATS = ['mil', 'pol', 'oil', 'commod', 'money', 'ai', 'cyber'];
+  var EC_CAT = { mil: ['نظامی', 'Military', 'crosshair'], pol: ['سیاسی', 'Politics', 'globe'], oil: ['نفت و انرژی', 'Oil & energy', 'drop'],
+    commod: ['کامودیتی', 'Commodities', 'gold'], money: ['پولی و بانکی', 'Money & banking', 'bank'], ai: ['هوش مصنوعی', 'AI', 'chip'],
+    cyber: ['سایبری', 'Cyber', 'lock'] };
+  var EC_SEC = { leaders: ['سرمقاله', 'Leaders'], briefing: ['گزارش ویژه', 'Briefing'], inv: ['یادداشت مهمان', 'By Invitation'], wtw: ['رویدادهای هفته', 'The world this week'],
     us: ['آمریکا', 'United States'], americas: ['قاره‌ی آمریکا', 'The Americas'], asia: ['آسیا', 'Asia'], china: ['چین', 'China'],
     mea: ['خاورمیانه و آفریقا', 'Middle East & Africa'], europe: ['اروپا', 'Europe'], britain: ['بریتانیا', 'Britain'],
     intl: ['بین‌الملل', 'International'], business: ['کسب‌وکار', 'Business'], finance: ['مالی و اقتصاد', 'Finance & economics'],
     science: ['علم و فناوری', 'Science & technology'], culture: ['فرهنگ', 'Culture'] };
-  var EC_TIERS = { red: true, orange: true, yellow: true };
 
   // ------------------------------------------------------------------ state
   var S = {
     lang: store.get('lang', 'fa'), tab: 'news', range: store.get('range', '24h'), tiers: savedTiers(), topic: null, ctry: null,
     ppl: null, sort: store.get('sort', 'time'), q: '', xseg: 'geo', layers: { news: true },
-    econCat: store.get('econCat', 'pol'), econTiers: savedTiers('econTiers', EC_TIERS),
+    econSel: (function (v) { return Array.isArray(v) ? v.filter(function (k) { return EC_CATS.indexOf(k) >= 0; }) : []; })(store.get('econSel', [])),
     sound: store.get('sound', true), d: { ticker: null, signals: null, news24: null, newsWeek: null, x: null, health: null, econ: null },
     seen: null, newIds: {}, shown: 0, list: [], gaugeSet: false, mapData: null, offline: false, origX: {},
     lite: !!store.get('lite', false), theme: store.get('theme', 'dark')
@@ -1287,14 +1288,16 @@
   }
 
   // ------------------------------------------------------------------ Economist
-  // The week's issue, summarised by hand into five categories; politics also has red / orange / yellow levels.
-  // Each card links to the article; its picture is the site's own preview, with a news-search thumbnail as backup.
+  // The week's issue, summarised by hand: the chosen articles in the magazine's own order, each tagged with one or more
+  // categories. The category bar filters (any of the chosen categories; none chosen = all). Each card links to the
+  // article; its picture is the site's own preview, or the category icon when there is none.
   function issueDate(s) {
     var d = new Date(String(s) + 'T12:00:00Z');
     if (isNaN(d)) return s || '';
     return new Intl.DateTimeFormat(LOC(), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
   }
   function ecLabel(k) { return L() === 'fa' ? EC_CAT[k][0] : EC_CAT[k][1]; }
+  function ecTags(a) { return (a.tags || []).filter(function (k) { return EC_CAT[k]; }); }
   window.ecImgFail = function (img) {
     var alt = img.getAttribute('data-alt');
     if (alt) { img.removeAttribute('data-alt'); img.src = alt; return; }
@@ -1305,64 +1308,54 @@
       box.insertAdjacentHTML('beforeend', ic((EC_CAT[box.getAttribute('data-cat')] || EC_CAT.pol)[2], 'ec-glyph'));
     }
   };
-  function ecCard(a, cat) {
+  function ecCard(a) {
     var x = a[L()] && a[L()].t ? a[L()] : a.fa;
-    var tier = cat === 'pol' && TIER_ORDER.indexOf(a.tier) >= 0 ? a.tier : null;
-    var tag = tier ? '<span class="s-tag"><i class="t-dot ' + tier + '"></i>' + esc(t(tier)) + '</span>' : '';
+    var tags = ecTags(a), cat = tags[0] || 'pol';
     var src = a.img || a.alt;
     var pic = src
       ? '<div class="ec-pic" data-cat="' + cat + '"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + esc(src) + '"' +
-        (a.img && a.alt ? ' data-alt="' + esc(a.alt) + '"' : '') + ' alt="" onerror="ecImgFail(this)">' + tag + '</div>'
-      : '<div class="ec-pic noimg" data-cat="' + cat + '">' + tag + ic(EC_CAT[cat][2], 'ec-glyph') + '</div>';
+        (a.img && a.alt ? ' data-alt="' + esc(a.alt) + '"' : '') + ' alt="" onerror="ecImgFail(this)"></div>'
+      : '<div class="ec-pic noimg" data-cat="' + cat + '">' + ic(EC_CAT[cat][2], 'ec-glyph') + '</div>';
     var sec = EC_SEC[a.sec] ? pick(EC_SEC[a.sec]) : '';
     var col = a.col ? (L() === 'fa' ? a.col.fa : a.col.en) : '';
     var kick = '<div class="ec-kick">' + (sec ? '<b>' + esc(sec) + '</b>' : '') + (col ? '<span>' + esc(col) + '</span>' : '') +
       (a.page ? '<span class="pg">' + esc(t('ecPage', { n: nfmt(a.page) })) + '</span>' : '') + '</div>';
+    var tagRow = tags.length ? '<div class="ec-tags">' + tags.map(function (k) {
+      return '<span class="ec-tag' + (S.econSel.indexOf(k) >= 0 ? ' on' : '') + '">' + ic(EC_CAT[k][2], 'ic-sm') + esc(ecLabel(k)) + '</span>';
+    }).join('') + '</div>' : '';
     var paras = String(x.s || '').split(/\n\s*\n/).map(function (p) { return '<p>' + esc(p.trim()) + '</p>'; }).join('');
     var imp = x.i ? '<div class="ec-impact"><b>' + ic('signal', 'ic-sm') + esc(t('ecImpact')) + '</b><p>' + esc(x.i) + '</p></div>' : '';
-    return '<article class="ec-card' + (tier ? ' t-' + tier : '') + '">' + pic + '<div class="ec-body">' + kick +
+    return '<article class="ec-card">' + pic + '<div class="ec-body">' + kick + tagRow +
       '<h3 class="ec-title">' + esc(x.t) + '</h3><div class="ec-sum">' + paras + '</div>' + imp +
       '<a class="ec-link" href="' + esc(a.url) + '" target="_blank" rel="noopener noreferrer">' + esc(t('ecRead')) + ic('ext', 'ic-sm') + '</a></div></article>';
   }
   function renderEcon() {
-    var d = S.d.econ, feed = $('#ecFeed'), tiers = $('#ecTiers');
+    var d = S.d.econ, feed = $('#ecFeed');
     if (!d || !d.articles) {
-      $('#ecHead').innerHTML = ''; $('#ecCats').innerHTML = ''; tiers.hidden = true;
+      $('#ecHead').innerHTML = ''; $('#ecCats').innerHTML = '';
       feed.innerHTML = S.offline ? '<div class="empty">' + ic('offline') + '<p>' + esc(t('offline')) + '</p></div>'
         : S.econTried ? '<div class="empty">' + ic('book') + '<p>' + esc(t('ecNone')) + '</p></div>' : skeleton();
       return;
     }
-    var byId = {};
-    d.articles.forEach(function (a) { byId[a.id] = a; });
-    var ids = function (k) { return ((d.cats || {})[k] || []).filter(function (id) { return byId[id]; }); };
-    if (EC_CATS.indexOf(S.econCat) < 0) S.econCat = 'pol';
+    var arts = d.articles.filter(function (a) { return a && a.id; });
+    var count = function (k) { return arts.filter(function (a) { return ecTags(a).indexOf(k) >= 0; }).length; };
+    var sel = S.econSel;
     $('#ecHead').innerHTML = '<span class="ec-mark">' + ic('book') + '</span><div><b>' + esc(t('ecIssue', { d: issueDate(d.issue) })) + '</b>' +
-      '<span>' + esc(t('ecCount', { n: nfmt(d.articles.length) })) + '</span></div>';
-    $('#ecCats').innerHTML = EC_CATS.map(function (k) {
-      var n = ids(k).length, on = S.econCat === k;
-      return '<button class="ec-cat' + (on ? ' on' : '') + (n ? '' : ' empty') + '" data-ecat="' + k + '" role="tab" aria-selected="' + on + '">' +
-        ic(EC_CAT[k][2]) + '<span>' + esc(ecLabel(k)) + '</span>' + (n ? '<b>' + nfmt(n) + '</b>' : '') + '</button>';
-    }).join('');
-    var all = ids(S.econCat).map(function (id) { return byId[id]; }), list = all;
-    if (S.econCat === 'pol' && all.length) {
-      var counts = { red: 0, orange: 0, yellow: 0 };
-      all.forEach(function (a) { if (counts[a.tier] != null) counts[a.tier]++; });
-      tiers.innerHTML = TIER_ORDER.map(function (k) {
-        var on = !!S.econTiers[k];
-        return '<button class="chip chip--tier' + (on ? ' on' : '') + '" data-etier="' + k + '" aria-pressed="' + on + '"><i class="t-dot ' + k + '"></i>' +
-          esc(t(k)) + ' <b>' + nfmt(counts[k]) + '</b></button>';
+      '<span>' + esc(t('ecCount', { n: nfmt(arts.length) })) + '</span></div>';
+    $('#ecCats').innerHTML = '<button class="ec-cat' + (sel.length ? '' : ' on') + '" data-ecat="" aria-pressed="' + !sel.length + '">' +
+      ic('layers') + '<span>' + esc(t('ecAll')) + '</span><b>' + nfmt(arts.length) + '</b></button>' +
+      EC_CATS.map(function (k) {
+        var n = count(k), on = sel.indexOf(k) >= 0;
+        return '<button class="ec-cat' + (on ? ' on' : '') + (n ? '' : ' empty') + '" data-ecat="' + k + '" aria-pressed="' + on + '">' +
+          ic(EC_CAT[k][2]) + '<span>' + esc(ecLabel(k)) + '</span>' + (n ? '<b>' + nfmt(n) + '</b>' : '') + '</button>';
       }).join('');
-      tiers.hidden = false;
-      list = all.filter(function (a) { return TIER_ORDER.indexOf(a.tier) < 0 || S.econTiers[a.tier]; });
-      list = TIER_ORDER.reduce(function (acc, k) { return acc.concat(list.filter(function (a) { return a.tier === k; })); },
-        list.filter(function (a) { return TIER_ORDER.indexOf(a.tier) < 0; }));
-    } else tiers.hidden = true;
+    var list = sel.length ? arts.filter(function (a) { return ecTags(a).some(function (k) { return sel.indexOf(k) >= 0; }); }) : arts;
     if (!list.length) {
-      feed.innerHTML = '<div class="empty">' + ic(EC_CAT[S.econCat][2]) + '<p>' +
-        esc(all.length ? t('ecTierEmpty') : t('ecEmpty', { c: ecLabel(S.econCat) })) + '</p></div>';
+      feed.innerHTML = '<div class="empty">' + ic(EC_CAT[sel[0]] ? EC_CAT[sel[0]][2] : 'book') + '<p>' +
+        esc(t('ecEmpty', { c: sel.map(ecLabel).join(L() === 'fa' ? '، ' : ', ') })) + '</p></div>';
       return;
     }
-    feed.innerHTML = list.map(function (a) { return ecCard(a, S.econCat); }).join('') + '<p class="ec-note">' + esc(t('ecNote')) + '</p>';
+    feed.innerHTML = list.map(ecCard).join('') + '<p class="ec-note">' + esc(t('ecNote')) + '</p>';
   }
   // a dot on the tab until this browser has opened the current issue
   function econDot() {
@@ -1508,16 +1501,14 @@
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
     if ((el = e.target.closest('[data-ecat]'))) {
-      S.econCat = el.dataset.ecat; store.set('econCat', S.econCat); renderEcon();
+      var k = el.dataset.ecat, es = S.econSel.slice(), at = es.indexOf(k);
+      if (!k) es = [];                                              // "All"
+      else if (at >= 0) es.splice(at, 1);
+      else es.push(k);
+      S.econSel = es; store.set('econSel', es); renderEcon();
       var top = $('#pane-econ').offsetTop - 64;
       if (window.scrollY > top) window.scrollTo(0, top);
       return;
-    }
-    if ((el = e.target.closest('[data-etier]'))) {
-      var et = Object.assign({}, S.econTiers);
-      et[el.dataset.etier] = !et[el.dataset.etier];
-      if (!et.red && !et.orange && !et.yellow) return;              // at least one level stays on
-      S.econTiers = et; store.set('econTiers', et); renderEcon(); return;
     }
     if ((el = e.target.closest('[data-tier]'))) {
       var nt = Object.assign({}, S.tiers);

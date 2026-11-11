@@ -1,8 +1,9 @@
 """The weekly Economist tab.
 
 Each week's issue is read and summarised by hand into engine/economist/issue.json: only the articles that bear on
-politics and war, gold, oil, money and banking, or AI, each with a one- or two-paragraph summary and its likely
-effects, in Persian and English (see engine/economist/README.md). This step adds what has to be looked up online,
+the tab's categories (military, politics, oil and energy, commodities, money and banking, AI, cyber), in the
+magazine's own order, each tagged with its categories and given a short summary and its likely effects, in Persian
+and English (see engine/economist/README.md). This step adds what has to be looked up online,
 the article's preview picture, and publishes economist.json for the app.
 
 The Economist's article pages turn away requests from cloud machines, so the lead picture is read from a public
@@ -21,8 +22,7 @@ from .http import parallel
 from .util import data_path, load_json, log, save_json
 
 ISSUE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "economist", "issue.json")
-CATS = ("pol", "gold", "oil", "money", "ai")
-TIERS = ("red", "orange", "yellow")
+CATS = ("mil", "pol", "oil", "commod", "money", "ai", "cyber")
 PER_ROUND = 8               # articles looked up per round, so a round never holds up the news
 # each article is looked up once per issue; a picture not found then is left out (the card shows its icon instead)
 WIDTH = 960                 # picture width asked from The Economist's image service
@@ -84,15 +84,10 @@ def _check(issue):
                 probs.append(f"{a.get('id')}: no {lang} title or summary")
         if not str(a.get("url", "")).startswith("https://www.economist.com/"):
             probs.append(f"{a.get('id')}: no Economist link")
-    cats = issue.get("cats") or {}
-    for k, lst in cats.items():
-        if k not in CATS:
-            probs.append(f"unknown category {k}")
-        probs += [f"{k}: unknown article {i}" for i in lst if i not in ids]
-    for i in cats.get("pol", []):
-        a = next((x for x in issue.get("articles", []) if x.get("id") == i), {})
-        if a and a.get("tier") not in TIERS:
-            probs.append(f"{i}: politics article without a red/orange/yellow tier")
+        tags = a.get("tags") or []
+        if not tags:
+            probs.append(f"{a.get('id')}: no category tag")
+        probs += [f"{a.get('id')}: unknown category {k}" for k in tags if k not in CATS]
     return probs
 
 
@@ -119,17 +114,16 @@ def update(misc, t):
         if not a.get("id"):
             continue
         p = pics.get(a.get("url")) or {}
-        o = {k: a[k] for k in ("id", "url", "sec", "col", "page", "tier", "fa", "en") if k in a}
+        o = {k: a[k] for k in ("id", "url", "sec", "col", "page", "fa", "en") if k in a}
+        o["tags"] = [k for k in a.get("tags") or [] if k in CATS]
         # only the article's own picture (a news-search thumbnail was sometimes about something else), or one made
         # by hand for it ("pic": a file under docs/econ/), or none ("nopic": its own picture doesn't fit)
         o["img"] = a.get("pic") or (None if a.get("nopic") else p.get("img"))
         out_arts.append(o)
-    ids = {a["id"] for a in out_arts}
-    cats = {k: [i for i in (issue.get("cats") or {}).get(k, []) if i in ids] for k in CATS}
-    body = {"issue": issue.get("issue"), "cats": cats, "articles": out_arts}
+    body = {"issue": issue.get("issue"), "articles": out_arts}          # in the magazine's order
     h = hashlib.sha1(json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
     if h != st.get("h") or not os.path.exists(data_path("economist.json")):
-        save_json(data_path("economist.json"), {"v": 1, "updated": t, **body})
+        save_json(data_path("economist.json"), {"v": 2, "updated": t, **body})
         st["h"] = h
         log(f"economist: issue {issue.get('issue')} published, {len(out_arts)} articles")
     misc["econ"] = st

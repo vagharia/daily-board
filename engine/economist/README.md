@@ -1,17 +1,21 @@
 # The weekly Economist tab
 
-`issue.json` holds one issue of The Economist, summarised by hand. Only the articles that bear on the tab's five
-categories go in:
+`issue.json` holds one issue of The Economist, summarised by hand. Only the articles that bear on the tab's
+categories go in, in the magazine's own order; the rest are left out. Each article carries one or more category tags
+(an article can be both military and politics, or both AI and banking), shown above its title:
 
-| key     | tab                                                                      |
-|---------|--------------------------------------------------------------------------|
-| `pol`   | Politics & military; each article also gets a level: `red`, `orange` or `yellow` |
-| `gold`  | Gold                                                                     |
-| `oil`   | Oil                                                                      |
-| `money` | Money & banking                                                          |
-| `ai`    | AI                                                                       |
+| key      | tag                                                       |
+|----------|-----------------------------------------------------------|
+| `mil`    | Military                                                  |
+| `pol`    | Politics                                                  |
+| `oil`    | Oil & energy                                              |
+| `commod` | Commodities: gold, copper and other metals                |
+| `money`  | Money & banking (markets, central banks, inflation)       |
+| `ai`     | AI                                                        |
+| `cyber`  | Cyber                                                     |
 
-A category with nothing that week stays in the bar, dimmed. There is no "all articles" view.
+The tab opens on all articles; the category bar filters them (any of the chosen categories). A category with nothing
+that week stays in the bar, dimmed. There are no red/orange/yellow levels in this tab.
 
 ## Each week
 
@@ -21,19 +25,16 @@ live run, which publishes `economist.json` within a few minutes; preview picture
 ## Fields
 
 - `issue`: the issue date, `YYYY-MM-DD`.
-- `cats`: for each category, the article ids in display order. An article may sit in more than one category.
-  In `pol`, articles are shown grouped red, orange, yellow.
-- `articles`, each with:
+- `articles`, in the magazine's order, each with:
   - `id`: short and unique within the issue.
-  - `url`: the article's page on economist.com (the section feeds at `economist.com/<section>/rss.xml` list them).
-  - `sec`: section key: `leaders`, `briefing`, `wtw` (The world this week), `us`, `americas`, `asia`, `china`, `mea`,
-    `europe`, `britain`, `intl`, `business`, `finance`, `science`, `culture`.
+  - `url`: the article's page on economist.com.
+  - `sec`: section key: `leaders`, `briefing`, `wtw` (The world this week), `inv` (By Invitation), `us`, `americas`,
+    `asia`, `china`, `mea`, `europe`, `britain`, `intl`, `business`, `finance`, `science`, `culture`.
   - `col` (optional): `{"fa": ..., "en": ...}`, the column's name, e.g. Buttonwood.
-  - `page`: the page in the printed issue.
-  - `tier`: politics articles only. Red is for the war with Iran, Hormuz and the Gulf's security; orange for regional
-    politics that bears on it; yellow for wider politics.
-  - `fa` and `en`: `t` the title, `s` the summary (one paragraph, or two separated by a blank line, in proportion to
-    the article's length), `i` the likely effects.
+  - `page` (optional): the page in the printed issue.
+  - `tags`: the category keys above, most fitting first (its icon stands in for a missing picture).
+  - `fa` and `en`: `t` the title, `s` the summary (up to two long or three medium paragraphs, separated by a blank
+    line, in fluent prose), `i` the likely effects or a short analysis.
 
 ## Rules
 
