@@ -12,7 +12,7 @@ from .http import parallel
 from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
 from .sources import BY_ID, GROUPS, SOURCES
-from .translate import Translator, fix_terms
+from .translate import Translator, fix_terms, stale
 from .util import data_path, has_fa, fa_norm, first_sentences, load_json, log, now, save_json, speaker_first, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
@@ -496,7 +496,8 @@ def news_round(full=True):
     # ---------------------------------------------------------------- 6. display texts
     retry = [c for c in clusters if c["id"] not in changed and
              ("en" not in c or "fa" not in c or (c.get("fa") or {}).get("fallback")
-              or (c.get("en") or {}).get("fallback"))]
+              or (c.get("en") or {}).get("fallback")
+              or ((c.get("fa") or {}).get("mt") and stale((c.get("en") or {}).get("ti"), c["fa"].get("ti")))))]
     for c in retry:
         if "en_from" not in c:
             refresh(c)

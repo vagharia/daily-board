@@ -29,6 +29,12 @@ EN_PRE = [
      lambda m: m.group(1) + (" were " if m.group(1).endswith(("s", "ies")) else " was ") + m.group(2).lower()),
     (re.compile(r"\b(\d+)\s+[Nn]autical\s+[Mm]iles\s+[Oo]ff\s+(?:the\s+)?(?!coast)"),
      r"\1 nautical miles off the coast of "),
+    # "attacks mount" (= grow) came out as a mountain ("حمله نفتکش هرمز به کوه"); only the intransitive verb at the
+    # end or before a preposition, so "mount an attack" and Mount Klang (کوه کلنگ) stay as they are
+    (MOUNT_VERB := re.compile(r"(?<=[A-Za-z] )(?<![Tt]he )(?<![Aa] )([Mm])ount(s?)\b"
+                              r"(?=\s*(?:$|[,.:;!?—–]|\s-\s|\s(?i:as|amid|in|on|at|after|over|across|following|for|with"
+                              r"|against|despite|near|off|around|since|while)\b))"),
+     lambda m: ("R" if m.group(1) == "M" else "r") + "ise" + m.group(2)),
     # the company, not the alphabet
     (re.compile(r"\bAlphabet(?=\s+(?:Inc|Opens|Sells|Shares|Stock|Bonds?|Plans|Says|Reports|Earnings|Profit|Revenue)"
                 r"|'s|\s+and\s+Google)"), "Alphabet Inc."),
@@ -129,6 +135,11 @@ def fix_terms(src, out, tl):
     return out
 
 
+def stale(src, out, sl="en", tl="fa"):
+    """A stored translation made before a pre-edit rule that would change it (asked again once)."""
+    return sl == "en" and tl == "fa" and bool(out) and "کوه" in out and bool(MOUNT_VERB.search(src or ""))
+
+
 def _post(text, tl):
     if tl == "fa":
         for a, b in FA_POST:
@@ -203,6 +214,8 @@ class Translator:
         result, todo = {}, []
         for t in dict.fromkeys(x for x in texts if x and x.strip()):
             e = self.cache.get(self.key(t, sl, tl))
+            if e and stale(t, e[0], sl, tl):
+                e = None                   # translated before its glossary rule existed: ask again
             if e:
                 result[t] = e[0]
                 e[1] = now()
