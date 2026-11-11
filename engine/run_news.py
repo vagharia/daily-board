@@ -272,8 +272,9 @@ def lite(T, day, idx, lights, lang, front=()):
                   (c[lang] or {}).get("ti") or (c[other] or {}).get("ti", ""),
                   (c["src"][0].get("nf" if lang == "fa" else "n") or c["src"][0].get("n") or "") if c["src"] else "",
                   c.get("unconf") or "", 1 if c.get("green") else 0] for c in day],
-        # the main front as it happens (flash.py): time, step, line, confirmed by a news outlet
-        "front": [[e["t"], e["s"], e.get(lang) or e.get(other, ""), e.get("conf", 0), e.get("x", 0)]
+        # the main front as it happens (flash.py): time, step, line, confirmed by a news outlet, not confirmed, the
+        # announced cause (cause.py)
+        "front": [[e["t"], e["s"], e.get(lang) or e.get(other, ""), e.get("conf", 0), e.get("x", 0), e.get("why", "")]
                   for e in front if T - e["t"] <= 48 * 3600][-80:],
     }
 
@@ -636,6 +637,13 @@ def news_round(full=True):
     n = flash.confirm_late(fstate, late)
     if n:
         log(f"main-front events confirmed late by a news report: {n}")
+    # a cause announced for a blast (a film shoot, a drill…): its lines get «علت اعلامی», and an announced incident one
+    # more Telegram message with the cause
+    recent = [m for c in clusters if T - c["u"] <= flash.KEEP for m in c["m"] if T - m["t"] <= flash.KEEP]
+    why_msgs = flash.explain(fstate, recent, T, quiet=first_run, fa_story=fa_head)
+    if why_msgs:
+        log(f"main-front causes announced: {len(why_msgs)}")
+    flash_msgs = list(flash_msgs) + why_msgs
     alert_res = alerts.run(alerts_state, clusters, lights, idx, first_run=first_run, flash_msgs=flash_msgs,
                            flash_keys=set(fstate.get("keys", {})), seen=seen)
 

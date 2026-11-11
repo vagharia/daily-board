@@ -15,7 +15,7 @@ The announcements are also kept as a list (state["log"]) for the bulletin."""
 import html
 import re
 
-from . import front_places, witness
+from . import cause, front_places, witness
 from . import vessel
 from .classify import _digest_part, first_item, multi_parts
 from .cluster import blast, channel
@@ -465,6 +465,8 @@ def events(m):
         return out
     if flags & _NOT_NOW or "digest" in flags or not flags & {"kinetic", "maritime_incident", "airspace"} or blast(m):
         return []
+    if cause.of_item(m):
+        return []                           # a blast told with its cause, not the war: a film shoot, a drill (`explain`)
     if told_later(m):
         return []                           # told after the moment: a statement, a relayed outlet, a past time
     fa_t, en_t = _main_part(fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else "",
@@ -819,8 +821,9 @@ def confirm_late(state, items):
         return 0
     n = 0
     for m in items:
-        if channel(m) or m.get("wit") or "denial" in (m.get("flags") or []):
-            continue
+        if channel(m) or m.get("wit") or set(m.get("flags") or []) & (NEVER_AN_EVENT | {"denial", "exercise"}) \
+                or cause.of_item(m):
+            continue                        # an announced cause («مربوط به فیلم‌برداری») is not a confirmation
         fa_t = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
         en_t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
         step, _ = _step(fa_t, en_t)
@@ -875,3 +878,71 @@ def mark_denied(state, clusters):
             x["x"] = 1
             n += 1
     return n
+
+
+# ------------------------------------------------------------------ the announced cause («علت اعلامی»)
+# A news outlet tells why a blast was heard at a place, and the cause is not the war (cause.py: a film shoot, fireworks,
+# a drill, disposal of munitions, mine blasting, a gas accident). The lines of that place within a few hours either side
+# of the report (never longer) get the cause as their label, «علت اعلامی: …», in place of "confirmed"; it is what an
+# official or an outlet says, not a judgement of ours. An incident a channel or residents reported, already announced
+# on Telegram, gets one more message with the cause, once. A later report of war at that place still opens a line and
+# is announced as usual.
+WHY_SPAN = 3 * 3600
+
+
+def _why_places(m, sent):
+    """Where the cause was told: the places of the sentence that tells it (cause.find), else of the headline."""
+    fa = m.get("lang") == "fa"
+    out = _places(*_main_part(sent if fa else "", "" if fa else sent)) - set(_GENERAL)
+    if out:
+        return out
+    fa_t = fa_norm(m.get("ti") or "") if fa else ""
+    en_t = "" if fa else (m.get("en_ti") or m.get("ti") or "")
+    if sent not in (fa_t if fa else en_t):
+        return set()                        # told in the text of another place than the headline's
+    return _places(*_main_part(fa_t, en_t)) - set(_GENERAL)
+
+
+def explain(state, items, now_t, quiet=False, fa_story=None):
+    """See above. items: recent reports (the stories of the last hours). Returns the Telegram messages."""
+    fa_story = fa_story or {}
+    why = state.setdefault("why", {})
+    for k in [k for k, v in why.items() if now_t - v["t"] > KEEP]:
+        why.pop(k)
+    sent = state.setdefault("why_sent", {})
+    for k in [k for k, t in sent.items() if now_t - t > KEEP]:
+        sent.pop(k)
+    for m in items:
+        if m["k"] in why or channel(m) or m.get("wit") or now_t - m["t"] > KEEP:
+            continue
+        c, said = cause.of_item(m, sentence=True)
+        if not c:
+            continue
+        places = _why_places(m, said)
+        if places:
+            ti = (m.get("ti") if m.get("lang") == "fa" else fa_story.get(m["k"])) or m.get("ti") or ""
+            why[m["k"]] = {"t": m["t"], "c": c, "p": sorted(places), "ti": truncate(ti, 200),
+                           "src": m.get("sn_fa") or m.get("sn") or m["s"]}
+    if not why:
+        return []
+    inc = state.get("inc") or {}
+    msgs = []
+    for x in state.get("log") or []:
+        if x.get("why"):
+            continue
+        e = min((v for v in why.values() if x["p"] in v["p"] and abs(x["t"] - v["t"]) <= WHY_SPAN),
+                key=lambda v: abs(x["t"] - v["t"]), default=None)
+        if e is None:
+            continue
+        x["why"] = e["c"]
+        if x.get("nw") or quiet or now_t - x["t"] > WHY_SPAN:
+            continue                        # a news outlet's line was never announced; an old one is left alone
+        cur = inc.get(x["p"])
+        key = f"{x['p']}:{cur['t0'] if cur and cur['t0'] <= x['t'] <= cur['t1'] else x['t']}"
+        if key in sent:
+            continue
+        sent[key] = now_t
+        name = cause.NAMES[e["c"]][0]
+        msgs.append(f"ℹ️ <b>علت اعلامی: {html.escape(name)}</b>\n{html.escape(x['fa'])}، {_fa_digits(_clock(x['t']))}"
+                    f"\n«{html.escape(e['ti'])}»\n<i>{html.escape(e['src'])}</i>")
+    return msgs

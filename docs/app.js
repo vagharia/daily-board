@@ -24,7 +24,7 @@
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
   var APP_REL = 23;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 34;
+  var APP_BUILD = 35;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -45,7 +45,7 @@
       unconfAnalysis: 'تحلیل کانال', unconfAnalysisShort: 'تحلیل:', unconfAnalysisNote: 'این متن تحلیل، جمع‌بندی یا گزارش بازارِ یک کانال تلگرامی است، نه گزارش یک رویداد.',
       lite: 'حالت کم‌مصرف', liteOn: 'حالت کم‌مصرف روشن شد: فقط تیتر خبرهای ۲۴ ساعت، بدون عکس و ویدیو.', liteOffMsg: 'حالت کم‌مصرف خاموش شد.', liteTab: 'در حالت کم‌مصرف فقط تب خبرها کار می‌کند.', liteWeek: 'در حالت کم‌مصرف فقط خبرهای ۲۴ ساعت می‌آید.', liteNote: 'حالت کم‌مصرف: فقط تیتر خبرها؛ متن کامل و منابع در حالت عادی.',
       theme: 'تم', themeDark: 'تیره', themeLight: 'روشن', liveAir: 'نقشه زنده پروازها', liveMil: 'پروازهای نظامی (ADS-B Exchange)',
-      frontH: 'گزارش‌های لحظه‌ای جبهه‌ی اصلی', frontNote: 'انفجار، پرتاب موشک، شلیک پدافند و صدای جنگنده یا پهپاد در ایران، تنگه‌ی هرمز و خلیج فارس، اسرائیل و پایگاه‌های آمریکا؛ ۴۸ ساعت اخیر.', frontNone: 'گزارشی وجود ندارد', frontUnc: 'تأییدنشده', frontOk: 'تأییدشده', frontNo: 'تأیید نشد', lastShort: 'آخرین {t}', firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
+      frontH: 'گزارش‌های لحظه‌ای جبهه‌ی اصلی', frontNote: 'انفجار، پرتاب موشک، شلیک پدافند و صدای جنگنده یا پهپاد در ایران، تنگه‌ی هرمز و خلیج فارس، اسرائیل و پایگاه‌های آمریکا؛ ۴۸ ساعت اخیر.', frontNone: 'گزارشی وجود ندارد', frontUnc: 'تأییدنشده', frontOk: 'تأییدشده', frontNo: 'تأیید نشد', frontWhy: 'علت اعلامی: {c}', why_film: 'فیلم‌برداری سینمایی', why_fireworks: 'آتش‌بازی', why_drill: 'رزمایش یا تمرین', why_ordnance: 'انهدام مهمات', why_mine: 'انفجار در معدن', why_accident: 'حادثه (گاز)', lastShort: 'آخرین {t}', firstRep: 'اولین گزارش {t}', lastRep: 'آخرین گزارش {t}',
       mt: 'ترجمه ماشینی', showOrig: 'نمایش متن اصلی', showTr: 'نمایش ترجمه', srcList: 'منابع این خبر',
       tagsH: 'موضوع، مکان و افراد', searchPh: 'جستجو در خبرها و منابع',
       empty: 'خبری با این فیلترها پیدا نشد.', clear: 'پاک کردن فیلترها', showYellow: 'نمایش خبرهای کم‌اهمیت‌تر',
@@ -104,7 +104,7 @@
       unconfAnalysis: 'Channel analysis', unconfAnalysisShort: 'Analysis:', unconfAnalysisNote: 'This is a Telegram channel\'s analysis, summary or market note, not a report of something that happened.',
       lite: 'Data saver', liteOn: 'Data saver on: only the day\'s headlines, no pictures or video.', liteOffMsg: 'Data saver off.', liteTab: 'In data saver mode only the news tab works.', liteWeek: 'In data saver mode only the last 24 hours are loaded.', liteNote: 'Data saver: headlines only; full text and sources in normal mode.',
       theme: 'Theme', themeDark: 'Dark', themeLight: 'Light', liveAir: 'Live flight map', liveMil: 'Military flights (ADS-B Exchange)',
-      frontH: 'Main front, as it happens', frontNote: 'Explosions, missile launches, air defence fire, jets or drones heard in Iran, Hormuz and the Persian Gulf, Israel and US bases; last 48 hours.', frontNone: 'No reports', frontUnc: 'unconfirmed', frontOk: 'confirmed', frontNo: 'not confirmed', lastShort: 'latest {t}', firstRep: 'First reported {t}', lastRep: 'Last update {t}',
+      frontH: 'Main front, as it happens', frontNote: 'Explosions, missile launches, air defence fire, jets or drones heard in Iran, Hormuz and the Persian Gulf, Israel and US bases; last 48 hours.', frontNone: 'No reports', frontUnc: 'unconfirmed', frontOk: 'confirmed', frontNo: 'not confirmed', frontWhy: 'announced cause: {c}', why_film: 'a film shoot', why_fireworks: 'fireworks', why_drill: 'a drill', why_ordnance: 'disposal of munitions', why_mine: 'mine blasting', why_accident: 'a gas accident', lastShort: 'latest {t}', firstRep: 'First reported {t}', lastRep: 'Last update {t}',
       mt: 'Machine translated', showOrig: 'Show original', showTr: 'Show translation', srcList: 'Sources for this story',
       tagsH: 'Topics, places and people', searchPh: 'Search stories and sources',
       empty: 'No stories match these filters.', clear: 'Clear filters', showYellow: 'Show lower-importance stories',
@@ -776,7 +776,7 @@
       var k = dayKey(e.t);
       if (k !== day) { day = k; h += '<h4 class="front-day">' + esc(dlong(e.t)) + '</h4>'; }
       h += '<div class="front-row s' + e.s + (e.x ? ' x' : '') + '"><i class="fr-dot"></i><span class="fr-t" dir="auto">' + esc(L() === 'fa' ? e.fa : e.en) + '</span>' +
-        (e.x ? '<span class="fr-no">' + esc(t('frontNo')) + '</span>' : e.conf ? '<span class="fr-ok">' + ic('check') + esc(t('frontOk')) + '</span>' : '<span class="fr-unc">' + esc(t('frontUnc')) + '</span>') +
+        (e.why ? '<span class="fr-why">' + esc(t('frontWhy', { c: t('why_' + e.why) })) + '</span>' : e.x ? '<span class="fr-no">' + esc(t('frontNo')) + '</span>' : e.conf ? '<span class="fr-ok">' + ic('check') + esc(t('frontOk')) + '</span>' : '<span class="fr-unc">' + esc(t('frontUnc')) + '</span>') +
         '<span class="fr-h">' + esc(clock(e.t)) + '</span></div>';
     });
     openSheet(h);
@@ -1455,7 +1455,7 @@
     if (!j) return;
     S.d.ticker = j.ticker || {};
     S.d.signals = { updated: j.updated, index: j.index, lights: (j.lights || []).map(function (l) { return Object.assign({ evidence: [] }, l); }) };
-    S.d.front = { updated: j.updated, events: (j.front || []).map(function (r) { var o = { t: r[0], s: r[1], conf: r[3], x: r[4] || 0 }; o.fa = o.en = r[2]; return o; }) };
+    S.d.front = { updated: j.updated, events: (j.front || []).map(function (r) { var o = { t: r[0], s: r[1], conf: r[3], x: r[4] || 0, why: r[5] || '' }; o.fa = o.en = r[2]; return o; }) };
     S.d.news24 = { updated: j.updated, range: '24h', clusters: (j.news || []).map(function (r) {
       var tx = { ti: r[5], su: '' };
       return { id: r[0], tier: r[1], sev: r[2], t: r[3], u: r[3], ns: r[4], fa: tx, en: tx, lang: L(), img: null, vid: null,

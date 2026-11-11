@@ -11,7 +11,7 @@ import re
 
 from . import config, deesc, pullback, sport, witness
 from .classify_fa import STRONG as STRONG_FA, score_fa
-from . import scheduled
+from . import cause, scheduled
 from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
 from .mishap import border_only, mishap
@@ -1511,6 +1511,12 @@ def classify(item):
             CONTROLLED_TR.search(item.get("en_ti") or "") or CONTROLLED_TR.search((item.get("en_su") or "")[:200])):
         # the English translation says what the Persian rules missed (a spelling they don't know): a controlled
         # detonation, not an attack
+        sev = min(sev, 40)
+        flags = (set(flags) - HARD_EVENTS) | {"controlled"}
+    if "controlled" not in flags and cause.which(item.get("lang") or "en", fa_t or en_t, fa_s or en_s) \
+            in cause.CONTROLLED_KINDS:
+        # a blast told with its cause, not the war (cause.py): a film shoot's special effects, fireworks, a drill,
+        # mine blasting («صدای انفجار در بوشهر مربوط به یک طرح سینمایی است»)
         sev = min(sev, 40)
         flags = (set(flags) - HARD_EVENTS) | {"controlled"}
     if scheduled.notice(item.get("lang") or "en", fa_t or en_t, fa_s or en_s, flags, item.get("t")):

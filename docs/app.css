@@ -655,6 +655,7 @@ html[data-theme=light]{--green-ink:#0E8A55}
 .front-row.s3 .fr-dot,.front-row.s4 .fr-dot{background:var(--red)}
 .front-row .fr-t{flex:1;min-width:0;color:var(--ink);font-weight:600}
 .front-row .fr-unc{flex:none;font-size:11px;color:var(--ink-3);border:1px dashed rgba(var(--mist),.3);border-radius:6px;padding:1px 6px}
+.front-row .fr-why{flex:none;font-size:11px;color:var(--ink-2);border:1px solid rgba(var(--mist),.3);border-radius:6px;padding:1px 6px}
 .front-row .fr-ok{flex:none;display:flex;align-items:center;gap:3px;font-size:11px;color:var(--up)}
 .front-row .fr-no{flex:none;font-size:11px;color:var(--ink-3);text-decoration:none;border:1px solid rgba(var(--mist),.3);border-radius:6px;padding:1px 6px}
 .front-row.x .fr-t{color:var(--ink-3);text-decoration:line-through;text-decoration-thickness:1px}
