@@ -497,7 +497,7 @@ def news_round(full=True):
     retry = [c for c in clusters if c["id"] not in changed and
              ("en" not in c or "fa" not in c or (c.get("fa") or {}).get("fallback")
               or (c.get("en") or {}).get("fallback")
-              or ((c.get("fa") or {}).get("mt") and stale((c.get("en") or {}).get("ti"), c["fa"].get("ti")))))]
+              or ((c.get("fa") or {}).get("mt") and stale((c.get("en") or {}).get("ti"), c["fa"].get("ti"))))]
     for c in retry:
         if "en_from" not in c:
             refresh(c)
