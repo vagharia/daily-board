@@ -11,6 +11,7 @@
 import re
 
 from .lexicon import fa_rx
+from .strike_sense import calm_en
 from .util import fa_norm, first_sentences
 
 I = re.I
@@ -82,8 +83,8 @@ def mishap(lang, t, s=""):
         if not cause or _NOT_FA.search(lead):
             return False
         return not _BLAST_FA.search(lead) or bool(_MINE_BLAST_FA.search(lead))
-    t = t or ""
-    lead = t + " " + first_sentences(s or "", 200)
+    t = calm_en(t or "")                 # "earthquake strikes near Bushehr": the quake's verb, not an attack
+    lead = t + " " + calm_en(first_sentences(s or "", 200))
     if not _CAUSE_EN.search(t) or _NOT_EN.search(lead):
         return False
     return not _BLAST_EN.search(lead) or bool(_MINE_BLAST_EN.search(lead))
@@ -254,9 +255,6 @@ _AIR_WAR_EN = re.compile(
     r"\b(attack\w*|strikes?|struck|air ?strikes?|drones?|uavs?|missiles?|rockets?|bomb\w*|intercept\w*|shell\w*"
     r"|war|warplanes?|military|army|troops|irgc|hezbollah|houthis?|hostile|threat\w*|security|escalat\w*"
     r"|retaliat\w*|gps|jamming|spoof\w*|explo\w+|blasts?)\b", I)
-_NATURE_VERB_EN = re.compile(
-    r"\b(earthquakes?|quakes?|tremors?|aftershocks?|storms?|sandstorms?|dust ?storms?|blizzards?|floods?)"
-    r"(\s+(that|which))?\s+(strikes?|struck|hits?|rock\w*|jolt\w*)\b", I)
 _AIR_NATURE_FA = fa_rx(["زلزله", "زمین لرزه", "پس لرزه", "لرزه", "طوفان", "توفان", "گرد و غبار", "گردوغبار",
                         "ریزگرد", "مه گرفتگی", "مه غلیظ", "برف", "کولاک", "سیل$", "سیلاب", "آتشفشان",
                         "شرایط جوی", "وضعیت جوی", "آب و هوا", "بارندگی"])
@@ -273,6 +271,5 @@ def air_nature(lang, t, s=""):
         return bool(_AIR_NATURE_FA.search(lead)) and not _AIR_WAR_FA.search(lead)
     tt = t or ""
     lead = tt + " " + first_sentences(s or "", 200)
-    # "earthquake strikes Gulf of Aqaba", "storm hit": the quake's verb, not an attack
-    calm = _NATURE_VERB_EN.sub(" ", lead)
-    return bool(_AIR_NATURE_EN.search(lead)) and not _AIR_WAR_EN.search(calm)
+    # "earthquake strikes Gulf of Aqaba", "storm hit": the quake's verb, not an attack (strike_sense.py)
+    return bool(_AIR_NATURE_EN.search(lead)) and not _AIR_WAR_EN.search(calm_en(lead))

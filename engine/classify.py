@@ -15,6 +15,7 @@ from . import cause, scheduled
 from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
 from .internet import internet, severity as net_severity
 from .mishap import air_nature, border_only, mishap
+from .strike_sense import calm_en
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
 from .util import fa_norm, first_sentences, strip_dateline, to_latin_digits
 
@@ -1326,7 +1327,8 @@ _DRILL_HURT_EN = re.compile(r"\b(killed|dead|died|wounded|injured|casualt\w+|cra
 
 
 def score_en(title: str, summary: str):
-    t, s = crowd_revenge(title or ""), crowd_revenge(summary or "")
+    # strike/struck/hit of an earthquake, a labour strike, a deal or a market: not an attack (strike_sense.py)
+    t, s = crowd_revenge(calm_en(title or "")), crowd_revenge(calm_en(summary or ""))
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
     for rx, base, tp, fl in PATTERNS:
         if rx.search(t):

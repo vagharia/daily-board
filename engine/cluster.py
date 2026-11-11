@@ -10,6 +10,7 @@ from .sources import BY_ID
 from . import fronts
 from .fronts import MINOR_CAP, SECONDARY_CAP
 from .sport import CAP as SPORT_CAP
+from .strike_sense import calm_en
 from .util import fa_norm, sha
 
 STOP = set("""
@@ -290,7 +291,7 @@ def _stem(w):
 
 
 def tokens(title: str, same=False):
-    t = strip_live(title).lower()
+    t = calm_en(strip_live(title)).lower()      # an earthquake that "strikes" shares no strike word (strike_sense.py)
     t = re.sub(r"(\d),(\d{3})\b", r"\1\2", t)               # 1,500 -> 1500
     t = re.sub(r"[’'`]s\b", "", t)
     t = t.replace("u.s.", "us ").replace("u.k.", "uk ").replace("united states", "us").replace("united nations", "un")

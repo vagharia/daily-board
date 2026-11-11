@@ -6,6 +6,7 @@ threats and plans, quotes, reactions, questions, analysis, past events, denials,
 speeches. The English translation is never scored for a Persian report."""
 import re
 
+from .strike_sense import calm_fa
 from .util import fa_norm, to_latin_digits
 
 KINETIC_BASE = 70
@@ -407,6 +408,7 @@ def score_fa(title: str, summary: str):
     t, s = fa_norm(to_latin_digits(title or "")), fa_norm(to_latin_digits(summary or ""))
     t, s = BOMBED_ADJ.sub(" ", t), BOMBED_ADJ.sub(" ", s)
     t, s = _crowd_revenge(t), _crowd_revenge(s)
+    t, s = calm_fa(t), calm_fa(s)          # a heart attack, a dog's attack: not of the war (strike_sense.py)
     best, topics, flags, kinetic_in_title, title_best = 0.0, set(), set(), False, 0.0
     for rx, base, tp, fl in PATTERNS:
         if rx.search(t):
