@@ -1311,10 +1311,17 @@ class Clusterer:
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
-                + self._own_matches(item, f) + self._gulf_matches(item, f) + self._pull_matches(item, f):
+                + self._own_matches(item, f) + self._gulf_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
+                matches.append((score, c))
+        for score, c in self._pull_matches(item, f):
+            if any(m["k"] == item["k"] for m in c["m"]):
+                return c, False
+            # the same pullback retold the next day: only a time the headline gives can keep it apart, not one assumed
+            if not any(x is c for _, x in matches) and (self._ev_fits(f, c["id"]) or not EV_ON or not f.get("evp")
+                                                        or f["evp"][2] != EV_TOLD):
                 matches.append((score, c))
         if EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD and len(matches) > 1:
             # a report giving a time that fits several events (two or three blasts at dawn): the event whose time it
@@ -1505,7 +1512,7 @@ class Clusterer:
         """The story of the same forces taken out of the same place (pullback.mark: whose, the country, the base, the
         round), whatever verb its reports use ("evacuated", "pulls", "moves … from", «فرار», «خارج کرد»), for PULL_KEEP
         after its latest report. The report's label must fit every label of the story; of several such stories, the
-        latest. A report that names no country joins only when one story fits."""
+        latest."""
         x = f.get("pull")
         if not x:
             return []
@@ -1515,7 +1522,7 @@ class Clusterer:
             if c and len(c["m"]) < 60 and abs(item["t"] - c["u"]) <= PULL_KEEP \
                     and all(pullback.fits(x, y) for y, _ in marks):
                 fit.append(c)
-        if not fit or (x[1] is None and len(fit) > 1):
+        if not fit:
             return []
         return [(0.6, max(fit, key=lambda c: c["u"]))]
 

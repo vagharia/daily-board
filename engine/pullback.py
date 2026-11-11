@@ -17,10 +17,17 @@ from .util import fa_norm
 # --- what is taken out: aircraft of any kind, a base itself, troops (never a ship: "crew evacuated from tanker")
 _ASSET_EN = re.compile(r"\b(?:aircraft|air ?planes?|planes?|jets?|warplanes?|fighters?|fighter jets?|bombers?|drones?"
                        r"|refuell?ing (?:planes?|aircraft|tankers?|jets?)|(?:air ?force |aerial |air )?tankers?"
-                       r"|airlifters?|[fbc]-\d+[a-z]?s?|kc-\d+[a-z]?s?|(?:air ?)?bases?|airbases?|airfields?"
+                       r"|airlifters?|[fbc]-\d+[a-z]?s?|kc-\d+[a-z]?s?"
                        r"|troops|forces|personnel|service ?members|soldiers)\b", re.I)
-_ASSET_FA = re.compile(fa_norm(r"هواپیما|هواگرد|جنگنده|بمب\s*افکن|سوخت\s*رسان|تانکر\s*سوخت|پهپاد|پایگاه|نیروها|نیروهای"
+_ASSET_FA = re.compile(fa_norm(r"هواپیما|هواگرد|جنگنده|بمب\s*افکن|سوخت\s*رسان|تانکر\s*سوخت|پهپاد|نیروها|نیروهای"
                                r"|سربازان|نظامیان|اف\s*\d+|بی\s*\d+"))
+# a base emptied: only as the place left ("from … base", "evacuated its second base", «از … پایگاه», «پایگاه … را
+# تخلیه کرد»), never as where someone was taken ("moved to a military base", «به پایگاه»)
+_BASE_OUT_EN = re.compile(r"\b(?:from|out of|left|leaves?|leaving|evacuat\w*|abandon\w*|empt\w*)\s+(?:[\w'.-]+\s+){0,4}?"
+                          r"(?:air ?bases?|bases?|airbases?|airfields?)\b|\b(?:air ?bases?|bases?|airbases?|airfields?)\s+"
+                          r"(?:is |was |were |are |being |been )*(?:evacuated|emptied|abandoned)\b", re.I)
+_BASE_OUT_FA = re.compile(fa_norm(r"(?<!\S)از\s+(?:\S+\s+){0,3}?پایگاه|پایگاه(?:\s+\S+){0,5}?\s+را\s+(?:«?ترک»?|تخلیه|رها)"
+                                  r"|تخلیه\s+(?:\S+\s+){0,2}?پایگاه"))
 _SHIP_EN = re.compile(r"\b(?:oil tankers?|vessels?|ships?|crews?|strait|hormuz|sea|gulf of|port|lng|crude|supertankers?)\b",
                       re.I)
 _SHIP_FA = re.compile(fa_norm(r"(?<!\S)(?:نفتکش|کشتی|خدمه|تنگه|دریای|دریا(?!\S)|بندر)"))     # not «دریافت»
@@ -32,11 +39,11 @@ _PEOPLE_FA = re.compile(fa_norm(r"سفارت|کنسولگری|دیپلمات|ک�
 # --- the verbs: taken out (any of these), or moved "from" a place (only with "from" / "out of")
 _OUT_EN = re.compile(r"\b(?:evacuat\w*|withdr[ae]w\w*|withdrawn|pull(?:s|ed|ing)?\b(?:\s+\w+){0,4}?\s+(?:out|from)"
                      r"|flee\w*|fled|escap\w*|abandon\w*|left|leav(?:e|es|ing))\b", re.I)
-_MOVE_EN = re.compile(r"\b(?:mov(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|relocat\w*|shift\w*|redeploy\w*|pull(?:s|ed|ing)?"
+_MOVE_EN = re.compile(r"\b(?:mov(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|relocat\w*|reposition\w*|shift\w*|redeploy\w*|pull(?:s|ed|ing)?"
                       r"|takes?|took|fl(?:y|ies|ew|own))\b(?:\s+[\w'-]+){0,5}?\s+(?:from|out of)\b", re.I)
 _RUN_EN = re.compile(r"\b(?:evacuat\w*|flee\w*|fled|escap\w*|abandon\w*)\b", re.I)   # gone in haste
 _OUT_FA = re.compile(fa_norm(r"تخلیه|فرار|خروج|خارج\s*(?:کرد|کردند|شد|شدند|می\s*کند|می\s*کنند|کرده|شده)|بیرون\s*(?:برد|بردند|کشید)"
-                             r"|«?ترک»?\s*(?:کرد|کردند|کرده|می\s*کنند)|عقب\s*نشینی|جابجایی|جابه\s*جایی|جا\s*به\s*جایی|انتقال"))
+                             r"|«?ترک»?\s*(?:کرد|کردند|کرده|می\s*کنند)|عقب\s*نشینی|جابجایی|جابه\s*جایی|جا\s*به\s*جایی|انتقال|منتقل"))
 _RUN_FA = re.compile(fa_norm(r"تخلیه|فرار"))
 _FROM_FA = re.compile(fa_norm(r"(?:^|\s)از\s"))
 
@@ -111,17 +118,19 @@ _AT_EN = {k: re.compile(r"\b(?:from|in|out of|at|leave|leaves|leaving|left|acros
                         + _BASE_EN + r"\b", re.I) for k, (e, _, _) in _PLACE.items()}
 _AT_FA = {k: re.compile(fa_norm(r"(?:(?<!\S)(?:از|در)|پایگاه\S*|خاک)\s+(?:\S+\s+){0,3}?(?:" + f + r")"))
           for k, (_, f, _) in _PLACE.items()}
-# forces going somewhere: a deployment or a mission, never a pullback ("B-52s leave Fairford for the Middle East",
-# "tankers fly from UK bases to support strikes", «انتقال بمب‌افکن‌ها از انگلیس به خاورمیانه»). Iran is never the
-# destination ("due to Iran threat", «به بهانه تهدید ایران»).
-_DEST_EN = re.compile(r"\b(?:to|for|toward|towards|into)\s+(?:the\s+)?(?:eastern\s+|western\s+)?(?:[\w'.-]+\s+){0,1}?(?:"
-                      + "|".join(e for k, (e, _, _) in _PLACE.items() if k != "iran") + r")\b"
-                      r"|\b(?:bound for|head(?:s|ed|ing)? (?:to|for|toward)|en route|on (?:its|their) way|deploy\w*|dispatch\w*"
-                      r"|send(?:s|ing)?|sent|arriv\w*|land(?:s|ed|ing)? (?:in|at)|to support|to join|reinforce\w*"
-                      r"|for (?:strikes|operations|missions|attacks)|sorties?|missions?|after (?:strikes|bombing|raids|attacks)"
-                      r"|(?:strikes?|raids?|bombing) on)\b", re.I)
-_DEST_FA = re.compile(fa_norm(r"(?<!\S)به\s+(?:\S+\s+){0,1}?(?:" + "|".join(f for k, (_, f, _) in _PLACE.items() if k != "iran")
-                              + r")|به سمت|به سوی|عازم|راهی|اعزام|ارسال|ورود|فرود|استقرار|پشتیبانی از|ماموریت|برای حمله"))
+# forces going to the Middle East, or on a mission: a deployment, never a pullback ("B-52s leave Fairford for the Middle
+# East", "tankers fly from UK bases to support strikes", «انتقال بمب‌افکن‌ها از انگلیس به خاورمیانه»). Moved on to
+# somewhere else (Europe…) it is still a pullback: «سوخت‌رسان‌ها را از انگلیس به چند کشور اروپایی منتقل کرد». Iran is
+# never the destination ("due to Iran threat", «به بهانه تهدید ایران»).
+_ME_EN = "|".join(e for k, (e, _, me) in _PLACE.items() if me and k != "iran")
+_ME_FA = "|".join(f for k, (_, f, me) in _PLACE.items() if me and k != "iran")
+_DEST_EN = re.compile(r"\b(?:to|for|toward|towards|into|bound for|head(?:s|ed|ing)? (?:to|for|toward)|en route to)\s+"
+                      r"(?:the\s+)?(?:eastern\s+|western\s+)?(?:[\w'.-]+\s+){0,2}?(?:" + _ME_EN + r")\b"
+                      r"|\b(?:deploy\w*|dispatch\w*|send(?:s|ing)?|sent|arriv\w*|land(?:s|ed|ing)? (?:in|at)|to support|to join"
+                      r"|reinforce\w*|for (?:strikes|operations|missions|attacks)|sorties?|missions?"
+                      r"|after (?:strikes|bombing|raids|attacks)|(?:strikes?|raids?|bombing) on)\b", re.I)
+_DEST_FA = re.compile(fa_norm(r"(?<!\S)به\s+(?:\S+\s+){0,2}?(?:" + _ME_FA + r")"
+                              r"|عازم|راهی|اعزام|ارسال|ورود|فرود|استقرار|پشتیبانی از|ماموریت|برای حمله"))
 _WHO_EN = {k: re.compile(r"\b(?:" + e + r")\b", re.I) for k, (e, _) in _WHO.items()}
 _WHO_FA = {k: re.compile(r"(?<!\S)(?:" + fa_norm(f) + r")") for k, (_, f) in _WHO.items()}
 _BASE_RX = {k: (re.compile(r"\b(?:" + e + r")\b", re.I), re.compile(fa_norm(f))) for k, (e, f) in _BASES.items()}
@@ -167,7 +176,7 @@ def read(lang, head):
     fa = lang == "fa"
     t = fa_norm(head) if fa else head
     if fa:
-        mil = bool(_ASSET_FA.search(t))
+        mil = bool(_ASSET_FA.search(t) or _BASE_OUT_FA.search(t))
         if not ((mil or _PEOPLE_FA.search(t)) and _OUT_FA.search(t)) or _SHIP_FA.search(t):
             return None
         if mil and _DEST_FA.search(t):
@@ -177,7 +186,7 @@ def read(lang, head):
             return None                              # «انتقال هواپیماها به …»: a move to a place, not out of one
         risk = bool(_CAUSE_FA.search(t) or _RISK_FA.search(t))
     else:
-        mil = bool(_ASSET_EN.search(t))
+        mil = bool(_ASSET_EN.search(t) or _BASE_OUT_EN.search(t))
         if not (mil or _PEOPLE_EN.search(t)) \
                 or (_SHIP_EN.search(t) and not re.search(r"\brefuel|\bair ?force\b|\bair ?base", t, re.I)):
             return None
@@ -193,22 +202,22 @@ def read(lang, head):
 
 def mark(m):
     """(whose forces, the country they left, the base or None, the round or None) of a pullback a report's headline
-    tells of; the country is None when the headline names none ("New details of the escape of American planes from
-    the fear of Iran"). None if the headline tells of no pullback, or names no one whose forces they are."""
+    tells of. None if the headline tells of no pullback, names no one whose forces they are, or names no one country
+    they left ("New details of the escape of American planes from the fear of Iran")."""
     en, fa = _heads(m)
     lang = "fa" if fa else "en"
     head = fa or en
     r = read(lang, head)
-    if not r or not r["mil"] or not (r["run"] or r["risk"]) or "gulf" in r["places"]:
-        return None                                  # a drawdown, or "the region" as a whole: no one event to name
+    if not r or not r["mil"] or "gulf" in r["places"] or (r["where"] != "far" and not (r["run"] or r["risk"])):
+        return None                                  # a drawdown in the region, or "the region" as a whole: no one event
     rest = _strip(_CAUSE_FA if fa else _CAUSE_EN, head)
     who = [k for k, rx in (_WHO_FA if fa else _WHO_EN).items() if rx.search(rest)]
     who = [k for k in who if _HOME.get(k) not in r["places"]]             # "British base": a place, not the forces' owner
     if len(who) != 1:
         return None
-    place = r["places"][0] if len(r["places"]) == 1 else None
-    if len(r["places"]) > 1:
-        return None                                  # "from Qatar to Saudi Arabia": not one place
+    if len(r["places"]) != 1 or r["places"][0] == "iran":
+        return None                                  # no one country left ("from Qatar to Saudi Arabia", none named)
+    place = r["places"][0]
     base = [k for k, (e, f) in _BASE_RX.items() if (e.search(head) if not fa else f.search(head))]
     nth = next((n for n, rx in (_NTH_FA if fa else _NTH_EN) if rx.search(head)), None)
     return (who[0], place, base[0] if len(base) == 1 else None, nth)
