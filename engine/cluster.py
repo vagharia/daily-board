@@ -361,6 +361,7 @@ _ATT_RX = {k: re.compile(r"\b(?:" + v + r")\b(?:'s)?(?:\s+[\w'‘’-]+){0,4}?\s
            for k, v in _ATTACKERS.items()}
 _STRIKE_CITY = re.compile(r"\b(isfahan|esfahan|tabriz|shiraz|mashhad|karaj|qom|ahvaz|ahwaz|bandar abbas|bushehr"
                           r"|kermanshah|urmia|khorramshahr|abadan|chabahar|kish|qeshm|kerman|yazd|rasht|zahedan|hamedan"
+                          r"|didamar|larak|hengam|lavan|siri|tunbs?"
                           r"|arak|sanandaj|ilam|khorramabad|jask|sirik|abu musa|kharg|natanz|fordow|parchin|dezful"
                           r"|beirut|damascus|baghdad|erbil|sanaa|hodeidah|haifa|tel aviv|eilat|dimona|riyadh|jeddah"
                           r"|dubai|abu dhabi|doha|manama)\b", re.I)
@@ -392,6 +393,43 @@ def strike_key(m, chan_ok=False):
         return None
     kinds = frozenset(k for k, rx in _TARGET_RX.items() if rx.search(t))
     return who.pop(), frozenset(places), kinds
+
+
+# A retelling of a strike on a named place (an outlet relayed: "…, sources say", «ادعای وال‌استریت ژورنال», «رویترز به
+# نقل از…»; an analysis: «چرا ایران به … حمله کرد؟»), never one telling it as it happens (sirens, explosions heard,
+# "again"), joins the latest story of a strike on that place by the same attacker that has a news report, within
+# RETELL_KEEP of the story's latest report.
+RETELL_KEEP = 12 * 3600
+_RELAY_EN = re.compile(r"\b(?:sources?|officials?|media|reports?|report says|according to|claims?|quoted|cited|says?|said)\b", re.I)
+_RELAY_FA = re.compile(fa_norm("به نقل از|ادعای|به گزارش|مدعی|گزارش داد|منابع|چرا"))
+
+
+def retell_key(m):
+    """(attacker or None, places) of a retelling of a strike (see RETELL_KEEP), or None."""
+    from .citation import outlet_named
+    if m.get("wit") or event_class(m) != "K":
+        return None
+    fl = set(m.get("flags") or [])
+    if fl & {"denial", "controlled", "scheduled", "threat", "digest"}:
+        return None
+    t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
+    fat = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
+    if _NEW_EN.search(t) or (fat and _NEW_FA.search(fat)) or fronts._FRESH_EN.search(t) \
+            or (fat and fronts._FRESH_FA.search(fat)):
+        return None
+    if not (fl & {"analysis", "speculative", "past"} or outlet_named(m) or _RELAY_EN.search(t)
+            or (fat and _RELAY_FA.search(fat))):
+        return None
+    places = place_names(t)
+    if not places:
+        return None
+    who = {k for k, rx in _ATT_RX.items() if rx.search(t)}
+    return (who.pop() if len(who) == 1 else None), places
+
+
+def place_names(t):
+    return frozenset(x.lower().replace("esfahan", "isfahan").replace("ahwaz", "ahvaz").rstrip("s")
+                     for x in _STRIKE_CITY.findall(t or ""))
 
 
 def _chan_win(m):
@@ -745,7 +783,7 @@ def features(m):
             "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
-            "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True, new_ok=True), "gmain": gulf_main(m),
+            "sk": strike_key(m, chan_ok=True), "rk": retell_key(m), "gulf": gulf_key(m, chan_ok=True, new_ok=True), "gmain": gulf_main(m),
             "cwin": _chan_win(m) if channel(m) else 0,
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
 
@@ -1136,6 +1174,7 @@ class Clusterer:
         self.ev = {}                                      # story id -> (earliest, latest): when its event happened
         self.gulfs = {}                                   # story id -> [(Gulf-front mark, channel's, time)] (gulf_key)
         self.gmain = set()                                # stories with a report naming the main front
+        self.splaces = {}                                 # place -> {story id: attackers} of news reports of a strike
         for c in clusters:
             self._index(c)
 
@@ -1168,6 +1207,12 @@ class Clusterer:
                     self.gulfs.setdefault(c["id"], []).append((feats[m["k"]]["gulf"], feats[m["k"]]["chan"], m["t"]))
                 if feats[m["k"]].get("gmain"):
                     self.gmain.add(c["id"])
+                fm = feats[m["k"]]
+                if fm["cls"] == "K" and not fm["chan"] and not fm["wit"]:
+                    tt = m.get("en_ti") or ""
+                    who = {k for k, rx in _ATT_RX.items() if rx.search(tt)}
+                    for pl in place_names(tt):
+                        self.splaces.setdefault(pl, {}).setdefault(c["id"], set()).update(who)
                 if feats[m["k"]].get("dup"):
                     self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
@@ -1312,7 +1357,7 @@ class Clusterer:
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
-                + self._own_matches(item, f) + self._gulf_matches(item, f):
+                + self._own_matches(item, f) + self._gulf_matches(item, f) + self._retell_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
@@ -1412,6 +1457,30 @@ class Clusterer:
                     and not self._kind_conflict(f, cid):
                 out.append((0.55, c))
         return out
+
+    def _retell_matches(self, item, f):
+        """The story of a strike on the place a retelling names (see RETELL_KEEP): of those whose time it doesn't
+        miss, the one nearest the time it gives, else the latest."""
+        if not f.get("rk"):
+            return []
+        who, places = f["rk"]
+        told = EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD
+        cands = []
+        for pl in places:
+            for cid, att in self.splaces.get(pl, {}).items():
+                c = self.byid.get(cid)
+                if not c or len(c["m"]) >= 60 or not (0 <= item["t"] - c["u"] <= RETELL_KEEP):
+                    continue
+                if who and att and who not in att:
+                    continue
+                if not self._ev_fits(f, cid):
+                    continue                           # a time told that another strike on the place fits better
+                lab = self.ev.get(cid)
+                near = _ev_mid_dist(f["evp"], lab) if told and lab and lab[2] != EV_ANCHOR else 0
+                cands.append((near, -c["u"], cid))
+        if not cands:
+            return []
+        return [(0.52, self.byid[min(cands)[2]])]
 
     def _gulf_matches(self, item, f):
         """Stories of the same attack (or the same sirens, or the same Houthi statement) on the same place in an Arab
