@@ -1853,9 +1853,22 @@ def recluster(clusters, now_t, window=48 * 3600):
     return cl.clusters
 
 
-def _pick(members, lang):
+def _told_done(ms):
+    """Keys of the news reports (not a channel's) of an attack on a city of Iran that name the city and tell the
+    attack as done ("Southern Iran's Sirik attacked"), when the story also has reports that don't ("Explosions heard
+    in Hormozgan province"): the story's headline is taken from them (see _pick)."""
+    done = set()
+    for m in ms:
+        g = None if channel(m) else iran_key(m)
+        if g and g[0] and not g.fresh:
+            done.add(m["k"])
+    return done if done and len(done) < len(ms) else set()
+
+
+def _pick(members, lang, prefer=frozenset()):
     def key(m):
         return (m.get("rel", 0.6) + (0.25 if m.get("su") else 0) + (0.1 if m.get("img") else 0)
+                + (0.5 if m["k"] in prefer else 0)
                 - (0.3 if m.get("via") == "gn" else 0) + m.get("sev", 20) / 200
                 - (0.2 if len(m.get("ti", "")) > 160 else 0) - m["t"] / 1e12)
     pool = [m for m in members if m.get("lang") == lang]
@@ -1985,11 +1998,12 @@ def refresh(c):
         c["green"] = True
     else:
         c.pop("green", None)
-    en_rep = _pick(ms, "en")
+    done = _told_done(ms)
+    en_rep = _pick(ms, "en", done)
     fa_native = [m for m in ms if m.get("lang") == "fa" and m.get("rel", 0) >= 0.8]
-    fa_rep = _pick(fa_native, "fa") if fa_native else None
+    fa_rep = _pick(fa_native, "fa", done) if fa_native else None
     if en_rep is None:
-        en_rep = _pick(ms, "fa")
+        en_rep = _pick(ms, "fa", done)
     if fa_rep is None and en_rep is not None and en_rep.get("lang") == "fa":
         fa_rep = en_rep
     c["en_from"] = en_rep["k"] if en_rep else None
