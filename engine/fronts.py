@@ -508,8 +508,9 @@ _TARGETS = [
     ("ew_pipeline", None, r"east[- ]west (?:oil |crude |crude oil )?pipeline|petroline|saudi (?:arabia'?s? )?(?:key |main "
                           r"|vital |major |crucial |critical )?(?:oil |crude )?pipeline|pipeline (?:in|across|to) saudi"
                           r"|saudi (?:arabia'?s? )?(?:red sea |yanbu )?(?:oil )?export pipeline",
-     "خط لوله (?:نفتی |نفت |اصلی |اصلی نفت |حیاتی )?(?:شرق|شرقی)(?: به |\\s*-\\s*|\\s*–\\s*| و | )(?:غرب|غربی)"
-     "|خط لوله (?:نفتی |نفت )?(?:عربستان|سعودی)|پترولاین"),
+     "خط لوله (?:(?:نفتی|نفت|اصلی|حیاتی|راهبردی|استراتژیک) ){0,2}(?:شرق|شرقی)(?: به |\\s*-\\s*|\\s*–\\s*| و | )(?:غرب|غربی)"
+     "|خط لوله (?:(?:نفتی|نفت|اصلی|حیاتی|راهبردی|استراتژیک) ){0,2}(?:عربستان|سعودی)|پترولاین"
+     "|ایستگاه پمپاژ (?:شماره )?(?:7|۷|هفت) (?:خط لوله|عربستان|سعودی)"),   # «خط لوله راهبردی عربستان»
     ("adcop", None, r"habshan[- –](?:to[- ])?fujairah (?:oil |crude )?pipeline|abu dhabi crude (?:oil )?pipeline|\badcop\b"
                     r"|(?:uae|emirati|adnoc) (?:oil |crude |export )*pipeline",
      "خط لوله (?:نفتی |نفت )?حبشان|خط لوله (?:نفتی |نفت )?(?:ابوظبی|امارات) به فجیره|خط لوله (?:نفتی |نفت )?امارات"),
@@ -647,6 +648,10 @@ _GENERIC_EN = {"airport": r"airports?", "oil": r"aramco|refiner(?:y|ies)|oil|fac
                "troops": r"troops|forces|military (?:sites?|targets?|positions?)|bases?", "city": r"targets? in"}
 _GENERIC_FA = {"airport": "فرودگاه", "oil": "آرامکو|پالایشگاه|تاسیسات|نفتی", "troops": "نیروهای|مواضع|پایگاه",
                "city": "اهدافی در|اهداف حساس|اهداف"}
+# the Houthis' own forces named as the speaker or the actor: never a target of the "troops" kind
+_OWN_FORCES_EN = re.compile(r"\b(?:yemen'?s|yemeni|houthis?'?|ansar ?allah'?s?) (?:armed |military )?forces\b"
+                            r"|\b(?:armed|military) forces of (?:yemen|the houthis)\b", _I)
+_OWN_FORCES_FA = re.compile(fa_norm("نیروهای (?:مسلح |نظامی )?(?:یمن|یمنی|انصارالله|حوثی|حوثی ها|صنعا)"))
 _GENERIC_EN_RX = {k: re.compile(r"\b(?:" + v + r")\b", _I) for k, v in _GENERIC_EN.items()}
 _GENERIC_FA_RX = {k: re.compile(fa_norm(v)) for k, v in _GENERIC_FA.items()}
 _NUM_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
@@ -678,7 +683,8 @@ def gulf_claim(t, fa, targets, cities):
                                           r"(?![- ](?:led|backed))|\bsaudi (?:targets|territory|soil)\b|\bthe saudi enemy\b", t, _I)):
         return None                      # no place in the country named: a statement about the fighting in Yemen
     n = _op_count(t, fa)
-    kinds = {k for k, rx in (_GENERIC_FA_RX if fa else _GENERIC_EN_RX).items() if rx.search(t)}
+    own = (_OWN_FORCES_FA if fa else _OWN_FORCES_EN).sub(" ", t)   # «نیروهای مسلح یمن»: who struck, not a target
+    kinds = {k for k, rx in (_GENERIC_FA_RX if fa else _GENERIC_EN_RX).items() if rx.search(own)}
     # several targets: two named ones, a named one and another kind («فرودگاه ملک خالد، تأسیسات آرامکو و اهدافی در
     # ریاض»), or two kinds ("Aramco sites, Riyadh airport and troops")
     named_kinds = {"airport" if "airport" in k else "oil" for k in targets}
