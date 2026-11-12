@@ -99,6 +99,19 @@ def slim(it):
     return {k: it.get(k) for k in MEMBER_KEYS if it.get(k) not in (None, "", [])}
 
 
+def behind(c):
+    """The story's headline is not that of the report chosen for it (cluster._pick): the choice changed with no new
+    report (a rule change, a re-clustering), so its texts are made again. Not for a headline set by hand or made of
+    channels' reports (flash.story_texts), which replace the chosen report's on purpose."""
+    if c.get("fixed") or c.get("flash") or not c.get("en"):
+        return False
+    m = next((m for m in c["m"] if m["k"] == c.get("en_from")), None)
+    if not m:
+        return False
+    want = speaker_first(m["ti"]) if m.get("lang") == "en" else m.get("en_ti")
+    return bool(want) and c["en"].get("ti") != want
+
+
 def ensure_texts(clusters, tr):
     """Fill c['en'] / c['fa'] (title + summary) from the best member in each language,
     translating the English representative into Persian when no good Persian original exists."""
@@ -506,7 +519,8 @@ def news_round(full=True):
     retry = [c for c in clusters if c["id"] not in changed and
              ("en" not in c or "fa" not in c or (c.get("fa") or {}).get("fallback")
               or (c.get("en") or {}).get("fallback")
-              or ((c.get("fa") or {}).get("mt") and stale((c.get("en") or {}).get("ti"), c["fa"].get("ti"))))]
+              or ((c.get("fa") or {}).get("mt") and stale((c.get("en") or {}).get("ti"), c["fa"].get("ti")))
+              or behind(c))]
     for c in retry:
         if "en_from" not in c:
             refresh(c)
