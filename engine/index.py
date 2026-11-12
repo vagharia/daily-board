@@ -121,7 +121,8 @@ def signals_component(av, sea, clusters, t):
 W_ACTS, W_THREATS, W_SPREAD, W_SIGNALS = 0.35, 0.25, 0.15, 0.25
 HALF = 6 * 3600
 ACT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
-THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "talks_fail", "retaliation", "alert"}
+THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "pullback_me", "talks_fail", "retaliation",
+                "alert"}
 SKIP_FLAGS = {"denial", "past", "opinion", "analysis", "powers_soft", "sport"}
 IR_LAND = {"tehran", "isfahan", "natanz", "fordow", "bushehr", "bandar_abbas", "kharg", "tabriz", "shiraz", "chabahar",
            "baluchestan", "w_border", "qeshm", "kish", "abu_musa"}     # the islands are Iran's soil
@@ -627,12 +628,14 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
             air = [m for m in c["m"] if "airspace" in (m.get("flags") or [])]
             if flags == {"airspace"} and air and all(saudi_air(m) for m in air):
                 continue                       # Saudi Arabia's own sky, closed in its war with the Houthis (saudi_air)
-            told = flags & {"deploy", "ultimatum"}
+            told = flags & {"deploy", "ultimatum", "evac"}
             if told and not any(set(m.get("tf") or []) & told and "digest" not in (m.get("flags") or [])
                                 for m in c["m"]):
                 continue                       # a deployment or an ultimatum only in the text, not in a headline
             if need_state_actor and not (set(c.get("ctry", [])) & STATE_ACTORS):
                 continue
+            if "evac" in flags and not any("evac" in (m.get("tf") or []) and evac.mark(m) for m in c["m"]):
+                continue                       # an order to leave: who orders, which country, told in a headline
             if "evac" in flags and any(evac.stale(m) for m in c["m"]):
                 continue                       # an order retold days after it took effect
             # an order to leave a country: from when it was first reported, not from outlets retelling it later

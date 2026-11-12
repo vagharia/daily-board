@@ -2,8 +2,8 @@
 base due to Iran threat", «فرار هواپیماهای نظامی آمریکا از دومین پایگاه انگلیس», "US moves refueling tankers from UK
 base over Iran threat". Read from the headline only, in the report's own language.
 
-Where it happens decides how much it matters (classify.py): out of a Middle East country it is an evacuation (red,
-the evacuation lamp); anywhere else (Europe, Diego Garcia, Asia) it is not, orange, or red without the lamp when the
+Where it happens decides how much it matters (classify.py): out of a Middle East country it is red (no lamp: the
+evacuation lamp is only for orders to leave a country); anywhere else (Europe, Diego Garcia, Asia) it is not, orange, or red without the lamp when the
 headline gives a threat from Iran as the reason. A report naming a place only as the source of the threat ("Iran
 threat") does not place the evacuation there.
 
@@ -16,7 +16,7 @@ from .util import fa_norm
 
 # --- what is taken out: aircraft of any kind, a base itself, troops (never a ship: "crew evacuated from tanker")
 _ASSET_EN = re.compile(r"\b(?:aircraft|air ?planes?|planes?|jets?|warplanes?|fighters?|fighter jets?|bombers?|drones?"
-                       r"|refuell?ing (?:planes?|aircraft|tankers?|jets?)|(?:air ?force |aerial |air )?tankers?"
+                       r"|refuell?ing (?:planes?|aircraft|tankers?|jets?)|(?:air ?force |aerial |air |refuell?ing )tankers?"
                        r"|airlifters?|[fbc]-\d+[a-z]?s?|kc-\d+[a-z]?s?"
                        r"|troops|forces|personnel|service ?members|soldiers)\b", re.I)
 _ASSET_FA = re.compile(fa_norm(r"هواپیما|هواگرد|جنگنده|بمب\s*افکن|سوخت\s*رسان|تانکر\s*سوخت|پهپاد|نیروها|نیروهای"
@@ -28,9 +28,10 @@ _BASE_OUT_EN = re.compile(r"\b(?:from|out of|left|leaves?|leaving|evacuat\w*|aba
                           r"(?:is |was |were |are |being |been )*(?:evacuated|emptied|abandoned)\b", re.I)
 _BASE_OUT_FA = re.compile(fa_norm(r"(?<!\S)از\s+(?:\S+\s+){0,3}?پایگاه|پایگاه(?:\s+\S+){0,5}?\s+را\s+(?:«?ترک»?|تخلیه|رها)"
                                   r"|تخلیه\s+(?:\S+\s+){0,2}?پایگاه"))
-_SHIP_EN = re.compile(r"\b(?:oil tankers?|vessels?|ships?|crews?|strait|hormuz|sea|gulf of|port|lng|crude|supertankers?)\b",
+_SHIP_EN = re.compile(r"\b(?:oil tankers?|tankers?|vessels?|ships?|crews?|sailors|seafarers|coast ?guard|strait|hormuz|sea"
+                      r"|gulf of|port|lng|crude|supertankers?)\b",
                       re.I)
-_SHIP_FA = re.compile(fa_norm(r"(?<!\S)(?:نفتکش|کشتی|خدمه|تنگه|دریای|دریا(?!\S)|بندر)"))     # not «دریافت»
+_SHIP_FA = re.compile(fa_norm(r"(?<!\S)(?:نفتکش|کشتی|خدمه|ملوان|دریانورد|گارد ساحلی|تنگه|دریای|دریا(?!\S)|بندر)"))     # not «دریافت»
 # people taken out (staff, diplomats, citizens): an evacuation too, but never labelled as a pullback of forces
 _PEOPLE_EN = re.compile(r"\b(?:embass\w+|consulat\w+|diplomat\w*|staff|citizens|nationals|employees|families|americans"
                         r"|britons|expats|dependents)\b", re.I)
@@ -41,6 +42,8 @@ _OUT_EN = re.compile(r"\b(?:evacuat\w*|withdr[ae]w\w*|withdrawn|pull(?:s|ed|ing)
                      r"|flee\w*|fled|escap\w*|abandon\w*|left|leav(?:e|es|ing))\b", re.I)
 _MOVE_EN = re.compile(r"\b(?:mov(?:e|es|ed|ing)|remov(?:e|es|ed|ing)|relocat\w*|reposition\w*|shift\w*|redeploy\w*|pull(?:s|ed|ing)?"
                       r"|takes?|took|fl(?:y|ies|ew|own))\b(?:\s+[\w'-]+){0,5}?\s+(?:from|out of)\b", re.I)
+# a pullback told only in a side clause, after the headline's own news: not the news ("… after US evacuates …")
+_SIDE_EN = re.compile(r"(?<=\S)\s+(?:after|following|amid|as|days after|weeks after)\s+", re.I)
 _RUN_EN = re.compile(r"\b(?:evacuat\w*|flee\w*|fled|escap\w*|abandon\w*)\b", re.I)   # gone in haste
 _OUT_FA = re.compile(fa_norm(r"تخلیه|فرار|خروج|خارج\s*(?:کرد|کردند|شد|شدند|می\s*کند|می\s*کنند|کرده|شده)|بیرون\s*(?:برد|بردند|کشید)"
                              r"|«?ترک»?\s*(?:کرد|کردند|کرده|می\s*کنند)|عقب\s*نشینی|جابجایی|جابه\s*جایی|جا\s*به\s*جایی|انتقال|منتقل"))
@@ -86,7 +89,7 @@ _PLACE = {
     "cyprus": (r"cyprus|cypriot|akrotiri", "قبرس|آکروتیری", True),       # the bases the war is flown from
     "iran": (r"iran\w*|tehran", "ایران|تهران", True),
     "gulf": (r"the gulf|persian gulf|gulf states|middle east|the region", "خلیج فارس|کشورهای خلیج|خاورمیانه|منطقه", True),
-    "uk": (r"uk|u\.k\.|britain|british|england|english|scotland|london|raf \w+|mildenhall|lakenheath|fairford",
+    "uk": (r"uk|u\.k\.|britain|british|england|english|scotland|london|raf|royal air force|mildenhall|lakenheath|fairford",
            "بریتانیا|انگلیس|انگلستان|لندن|میلدنهال|لیکنهیث|لکنهیث|فیرفورد", False),
     "germany": (r"german\w*|berlin|ramstein|spangdahlem", "آلمان|برلین|رامشتاین", False),
     "italy": (r"ital\w+|aviano|sigonella", "ایتالیا|آویانو|سیگونلا", False),
@@ -186,9 +189,13 @@ def read(lang, head):
             return None                              # «انتقال هواپیماها به …»: a move to a place, not out of one
         risk = bool(_CAUSE_FA.search(t) or _RISK_FA.search(t))
     else:
+        side = _SIDE_EN.search(t)
+        if side and not (_OUT_EN.search(t[:side.start()]) or _MOVE_EN.search(t[:side.start()])):
+            return None                              # "Iran unveils 'Missile City' after US evacuates second RAF base"
         mil = bool(_ASSET_EN.search(t) or _BASE_OUT_EN.search(t))
         if not (mil or _PEOPLE_EN.search(t)) \
-                or (_SHIP_EN.search(t) and not re.search(r"\brefuel|\bair ?force\b|\bair ?base", t, re.I)):
+                or (_SHIP_EN.search(t) and not re.search(r"\brefuel|\bair ?force\b|\bair ?base|\bkc-\d|\baerial\b"
+                                                   r"|\bair tankers?", t, re.I)):
             return None
         if not (_OUT_EN.search(t) or _MOVE_EN.search(t)):
             return None
@@ -197,7 +204,8 @@ def read(lang, head):
         run = bool(_RUN_EN.search(t))
         risk = bool(_CAUSE_EN.search(t) or _RISK_EN.search(t))
     where, places, iran = place(lang, head)
-    return {"run": run, "where": where, "places": places, "iran": iran, "risk": risk, "mil": mil}
+    people = bool((_PEOPLE_FA if fa else _PEOPLE_EN).search(t))
+    return {"run": run, "where": where, "places": places, "iran": iran, "risk": risk, "mil": mil, "people": people}
 
 
 def mark(m):

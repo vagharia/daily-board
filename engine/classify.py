@@ -9,7 +9,7 @@ import datetime
 import math
 import re
 
-from . import config, deesc, pullback, sport, witness
+from . import config, deesc, evac, pullback, sport, witness
 from .classify_fa import STRONG as STRONG_FA, score_fa
 from . import cause, scheduled
 from .fronts import MINOR_CAP, SECONDARY_CAP, side_front
@@ -604,8 +604,8 @@ def _mediator_visit(lang, t):
 
 
 # forces, a base or people taken out of a place (pullback.py). Where it happens decides: out of a Middle East country
-# it is an evacuation (red, the evacuation lamp) if they were evacuated or fled, or any danger is given as the reason
-# (a routine drawdown is not); anywhere else (Europe, Diego Garcia, Asia) it is never an evacuation of the war: orange,
+# it is red (no lamp: the evacuation lamp is only for orders to leave a country) if they were evacuated or fled, or any
+# danger is given as the reason (a routine drawdown is not); anywhere else (Europe, Diego Garcia, Asia) it is never an evacuation of the war: orange,
 # or red when the headline gives a threat from Iran as the reason, and it lights no lamp either way. Moving forces out
 # of a place is not a deployment.
 PULL_ME_SEV = 76.0
@@ -1342,6 +1342,8 @@ def score_en(title: str, summary: str):
             val = base * (0.78 if base >= KINETIC_BASE else 0.9)
         else:
             continue
+        if "evac" in fl and evac.rescue(False, t if rx.search(t) else s):
+            continue                       # crew taken off a ship, people out of a fire: a rescue (evac.rescue)
         topics |= tp
         flags |= fl
         best = max(best, val)
@@ -1684,9 +1686,12 @@ def classify(item):
     if not pb and "evac" in flags:
         # an order to leave told with other words ("ordered departure", «خروج اتباع»): placed all the same
         w, pl, ir = pullback.place(lang, fa_t or en_t)
-        pb = {"run": True, "where": w, "places": pl, "iran": ir, "risk": True, "mil": False}
+        pb = {"run": True, "where": w, "places": pl, "iran": ir, "risk": True, "mil": False, "people": True}
+    if pb and pb["mil"] and not pb["people"]:
+        flags = set(flags) - {"evac"}                 # forces or a base taken out: never the embassy lamp
     if pb and pb["where"] == "me" and pb["mil"] and (pb["run"] or pb["risk"]):
-        flags = (set(flags) - {"deploy"}) | {"evac", "pullback"}
+        # forces taken out of the Middle East: a red story, but no lamp (the evacuation lamp is for orders to leave)
+        flags = (set(flags) - {"deploy"}) | {"pullback", "pullback_me"}
         if not set(flags) & _PULL_NOT:
             sev = max(sev, PULL_ME_SEV)
     elif pb and pb["where"] == "far" and (pb["mil"] or "evac" in flags):
@@ -1758,12 +1763,13 @@ def classify(item):
         if g["stage"] >= 5 and g["core"]:
             flags -= {"sanctions"}                   # sanctions lifted are not new sanctions
         if g["stage"] >= 2 or "talks_fail" in g["flags"]:
-            escal = flags & {"kinetic", "threat", "ultimatum", "deploy", "maritime_incident", "evac", "kinetic_threat",
+            escal = flags & {"kinetic", "threat", "ultimatum", "deploy", "maritime_incident", "evac", "pullback_me", "kinetic_threat",
                              "retaliation", "nuclear_red", "internet", "talks_fail"}
             sev = max(sev, g["sev"]) if escal else g["sev"]
     # the lamps for a deployment and an ultimatum light only for what the headline itself tells: an MP's words about
-    # carriers "brought to the region", deep in the text, are not a deployment (index.compute_lights)
-    lf = set(flags) & {"deploy", "ultimatum"}
+    # carriers "brought to the region", deep in the text, are not a deployment; nor "nationals evacuated" in the text an
+    # order to leave a country (index.compute_lights)
+    lf = set(flags) & {"deploy", "ultimatum", "evac"}
     if lf:
         tf = (score_fa(head, "") if lang == "fa" else score_en(head, ""))[2]
         item["tf"] = sorted(lf & set(tf))

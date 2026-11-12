@@ -42,6 +42,39 @@ _EFF_EN = re.compile(r"\b(?:effective|as of|since|starting|beginning) (?:on )?(?
 _EFF_FA = re.compile(r"(?:از|از تاریخ|از روز)\s*(\d{1,2})\s*(" + "|".join(_MONTHS_FA) + ")")
 
 
+# people taken off a ship, a platform, a burning or flooded place, by rescuers: a rescue, never an order to leave a
+# country ("22 sailors evacuated by UAE Coast Guard", "all personnel evacuated from SPD14D platform", «نجات ۲۲ تن از
+# خدمه»), unless an embassy, diplomats or an order to depart are named too (rescue() in classify.score_en / score_fa)
+_RESCUE_EN = re.compile(r"\b(crews?|crew members|sailors|seafarers|seamen|fishermen|passengers|workers|miners|patients"
+                        r"|ships?|vessels?|tankers?|cargo|boats?|platforms?|rigs?|refiner\w*|plants?|factor\w+"
+                        r"|hospitals?|buildings?|fires?|blaze|burning|ablaze|flames?|smoke|explosion|leak|collapse\w*"
+                        r"|quake|earthquake|floods?|flooding|storms?|cyclone|wildfires?|landslide|coast ?guard"
+                        r"|rescu\w*|lifeboats?|life rafts?)\b", re.I)
+_RESCUE_FA = re.compile(fa_norm(r"خدمه|ملوان|دریانورد|سرنشین|کارگران|کشتی|نفتکش|شناور|قایق|لنج|سکو|پالایشگاه|کارخانه"
+                                r"|بیمارستان|ساختمان|آتش|حریق|شعله|دود|انفجار|نشت|ریزش|زلزله|زمین لرزه|سیل|طوفان"
+                                r"|گارد ساحلی|نجات|امدادگر|امداد"))
+_ORDER_EN = re.compile(r"\b(embass\w+|consulat\w+|diplomat\w*|ordered departure|authorized departure|order(s|ed)? "
+                       r"(\w+ ){0,3}(to leave|departure)|leave the country|non-?emergency|non-?essential|travel advisory"
+                       r"|do not travel)\b", re.I)
+_ORDER_FA = re.compile(fa_norm(r"سفارت|کنسولگری|دیپلمات|ترک (فوری )?کشور|کارکنان غیرضروری|کارمندان غیرضروری|هشدار سفر"))
+
+
+# forces or a base: not a rescue but a pullback, read by pullback.py ("US Air Force evacuates tankers from base")
+_MIL_EN = re.compile(r"\b(air ?force|usaf|raf|aircraft|warplanes?|jets?|bombers?|refuell?ing|kc-\d+\w*|troops|soldiers"
+                     r"|air ?bases?|military bases?)\b", re.I)
+_MIL_FA = re.compile(fa_norm(r"نیروی هوایی|هواپیما|جنگنده|بمب\s*افکن|سوخت\s*رسان|نظامیان|سربازان|پایگاه"))
+
+
+def rescue(fa, text):
+    """True if a text that tells of an evacuation tells of a rescue (a ship, a fire, a flood), not of an order to
+    leave a country."""
+    if not text:
+        return False
+    if fa:
+        return bool(_RESCUE_FA.search(text)) and not (_ORDER_FA.search(text) or _MIL_FA.search(text))
+    return bool(_RESCUE_EN.search(text)) and not (_ORDER_EN.search(text) or _MIL_EN.search(text))
+
+
 def _text(m):
     en = " ".join(x for x in (m.get("en_ti"), m.get("en_su")) if x) if m.get("lang") == "fa" else \
         " ".join(x for x in (m.get("ti"), m.get("su"), m.get("en_ti"), m.get("en_su")) if x)

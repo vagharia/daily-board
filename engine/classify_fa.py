@@ -6,6 +6,7 @@ threats and plans, quotes, reactions, questions, analysis, past events, denials,
 speeches. The English translation is never scored for a Persian report."""
 import re
 
+from . import evac
 from .attack_verb import actor_strikes_fa
 from .strike_sense import calm_fa
 from .util import fa_norm, to_latin_digits
@@ -422,6 +423,8 @@ def score_fa(title: str, summary: str):
             val = base * (0.78 if base >= KINETIC_BASE else 0.9)
         else:
             continue
+        if "evac" in fl and evac.rescue(True, t if rx.search(t) else s):
+            continue                       # crew taken off a ship, people out of a fire: a rescue (evac.rescue)
         topics |= tp
         flags |= fl
         best = max(best, val)
