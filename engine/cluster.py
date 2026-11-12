@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import config, deploy, evac, pullback, vessel, witness
+from . import city_strike, config, deploy, evac, pullback, vessel, witness
 from .classify import cluster_severity, tier, trump_level
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -373,6 +373,21 @@ _NEW_EN = re.compile(r"\b(?:new|another|fresh|second|third|again|renewed|more|fu
 _NEW_FA = re.compile(fa_norm("دوباره|مجدد|جدید|تازه|دومین|سومین|بار دیگر|باز هم|موج"))
 
 
+_BY = re.compile(r"\s*(?:,\s*)?by\b", re.I)
+_PLACE_WORD = re.compile(r"\b(?:county|province|city|island|port|town|region|coast)\b", re.I)
+
+
+def _passive(t, x):
+    """A match of _ATT_RX that tells of the side struck, not the striker: "Southern Iran's Sirik attacked",
+    "Iran's Sirik County hit by 'enemy' strike" (a place of the side follows its name, or "by" follows the verb)."""
+    if x.group(0).lower().startswith(("strike", "attack", "raid", "bombing")):
+        return False                                # "strikes by the US": the second form names the striker
+    if _BY.match(t, x.end()):
+        return True
+    gap = x.group(0)
+    return bool(_STRIKE_CITY.search(gap) or _PLACE_WORD.search(gap))
+
+
 def strike_key(m, chan_ok=False):
     """(attacker, places hit, kinds of target) of a news report of an attack, or None (see above). chan_ok: a
     Telegram channel's post gets one too (it joins a news story by it, never another channel's: see CHAN_JOIN)."""
@@ -384,7 +399,7 @@ def strike_key(m, chan_ok=False):
     t = m.get("en_ti") or (m.get("ti") if m.get("lang") != "fa" else "") or ""
     if not t or _NEW_EN.search(t) or (m.get("lang") == "fa" and _NEW_FA.search(fa_norm(m.get("ti") or ""))):
         return None
-    who = {k for k, rx in _ATT_RX.items() if rx.search(t)}
+    who = {k for k, rx in _ATT_RX.items() if any(not _passive(t, x) for x in rx.finditer(t))}
     if len(who) != 1:
         return None                                 # nobody named, or two sides striking
     places = {x.lower().replace("esfahan", "isfahan").replace("ahwaz", "ahvaz") for x in _STRIKE_CITY.findall(t)}
@@ -594,6 +609,52 @@ def gulf_when(t, c, n, a, b, chan):
     return _gulf_time(t, c)
 
 
+# ------------------------------------------------------------------ the main front: one attack on one city of Iran
+# Reports of an attack or an explosion in the same city of Iran (city_strike.py: what they are and what keeps two
+# blasts apart) are one story when the report comes within IR_WINDOW of the story's first report, or, while it is
+# still being told, within IR_GAP of its latest report and IR_SPAN of its first. In a big city (city_strike.BIG)
+# only within IR_BIG of the first; a report naming only the province, only within IR_WINDOW, and only when one story
+# of that province fits. A report told as it happens (explosions heard) after IR_QUIET without a report is a new
+# blast. A Telegram channel's post joins a news story this way, never another channel's.
+IR_WINDOW = 90 * 60
+IR_GAP = 30 * 60
+IR_SPAN = 3 * 3600
+IR_BIG = 45 * 60
+IR_QUIET = 30 * 60
+
+
+def iran_mark(m):
+    """city_strike.mark of a report of an attack in a city of Iran (not at sea, not a citizens' post), or None."""
+    if m.get("wit") or event_class(m) != "K" or _at_sea(m):
+        return None
+    return city_strike.mark(m)
+
+
+def iran_key(m, g=None):
+    """The mark that joins by the rule above: none for a report saying it is a new one."""
+    g = iran_mark(m) if g is None else g
+    return g if g and not g.new else None
+
+
+def iran_new(m, g=None):
+    """The mark of a report of a new blast in a city told as it happens ("another explosion heard in Jask"), or None."""
+    g = iran_mark(m) if g is None else g
+    return g if g and g.new and g.fresh and g[0] else None
+
+
+def iran_when(t, c, a, b, n):
+    """A report at time t with mark a, matching story c's mark b at level n (city_strike.same), comes within the
+    times above."""
+    if a.fresh and t - c["u"] > IR_QUIET:
+        return False                                # heard again after a quiet spell: another blast
+    since = abs(t - _since(c))
+    if n < 2:
+        return since <= IR_WINDOW
+    if city_strike.big(a) or city_strike.big(b):
+        return since <= IR_BIG
+    return since <= IR_WINDOW or (abs(t - c["u"]) <= IR_GAP and since <= IR_SPAN)
+
+
 PLACE_TOKENS = {w for v in PLACES.values() for w in tokens(v[1]) if len(w) >= 4} - {"gulf", "island", "persian"}
 NAME_TOKENS = {w for v in PEOPLE.values() for x in v[2] if not x.startswith("re:") for w in tokens(x.rstrip("$"))
                if len(w) >= 4} - set("""minister foreign prime president leader chief commander defense defence staff
@@ -746,8 +807,14 @@ def features(m):
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m),
             "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True, new_ok=True), "gmain": gulf_main(m),
+            **_iran_feats(m),
             "cwin": _chan_win(m) if channel(m) else 0,
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
+
+
+def _iran_feats(m):
+    g = iran_mark(m)
+    return {"ir": iran_key(m, g), "irnew": iran_new(m, g)}
 
 
 def _at_sea(m):
@@ -1136,6 +1203,8 @@ class Clusterer:
         self.ev = {}                                      # story id -> (earliest, latest): when its event happened
         self.gulfs = {}                                   # story id -> [(Gulf-front mark, channel's, time)] (gulf_key)
         self.gmain = set()                                # stories with a report naming the main front
+        self.irs = {}                                     # story id -> [(city_strike mark, channel's, spots, time)]
+        self.irnews = {}                                  # story id -> cities of its reports of a new blast
         for c in clusters:
             self._index(c)
 
@@ -1168,6 +1237,11 @@ class Clusterer:
                     self.gulfs.setdefault(c["id"], []).append((feats[m["k"]]["gulf"], feats[m["k"]]["chan"], m["t"]))
                 if feats[m["k"]].get("gmain"):
                     self.gmain.add(c["id"])
+                if feats[m["k"]].get("irnew"):
+                    self.irnews.setdefault(c["id"], set()).update(feats[m["k"]]["irnew"][0])
+                if feats[m["k"]].get("ir"):
+                    self.irs.setdefault(c["id"], []).append(
+                        (feats[m["k"]]["ir"], feats[m["k"]]["chan"], frozenset(feats[m["k"]]["spots"]), m["t"]))
                 if feats[m["k"]].get("dup"):
                     self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
@@ -1292,6 +1366,8 @@ class Clusterer:
                 continue                                   # it happened at another time
             if self._gulf_conflict(f, cid):
                 continue                                   # sirens and the attack itself: two stories (Gulf front)
+            if self._iran_conflict(f, cid, item["t"]):
+                continue                                   # another city, another target, a blast heard again
             late = self._ev_late(item, f, c)
             feats = self.tok.get(cid, {})
             if f["sk"] and (abs(item["t"] - _since(c)) <= STRIKE_WINDOW or late) \
@@ -1312,7 +1388,7 @@ class Clusterer:
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
-                + self._own_matches(item, f) + self._gulf_matches(item, f):
+                + self._own_matches(item, f) + self._gulf_matches(item, f) + self._iran_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
@@ -1354,7 +1430,9 @@ class Clusterer:
             if gulf_pair is None and f.get("gulf") and f["gulf"][4] and self._gulf_news(best) \
                     and self._gulf_news(other):
                 continue                               # bridged by a later report only: the Gulf rule's times decide
-            strike_pair = strike_pair or gulf_pair
+            if self._iran_apart(best, other):
+                continue                               # two strikes in one city (another kind of target)
+            strike_pair = strike_pair or gulf_pair or self._iran_pair(best, other)
             if (len(other["m"]) > 8 and not strike_pair) or len(best["m"]) + len(other["m"]) > 60:
                 continue
             if best.get("manual") or other.get("manual"):
@@ -1437,6 +1515,79 @@ class Clusterer:
                 # of two stories that fit as well, the one told most recently
                 out.append((0.5 + 0.05 * n - min(abs(item["t"] - c["u"]), 86400) / 8640000, c))
         return out
+
+    def _iran_matches(self, item, f):
+        """Stories of the same attack on the same city of Iran (see IR_WINDOW and city_strike.py)."""
+        a = f.get("ir")
+        if not a:
+            return []
+        out = []
+        for cid, marks in self.irs.items():
+            c = self.byid.get(cid)
+            if not c or len(c["m"]) >= 60 or self._iran_conflict(f, cid, item["t"]):
+                continue
+            n = 0
+            for x, xch, sp, _ in marks:
+                if f["chan"] and xch:
+                    continue                           # a channel's post joins the news, never another channel
+                if f["spots"] and sp and not f["spots"] & sp:
+                    continue                           # another street or district
+                k = city_strike.same(a, x)
+                if k > n and (not xch or abs(item["t"] - c["u"]) <= CHAN_FRESH) and iran_when(item["t"], c, a, x, k):
+                    n = k
+            if n:
+                out.append((n, 0.5 + 0.05 * n - min(abs(item["t"] - c["u"]), 86400) / 8640000, c))
+        if not a[0] and len(out) > 1:
+            return []                                  # the province only, and two of its stories: not told which
+        return [(s, c) for _, s, c in out]
+
+    def _iran_conflict(self, f, cid, t):
+        """True if a report of an attack in a city of Iran, at time t, is of another strike than the story's: the
+        story's reports name only other cities (Sirik / Minab); they name that city but only other kinds of target
+        (a port / an air base); a channel's post, or a report saying it is happening now, told as it happens
+        (explosions heard) after IR_QUIET without a report of that city, giving no time that places it earlier; or it tells of a new blast as it happens ("another explosion
+        heard in Jask") and the story has no such report of that city. Whatever rule would join them otherwise."""
+        marks = self.irs.get(cid, ())
+        n = f.get("irnew")
+        if n:
+            told = {c for x, _, _, _ in marks for c in x[0]}
+            return bool(n[0] & told) and not n[0] & self.irnews.get(cid, set())
+        a = f.get("ir")
+        if not a or not a[0]:
+            return False
+        same = [(x, xt) for x, _, _, xt in marks if x[0] & a[0]]
+        if not same:
+            return any(x[0] for x, _, _, _ in marks)       # another city only
+        if a[2] and all(x[2] and not x[2] & a[2] for x, _ in same):
+            return True
+        told = EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD and not a.now   # "moments ago" is now
+        return a.fresh and (f["chan"] or a.now) and not told and t - max(xt for _, xt in same) > IR_QUIET
+
+    def _iran_apart(self, a, b):
+        """Two stories of attacks on different cities of Iran, or on one city whose reports name only kinds of
+        target that don't meet."""
+        ma, mb = self.irs.get(a["id"]), self.irs.get(b["id"])
+        if not ma or not mb:
+            return False
+        ca, cb = {c for x, _, _, _ in ma for c in x[0]}, {c for x, _, _, _ in mb for c in x[0]}
+        if ca and cb and not ca & cb:
+            return True
+        pairs = [(x, y) for x, _, _, _ in ma for y, _, _, _ in mb if x[0] & y[0]]
+        return bool(pairs) and all(x[2] and y[2] and not x[2] & y[2] for x, y in pairs)
+
+    def _iran_pair(self, a, b):
+        """Two stories telling of the same attack on the same city of Iran within the rule's times."""
+        ma, mb = self.irs.get(a["id"]), self.irs.get(b["id"])
+        if not ma or not mb:
+            return False
+        for x, xch, xs, xt in ma:
+            for y, ych, ys, yt in mb:
+                if (xch and ych) or (xs and ys and not xs & ys):
+                    continue
+                n = city_strike.same(x, y)
+                if n == 2 and (iran_when(yt, a, y, x, n) or iran_when(xt, b, x, y, n)):
+                    return True
+        return False
 
     def _gulf_news(self, c):
         return c["id"] not in self.gmain and any(not ch for _, ch, _ in self.gulfs.get(c["id"], ()))
