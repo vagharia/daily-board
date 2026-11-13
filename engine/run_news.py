@@ -103,7 +103,7 @@ def behind(c):
     """The story's headline is not that of the report chosen for it (cluster._pick): the choice changed with no new
     report (a rule change, a re-clustering), so its texts are made again. Not for a headline set by hand or made of
     channels' reports (flash.story_texts), which replace the chosen report's on purpose."""
-    if c.get("fixed") or c.get("flash") or not c.get("en"):
+    if c.get("fixed") or not c.get("en") or (c.get("flash") and flash.story_texts(c)):
         return False
     m = next((m for m in c["m"] if m["k"] == c.get("en_from")), None)
     if not m:
