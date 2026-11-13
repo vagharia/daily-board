@@ -406,7 +406,8 @@ def news_round(full=True):
         misc["recluster"] = 26
         # re-formed stories must not trigger alerts again; new reports in this round still can
         sent = alerts_state.setdefault("sent", [])
-        sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
+        sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent
+                    and not (c.get("ground") and T - c["u"] <= 6 * 3600))   # a flight stop just made red: alerted
         log(f"re-clustered recent stories: {n0} -> {len(clusters)}")
     if misc.get("reeval") != 3:
         # once after a relevance change: items of the last 36 hours that were left out get another look
@@ -551,6 +552,10 @@ def news_round(full=True):
             for f in ("ti", "su"):
                 if c["fa"].get(f):
                     c["fa"][f] = fix_terms(c["en"].get(f, ""), c["fa"][f], "fa")
+        if (c.get("en") or {}).get("mt") and c.get("fa"):
+            for f in ("ti", "su"):
+                if c["en"].get(f):
+                    c["en"][f] = fix_terms(c["fa"].get(f, ""), c["en"][f], "en")
     for c in clusters:                      # main-front stories told only by Telegram channels (flash.py)
         if T - c["u"] > 2 * 86400 or not any(flash.events(m) for m in c["m"]):
             c.pop("flash", None)

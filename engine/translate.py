@@ -1,11 +1,13 @@
 """Free machine translation through Google's public web endpoints (two independent endpoints,
 so one being throttled doesn't stop the run), with caching, size-limited batching and a small
 glossary so names and terms come out right in Persian."""
+import datetime as dt
 import json
 import re
 import time
 
 from . import config, http
+from .scheduled import TEHRAN, gregorian, jalali
 from .util import log, now, sha
 
 # ------------------------------------------------------------------ glossary
@@ -103,8 +105,132 @@ _HEGSETH_SRC = re.compile("ه[گك]س[تث]|ه[گك]ز[تث]")
 _HEGSETH_EN = re.compile(r"\bH[aeoiu]g{1,2}s?[aeiou]?[st]{1,2}t?h?\b")
 
 
+# ------------------------------------------------------------------ dates between the two calendars
+# The machine translation keeps a date's day and swaps the month for the other calendar's nearest one: «۲۲ آبان»
+# comes out "November 22" (it is November 13), "November 13" can come out «۱۳ آبان» (it is ۲۲ آبان). A date of the
+# source is converted properly (the year nearest today) and put in place of the wrong one in the translation.
+SOLAR_FA = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
+SOLAR_EN = ["Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar", "Mehr", "Aban", "Azar", "Dey",
+            "Bahman", "Esfand"]
+MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+             "November", "December"]
+MONTHS_FA = ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"]
+_DIG = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+_FA_DIG = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+_D = r"([0-9۰-۹٠-٩]{1,2})"
+_SOLAR_SRC = re.compile(_D + r"\s*(?:ام\s*)?(" + "|".join(SOLAR_FA) + r")(?![؀-ۿ])")
+_EN_ABBR = {m[:3].lower(): i for i, m in enumerate(MONTHS_EN)} | {"sept": 8}
+_EN_MON = r"(" + "|".join(MONTHS_EN) + r"|(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?)"
+_GREG_SRC = re.compile(r"\b" + _EN_MON + r"\s+(\d{1,2})(?:st|nd|rd|th)?\b|\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?"
+                       + _EN_MON + r"\b")
+_GREG_SRC_FA = re.compile(_D + r"\s*(" + "|".join(MONTHS_FA) + r")(?![؀-ۿ])")
+_ANY_MON_EN = r"(" + "|".join(MONTHS_EN + SOLAR_EN) + r"|(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?)"
+
+
+def _en_month(name):
+    name = name.rstrip(".").lower()
+    for i, m in enumerate(MONTHS_EN):
+        if m.lower() == name:
+            return i + 1
+    return _EN_ABBR.get(name[:4] if name.startswith("sept") else name[:3], -1) + 1
+
+
+def _today():
+    return dt.datetime.fromtimestamp(now(), TEHRAN).date()
+
+
+def _from_solar(jm, jd):
+    """The Gregorian date of a day and month of the Iranian calendar, in the year that puts it nearest today."""
+    today = _today()
+    jy = jalali(today)[0]
+    best = None
+    for y in (jy - 1, jy, jy + 1):
+        try:
+            g = gregorian(y, jm, jd)
+        except ValueError:
+            continue
+        if best is None or abs((g - today).days) < abs((best - today).days):
+            best = g
+    return best
+
+
+def _from_greg(gm, gd):
+    """The Iranian (month, day) of a Gregorian day and month, in the year that puts it nearest today."""
+    today = _today()
+    best = None
+    for y in (today.year - 1, today.year, today.year + 1):
+        try:
+            g = dt.date(y, gm, gd)
+        except ValueError:
+            continue
+        if best is None or abs((g - today).days) < abs((best - today).days):
+            best = g
+    return jalali(best)[1:] if best else None
+
+
+def fix_dates(src, out, tl):
+    """The translation's dates put right from the source's (see above)."""
+    if not src or not out:
+        return out
+    if tl == "en":
+        right = {}                                   # day → (month, day) as it must read
+        for x in _SOLAR_SRC.finditer(src):
+            jd, jm = int(x.group(1).translate(_DIG)), SOLAR_FA.index(x.group(2)) + 1
+            g = _from_solar(jm, jd)
+            if g:
+                right.setdefault(jd, set()).add((g.month, g.day))
+        if not right:
+            return out
+        kept = {(gm, gd) for x in _GREG_SRC_FA.finditer(src)
+                for gd, gm in [(int(x.group(1).translate(_DIG)), MONTHS_FA.index(x.group(2)) + 1)]}
+
+        def put(day, mon):
+            want = right.get(day)
+            got = (_en_month(mon) if mon not in SOLAR_EN else 0, day)
+            if not want or len(want) > 1 or got in want or got in kept:
+                return None
+            gm, gd = next(iter(want))
+            return gm, gd
+
+        def a(x):                                    # "November 22"
+            r = put(int(x.group(2)), x.group(1))
+            return f"{MONTHS_EN[r[0] - 1]} {r[1]}" if r else x.group(0)
+
+        def b(x):                                    # "22 November", "22 Aban"
+            r = put(int(x.group(1)), x.group(2))
+            return f"{MONTHS_EN[r[0] - 1]} {r[1]}" if r else x.group(0)
+
+        out = re.sub(r"\b" + _ANY_MON_EN + r"\s+(\d{1,2})(?!\d)(?:st|nd|rd|th)?\b", a, out)
+        return re.sub(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + _ANY_MON_EN + r"\b", b, out)
+    if tl == "fa":
+        right = {}                                   # day → Iranian (month, day)
+        for x in _GREG_SRC.finditer(src):
+            mon, day = (x.group(1), x.group(2)) if x.group(1) else (x.group(4), x.group(3))
+            gm, gd = _en_month(mon), int(day)
+            r = _from_greg(gm, gd) if gm else None
+            if r:
+                right.setdefault(gd, set()).add(r)
+        if not right:
+            return out
+        kept = {(SOLAR_EN.index(m) + 1, int(d)) for m, d in
+                re.findall(r"\b(" + "|".join(SOLAR_EN) + r")\s+(\d{1,2})\b", src)}
+
+        def c(x):                                    # «۱۳ آبان» for "November 13"
+            day, jm = int(x.group(1).translate(_DIG)), SOLAR_FA.index(x.group(2)) + 1
+            want = right.get(day)
+            if not want or len(want) > 1 or (jm, day) in want or (jm, day) in kept:
+                return x.group(0)
+            rm, rd = next(iter(want))
+            digits = str(rd).translate(_FA_DIG) if re.search("[۰-۹]", x.group(1)) else str(rd)
+            return f"{digits} {SOLAR_FA[rm - 1]}"
+
+        return _SOLAR_SRC.sub(c, out)
+    return out
+
+
 def fix_terms(src, out, tl):
     """Corrections that depend on the source text."""
+    out = fix_dates(src, out, tl)
     if tl == "en" and out:
         if "پزشکیان" in (src or "") and "پزشکان" not in src:
             out = _DOCTORS_EN.sub("Pezeshkian", out)   # the president's name read as "doctors"

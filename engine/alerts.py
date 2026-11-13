@@ -453,7 +453,7 @@ def _sea_state(state, clusters, sent, t):
     sent = set(sent)
     for c in sorted(clusters, key=lambda c: c["t"]):
         # stories already announced: what they tell is known, including the reports that joined them since
-        if c["tier"] != "red" or c.get("trump") or c.get("ground") or c["id"] not in sent or t - c["u"] > SEA_KEEP or not _at_sea(c):
+        if c["tier"] != "red" or c.get("trump") or c["id"] not in sent or t - c["u"] > SEA_KEEP or not _at_sea(c):
             continue
         if _head_claim(c):
             for k in _claims(c):
@@ -576,7 +576,7 @@ def _arab_pick(state, clusters, red, sent, t):
     for c in clusters:
         ids = [c["id"]] + list(c.get("merged", []))
         # announced, or held as the attack announced: its reports tell that attack is still being told
-        if c["tier"] == "red" and not (c.get("trump") or c.get("ground")) and t - c["u"] <= ARAB_KEEP and any(x in sent or x in held for x in ids):
+        if c["tier"] == "red" and not c.get("trump") and t - c["u"] <= ARAB_KEEP and any(x in sent or x in held for x in ids):
             p = _arab_print(c)
             if p:
                 p["hurt"] = any(told.get(x, {}).get("hurt") for x in ids)   # what the alert told, not what came since
@@ -644,7 +644,7 @@ def _later(sea, clusters, sent, t, seen, quiet):
     out = []
     sent = set(sent)
     for c in clusters:
-        if c["id"] not in sent or c["tier"] != "red" or c.get("trump") or c.get("ground") or not _at_sea(c):
+        if c["id"] not in sent or c["tier"] != "red" or c.get("trump") or not _at_sea(c):
             continue
         fx = _news(c)
         k = known.get(c["id"])
@@ -758,9 +758,8 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     sent = state.setdefault("sent", [])
     prev_lights = state.setdefault("lights", {})
     t = now()
-    # a story red only for Trump's words on Iran or a nationwide flight stop (cluster.py, `trump`, `ground`) is red in
-    # the bulletin, not an alert
-    red_new = [c for c in clusters if c["tier"] == "red" and not (c.get("trump") or c.get("ground")) and c["id"] not in sent
+    # a story red only for Trump's words on Iran (cluster.py, `trump`) is red in the bulletin, not an alert
+    red_new = [c for c in clusters if c["tier"] == "red" and not c.get("trump") and c["id"] not in sent
                and not any(x in sent for x in c.get("merged", [])) and t - c["u"] <= 6 * 3600
                and "denial" not in c.get("flags", []) and "past" not in c.get("flags", [])
                and not any(evac.stale(m) for m in c["m"]) and not _late(c, seen)        # an order to leave retold days after it took effect
