@@ -665,8 +665,8 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
             if told and not any(set(m.get("tf") or []) & told and "digest" not in (m.get("flags") or [])
                                 for m in c["m"]):
                 continue                       # a deployment or an ultimatum only in the text, not in a headline
-            if need_state_actor and not (set(c.get("ctry", [])) & STATE_ACTORS):
-                continue
+            if need_state_actor and not gate and not (set(c.get("ctry", [])) & STATE_ACTORS):
+                continue                       # (the strike lamp's own check names the sides or a city of Iran)
             if "evac" in flags and not any("evac" in (m.get("tf") or []) and evac.mark(m) for m in c["m"]):
                 continue                       # an order to leave: who orders, which country, told in a headline
             if "evac" in flags and any(evac.stale(m) for m in c["m"]):
