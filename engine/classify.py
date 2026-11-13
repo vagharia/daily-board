@@ -294,12 +294,13 @@ def _far(lang, t, s):
 # casualty figures inside Yemen (the Saudi-Houthi war, a UN or WHO toll), Lebanon, Gaza, Syria or Jordan: yellow
 # stories (_local_toll)
 LOCAL_TOLL_CAP = 40.0
+GAZA_BIG_SEV = 46.0
 _YEM_EN = re.compile(r"\b(yemen\w*|houthis?|sanaa|sana'a|aden|hodeidah|hudaydah|taiz|marib|lahij|saada|abyan|shabwa"
                      r"|hadramout|hadramawt|mokha|dhamar|ibb|amran)\b", re.I)
 _YEM_FA = re.compile(r"(?<![\u0620-\u06FF])(?:" + fa_norm("یمن|حوثی|انصارالله|صنعا|عدن|الحدیده|حدیده|تعز|مأرب|مارب|لحج|صعده"
                                                             "|ابین|شبوه|حضرموت|مخا|ذمار|عمران")
                      + r")(?:" + fa_norm("ی|ها|های") + r")?(?![\u0620-\u06FF])")
-_TOLL_EN = re.compile(r"\b(killed|kills|kill|dead|deaths?|died|wounded|injured|injures|injuries|casualt\w+|toll|fatalit\w+"
+_TOLL_EN = re.compile(r"\b(killed|kills|kill|killing|dead|deaths?|died|wounded|injured|injures|injuries|casualt\w+|toll|fatalit\w+"
                       r"|martyr\w*|murders?)\b", re.I)
 _TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|شهادت|شهدا|قربانی|کشتار|مصدوم"))
 _SAUDI_PLACE_EN = re.compile(r"\b(riyadh|jeddah|jizan|jazan|najran|abha|taif|mecca|makkah|medina|dammam|khamis|yanbu"
@@ -321,8 +322,9 @@ _LEB_EN = re.compile(r"\b(leban\w*|beirut|dahiyeh|dahieh|tyre|sidon|nabatieh|nab
 _LEB_FA = re.compile(_FB + "(?:" + fa_norm("لبنان|بیروت|ضاحیه|صور|صیدا|نبطیه|بقاع|بعلبک|بنت جبیل|مرجعیون|خیام|حزب الله|حزب‌الله")
                      + ")" + _FE)
 _GAZA_EN = re.compile(r"\b(gaza\w*|khan younis|khan yunis|rafah|jabalia|jabaliya|deir al-balah|deir el-balah|nuseirat|bureij"
-                      r"|maghazi|beit lahia|beit hanoun|hamas)\b", re.I)
-_GAZA_FA = re.compile(_FB + "(?:" + fa_norm("غزه|خان یونس|خانیونس|رفح|جبالیا|دیر البلح|نصیرات|بریج|مغازی|بیت لاهیا|بیت حانون|حماس")
+                      r"|maghazi|beit lahia|beit hanoun|hamas|nasser (?:hospital|medical complex)|al-shifa|shifa hospital)\b", re.I)
+_GAZA_FA = re.compile(_FB + "(?:" + fa_norm("غزه|خان یونس|خانیونس|رفح|جبالیا|دیر البلح|نصیرات|بریج|مغازی|بیت لاهیا|بیت حانون|حماس"
+                                           "|بیمارستان ناصر|مجتمع پزشکی ناصر|الشفا|بیمارستان شفا")
                       + ")" + _FE)
 _SYR_EN = re.compile(r"\b(syria\w*|damascus|aleppo|homs|hama|idlib|deir ez-zor|deir ezzor|deir al-zor|daraa|deraa|sweida"
                      r"|suwayda|sweyda|latakia|tartus|quneitra|raqqa|hasakah|hasaka|qamishli|palmyra)\b", re.I)
@@ -1581,6 +1583,8 @@ def classify(item):
         elif sf[1] == "secondary":
             flags = set(flags) | {"secondary"}
             sev = min(sev, SECONDARY_CAP)
+            if sf[0] == "gaza":
+                sev = max(sev, GAZA_BIG_SEV)  # a big turn in Gaza (a senior commander killed, the war resumed): orange
         else:
             flags = set(flags) | {"side_major"}
     net = internet("fa", fa_t, fa_s) if item.get("lang") == "fa" else internet("en", en_t, en_s)
@@ -1608,7 +1612,10 @@ def classify(item):
         flags = (set(flags) - {"exercise"} - HARD_EVENTS) | {"civil_drill"}
         topics = set(topics) - {"military"}
         sev = min(sev, CIVIL_DRILL_CAP)
-    if _local_toll(lang, fa_t or en_t, fa_s or en_s):
+    gaza_big = item.get("front") == "gaza" and "secondary" in flags
+    if gaza_big:
+        pass                                 # a big turn in Gaza stays orange, whatever its toll (fronts.israel_gaza)
+    elif _local_toll(lang, fa_t or en_t, fa_s or en_s):
         # casualty figures inside Yemen, Lebanon, Gaza, Syria or Jordan: a yellow story
         flags = (set(flags) - HARD_EVENTS) | {"local_toll"}
         sev = min(sev, LOCAL_TOLL_CAP)

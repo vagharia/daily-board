@@ -382,14 +382,69 @@ def israel_lebanon(title, lang="en", flags=()):
     return "minor"                       # the daily strikes anywhere in Lebanon (Beirut too), a commander, one launch
 
 
+# ------------------------------------------------------------------ Gaza: Israel against Hamas
+# Fighting in Gaza goes on every day: a strike, a toll, a hospital hit is a yellow story. Orange (never red) only for
+# a big turn: a senior Hamas or Islamic Jihad leader or commander killed, the war resumed, a ground offensive, the
+# ceasefire collapsed. Not when the headline names Iran, America, Yemen or Lebanon, or fire reaching Israel's soil.
+_EN_GAZA = re.compile(r"\b(gaza\w*|khan younis|khan yunis|rafah|jabalia|jabaliya|deir al-balah|deir el-balah|nuseirat"
+                      r"|bureij|maghazi|beit lahia|beit hanoun|nasser (hospital|medical complex)|al-shifa|shifa hospital"
+                      r"|al-ahli (arab )?hospital|hamas|islamic jihad|qassam|al-quds brigades)\b", _I)
+_EN_GAZA_OTHER = re.compile(r"\b(iran\w*|tehran|irgc|islamic republic|hormuz|houthis?|yemen\w*|leban\w*|hezbollah"
+                            r"|u\.?s\.?|united states|american|pentagon|centcom|trump|washington"
+                            r"|tel aviv|haifa|jerusalem|eilat|beersheba|ashkelon|ashdod|sderot|in israel|central israel"
+                            r"|southern israel)\b", _I)
+_EN_GAZA_SENIOR = re.compile(r"\b(kill\w*|assassinat\w*|eliminat\w*|dead|death of)\b[^.;]{0,60}\b((senior|top|chief|military"
+                             r"|political) (hamas|islamic jihad|qassam|al-quds)|(hamas|islamic jihad|qassam|al-quds brigades)"
+                             r"('s?)? (\w+ ){0,2}(leader|chief|head|commander|politburo|political bureau|founder|deputy)"
+                             r"|sinwar|haddad|hayya|mashaal|meshaal)\b"
+                             r"|\b((senior|top) (hamas|islamic jihad) (\w+ )?(leader|commander|official|figure)"
+                             r"|(hamas|islamic jihad|qassam)('s?)? (\w+ ){0,2}(leader|chief|commander)|sinwar|haddad|hayya"
+                             r"|mashaal|meshaal)\b[^.;]{0,60}\b(killed|assassinated|eliminated|dead)\b", _I)
+_EN_GAZA_WAR = re.compile(r"\b(ground (invasion|offensive|operation|incursion|forces? (enter|advance|push))|invad\w*"
+                          r"|(launch\w*|begins?|began|starts?|started|resumes?|resumed|expands?|expanded|widens?) (a |an |its |the )?"
+                          r"(new |wide\w* |large\w* |major |broad\w* |full[- ]scale )?(military |air |ground )?(offensive|campaign"
+                          r"|invasion|war)|war (in gaza )?(resumes|returns|erupts)|ceasefire (collaps\w*|ends|is over|breaks? down"
+                          r"|broken|over)|(ends?|ended|collaps\w*) (the )?(gaza )?ceasefire|all-out war|full-scale war)\b", _I)
+_FA_GAZA = re.compile(_w("غزه|خان یونس|خانیونس|رفح|جبالیا|دیر البلح|نصیرات|بریج|مغازی|بیت لاهیا|بیت حانون|حماس|جهاد اسلامی"
+                         "|قسام|سرایا القدس|بیمارستان ناصر|مجتمع پزشکی ناصر|الشفا|بیمارستان شفا"))
+_FA_GAZA_OTHER = re.compile(fa_norm("ایران|تهران|سپاه|جمهوری اسلامی|هرمز|حوثی|یمن|لبنان|حزب الله|آمریکا|امریکا|ایالات متحده"
+                                    "|پنتاگون|سنتکام|ترامپ|واشنگتن|تل آویو|حیفا|قدس اشغالی|ایلات|بئرشبع|عسقلان|اسدود|سدیروت"
+                                    "|فلسطین اشغالی|سرزمین های اشغالی|سرزمینهای اشغالی|اراضی اشغالی"))
+_FA_GAZA_SENIOR = re.compile(fa_norm("(ترور|کشته|شهید|شهادت|به شهادت)[^.؛]{0,60}(فرمانده|رهبر|عضو ارشد|مقام ارشد|رئیس دفتر سیاسی"
+                                     "|معاون|بنیانگذار|سنوار|حداد|الحیه|مشعل)"
+                                     "|(فرمانده|رهبر|عضو ارشد|مقام ارشد|رئیس دفتر سیاسی|سنوار|حداد|الحیه|مشعل)[^.؛]{0,60}"
+                                     "(ترور شد|کشته شد|به شهادت رسید|شهید شد)"))
+_FA_GAZA_WAR = re.compile(fa_norm("حمله زمینی|تهاجم زمینی|عملیات زمینی|یورش زمینی|آغاز (دوباره )?(جنگ|عملیات گسترده|حملات گسترده|تهاجم)"
+                                  "|از سرگیری (جنگ|حملات)|ازسرگیری (جنگ|حملات)|جنگ تمام عیار|جنگ همه جانبه|فروپاشی آتش بس"
+                                  "|پایان آتش بس|آتش بس (شکست|فرو پاشید|نقض شد و جنگ)"))
+
+
+def israel_gaza(title, lang="en", flags=()):
+    """None when the report is not about Gaza (or names Iran, America, Yemen, Lebanon or Israel's own soil),
+    "secondary" for a big turn there (a senior leader or commander killed, the war resumed, a ground offensive),
+    "minor" for everything else there."""
+    fa = lang == "fa"
+    t = fa_norm(title or "") if fa else (title or "")
+    front, other, senior, war, future = (_FA_GAZA, _FA_GAZA_OTHER, _FA_GAZA_SENIOR, _FA_GAZA_WAR, _FA_LEB_FUTURE) if fa \
+        else (_EN_GAZA, _EN_GAZA_OTHER, _EN_GAZA_SENIOR, _EN_GAZA_WAR, _EN_LEB_FUTURE)
+    if not front.search(t) or other.search(t):
+        return None
+    if (senior.search(t) or war.search(t)) and not future.search(t):
+        return "secondary"
+    return "minor"
+
+
 def side_front(title, lang="en", flags=(), src="", text=""):
-    """(front, grade) of a report on a side front ("saudi_houthi" or "lebanon"; "major", "secondary" or "minor"), or None.
+    """(front, grade) of a report on a side front ("saudi_houthi", "lebanon" or "gaza"; "major", "secondary" or "minor"), or None.
     src (the outlet) and text (the summary) tell who a ship attack in the Red Sea is told by."""
     g = saudi_houthi(title, lang, flags, src, text)
     if g:
         return "saudi_houthi", g
     g = israel_lebanon(title, lang, flags)
-    return ("lebanon", g) if g else None
+    if g:
+        return "lebanon", g
+    g = israel_gaza(title, lang, flags)
+    return ("gaza", g) if g else None
 
 
 # ------------------------------------------------------------------ the Gulf Arab front: one attack, one story
