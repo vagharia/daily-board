@@ -18,7 +18,7 @@ from .attack_verb import actor_strikes_en
 from .mishap import air_nature, border_only, mishap
 from .strike_sense import calm_en
 from .lexicon import COUNTRIES_RX, PEOPLE_RX, PLACES_RX, TOPICS_RX, match_keys
-from .util import fa_norm, first_sentences, strip_dateline, to_latin_digits
+from .util import fa_norm, first_sentences, strip_byline, strip_dateline, to_latin_digits
 
 I = re.I
 
@@ -381,10 +381,6 @@ def _local_headline(lang, t):
     return fa, t
 
 
-# a site's byline at the head of a summary ("Submitted by MEE staff on Thu, 11/12/2026 - 07:53")
-_BYLINE_EN = re.compile(r"^\s*submitted by .{1,60}? on \w{3}, \d{1,2}/\d{1,2}/\d{4} - \d{1,2}:\d{2}\s*", re.I)
-
-
 def _local_toll(lang, t, s):
     """Casualty figures inside Yemen, Lebanon, Gaza, Syria or Jordan: the region, or None (see _local_region).
     A headline telling a killing with no place ("An Israeli strike killed him in his hospital bed") is read with the
@@ -399,7 +395,7 @@ def _local_toll(lang, t, s):
     if not toll or (_US_IR_FA if fa else _US_IR_EN).search(h) or (_LEADER_FA if fa else _LEADER_EN).search(h) \
             or (_ISR_PLACE_FA if fa else _ISR_PLACE_EN).search(h) or _place_named(fa, h):
         return None
-    lead = first_sentences(_BYLINE_EN.sub("", s or ""), 220)
+    lead = first_sentences(strip_byline(s), 220)
     fa, lead = _local_headline(lang, lead)
     if not ((_TOLL_FA if fa else _TOLL_EN).search(lead)
             and ((_COUNT_FA if fa else _COUNT_EN).search(lead) or (_VICTIM_FA if fa else _VICTIM_EN).search(lead))):

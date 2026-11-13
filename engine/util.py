@@ -56,8 +56,19 @@ def strip_html(s: str) -> str:
     return _WS.sub(" ", s).strip()
 
 
+# a site's byline at the head of a summary (Middle East Eye: "Submitted by MEE staff on Thu, 11/12/2026 - 07:53"), and
+# its machine translation («ارسال شده توسط … در جمعه، 1395/11/13 - 14:18», the date turned into a wrong solar one)
+_BYLINE = re.compile(r"^\s*(?:submitted by .{1,60}? on \w{3,9},? \d{1,2}/\d{1,2}/\d{4}"
+                     r"|ارسال شده توسط .{1,60}? در (?:روز |تاریخ )?[^\d۰-۹،,]{1,14}[،,]? *[\d۰-۹]{1,4}/[\d۰-۹]{1,2}/[\d۰-۹]{1,4})"
+                     r"\s*-\s*[\d۰-۹]{1,2}:[\d۰-۹]{2}\s*", re.I)
+
+
+def strip_byline(s: str) -> str:
+    return _BYLINE.sub("", s or "")
+
+
 def clean_summary(s: str) -> str:
-    s = strip_html(s)
+    s = strip_byline(strip_html(s))
     for rx in _BOILER:
         s = rx.sub("", s)
     return s.strip(" -—–|")

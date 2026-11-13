@@ -13,7 +13,7 @@ from .index import compute_index, compute_lights, hotspots
 from .relevance import is_relevant
 from .sources import BY_ID, GROUPS, SOURCES
 from .translate import Translator, fix_terms, stale
-from .util import data_path, has_fa, fa_norm, first_sentences, load_json, log, now, save_json, speaker_first, truncate
+from .util import data_path, has_fa, fa_norm, first_sentences, load_json, log, now, save_json, strip_byline, speaker_first, truncate
 
 MEMBER_KEYS = ("k", "s", "sn", "sn_fa", "rel", "u", "t", "ti", "su", "en_ti", "en_su", "img", "vid", "lang", "via",
                "sev", "topics", "flags", "ppl", "geo", "ctry", "wit")
@@ -366,6 +366,17 @@ def news_round(full=True):
     if misc.get("tg_cut") != 2:
         log("telegram posts cut mid-sentence, read again: %d of %d" % reread_cut_posts(clusters, T))
         misc["tg_cut"] = 2
+    if misc.get("byline") != 1:
+        # once: a site's byline at the head of stored summaries (and its translation with a wrong solar date) removed
+        n = 0
+        for c in clusters:
+            for d in [m for m in c["m"]] + [c.get("en") or {}, c.get("fa") or {}]:
+                for k in ("su", "en_su"):
+                    if d.get(k) and strip_byline(d[k]) != d[k]:
+                        d[k] = strip_byline(d[k]).strip()
+                        n += 1
+        misc["byline"] = 1
+        log(f"bylines removed from stored summaries: {n}")
     # stored stories are re-checked with the current rules, so rule changes apply at once
     clusters = rescore(clusters)
     if misc.get("verb_attack") != 1:
