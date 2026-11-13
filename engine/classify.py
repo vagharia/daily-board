@@ -302,7 +302,9 @@ _YEM_FA = re.compile(r"(?<![\u0620-\u06FF])(?:" + fa_norm("یمن|حوثی|ان�
                      + r")(?:" + fa_norm("ی|ها|های") + r")?(?![\u0620-\u06FF])")
 _TOLL_EN = re.compile(r"\b(killed|kills|kill|killing|dead|deaths?|died|wounded|injured|injures|injuries|casualt\w+|toll|fatalit\w+"
                       r"|martyr\w*|murders?)\b", re.I)
-_TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|شهادت|شهدا|قربانی|کشتار|مصدوم"))
+_TOLL_FA = re.compile(fa_norm("کشته|تلفات|زخمی|مجروح|جان باخت|جان‌باخت|شهید|شهادت|شهدا|قربانی|کشتار|مصدوم|به قتل")
+                      # the verb «کشت» (killed) as a whole word: never «کشتی» (a ship) or «کشت و کار»
+                      + r"|(?<![\u0620-\u06FF])" + fa_norm("(?:می ?)?کشت(?:ند|ه اند)?") + r"(?![\u0620-\u06FF])(?!\s*(?:و کار|و صنعت))")
 _SAUDI_PLACE_EN = re.compile(r"\b(riyadh|jeddah|jizan|jazan|najran|abha|taif|mecca|makkah|medina|dammam|khamis|yanbu"
                              r"|ras tanura|abqaiq|inside saudi|in (?:the )?(?:\w+ )?saudi(?![- ](?:led|backed|coalition|strikes?"
                              r"|air|airstrikes?|raids?|attacks?|bomb\w*|jets?|warplanes?|fighters?|shell\w*|artillery|missiles?"
