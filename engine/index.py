@@ -28,7 +28,7 @@ after either ends the effect.
 import math
 import re
 
-from . import evac
+from . import deploy, evac
 from .aviation import recent_warnings
 from .lexicon import PLACES
 from .sources import BY_ID
@@ -121,6 +121,9 @@ def signals_component(av, sea, clusters, t):
 W_ACTS, W_THREATS, W_SPREAD, W_SIGNALS = 0.35, 0.25, 0.15, 0.25
 HALF = 6 * 3600
 ACT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
+# the deployment lamp: the story's and the lamp report's own severity (deploy.lamp decides what the headline tells)
+DEPLOY_STORY_SEV = 50
+DEPLOY_ITEM_SEV = 56
 THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "pullback_me", "talks_fail", "retaliation",
                 "alert"}
 SKIP_FLAGS = {"denial", "past", "opinion", "analysis", "powers_soft", "sport"}
@@ -550,6 +553,8 @@ def _ev_cluster(c, flags=()):
     told = flags & {"deploy", "ultimatum"}
 
     def lit(m):
+        if flags == {"deploy"}:
+            return deploy.lamp(m)
         if told:
             return bool(set(m.get("tf") or []) & told) and "digest" not in (m.get("flags") or [])
         if flags == {"airspace"} and saudi_air(m):
@@ -617,6 +622,17 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
     def by_flag(flags, min_sev=60, need_state_actor=False, exclude=()):
         on, watch = [], []
         for c in recent:
+            if flags == {"deploy"}:
+                # the deployment lamp: a report whose own headline tells of forces of the war's sides sent toward the
+                # Middle East or Iran (deploy.lamp: what, on the way, where to; not a plan, a denial, another country's
+                # forces); its destination stands for the core check
+                if "deploy" not in c.get("flags", []) or c["sev"] < DEPLOY_STORY_SEV \
+                        or set(c.get("flags", [])) & {"kinetic", "denial", "past"} or c.get("unconf"):
+                    continue
+                if not any(deploy.lamp(m) and m.get("sev", 0) >= DEPLOY_ITEM_SEV for m in c["m"]):
+                    continue
+                (on if t - c["u"] <= 24 * 3600 else watch).append(c)
+                continue
             if not (set(c.get("flags", [])) & flags) or c["sev"] < min_sev or not c.get("core", True):
                 continue
             if set(c.get("flags", [])) & set(exclude):
