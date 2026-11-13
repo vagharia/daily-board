@@ -332,10 +332,13 @@ _JOR_EN = re.compile(r"\b(jordan\w*|amman|irbid|zarqa|aqaba|mafraq|ramtha)\b", r
 _JOR_FA = re.compile(_FB + "(?:" + fa_norm("اردن|اربد|زرقا|عقبه|مفرق|رمثا") + ")" + _FE)
 # who was killed, when a report gives no figure ("an attack that killed civilians")
 _VICTIM_EN = re.compile(r"\b(civilians?|famil(y|ies)|people|children|residents|women|villagers|palestinians|yemenis|lebanese"
-                        r"|syrians|jordanians|smugglers|police\w*|security (?:officers?|guards?|personnel)|guards?|gendarmes?)\b",
+                        r"|syrians|jordanians|smugglers|police\w*|security (?:officers?|guards?|personnel)|guards?|gendarmes?"
+                        r"|child|boys?|girls?|teen(?:ager)?s?|infants?|bab(?:y|ies)|toddlers?|man|men|woman|students?"
+                        r"|patients?|doctors?|surgeons?|nurses?|medics?|paramedics?|journalists?|reporters?|aid workers?)\b",
                        re.I)
 _VICTIM_FA = re.compile(fa_norm("غیرنظامی|غیر نظامی|خانواده|کودک|شهروند|مردم|ساکنان|زنان|فلسطینی|یمنی|لبنانی|سوری|قاچاقچی"
-                               "|پلیس|مامور|مأمور|افسر امنیتی|نگهبان"))
+                               "|پلیس|مامور|مأمور|افسر امنیتی|نگهبان|نوزاد|نوجوان|دانش آموز|دانش‌آموز|پرستار|پزشک|جراح"
+                               "|امدادگر|خبرنگار") + "|" + _FB + "(?:" + fa_norm("بیمار|بیماران|زن|مرد|دختر|پسر") + ")" + _FE)
 # casualties on Israel's side of the border are not inside Lebanon or Gaza
 _ISR_PLACE_EN = re.compile(r"\b(tel aviv|haifa|jerusalem|eilat|dimona|beersheba|negev|occupied palestine|ben gurion|northern israel|southern israel|in israel|israeli (civilians?|soldiers?"
                            r"|troops)|kiryat|nahariya|metula|sderot|ashkelon|ashdod|galilee)\b"
