@@ -1,12 +1,9 @@
 {
-  "v": 24,
+  "v": 25,
   "fa": {
     "title": "نسخه‌ی جدید بولتن روزانه",
     "items": [
-      "شماره‌ی جدید اکونومیست (۷ نوامبر) آمد: ۲۷ مطلب برگزیده درباره‌ی پیامدهای انتخابات آمریکا برای جنگ ایران، آمادگی کشورهای خلیج فارس، آرامکو، مس، امنیت سایبری و هوش مصنوعی",
-      "مطالب حالا به همان ترتیب مجله می‌آیند و دسته‌های هر مطلب به‌صورت برچسب بالای آن نشان داده می‌شود؛ یک مطلب می‌تواند هم‌زمان مثلاً نظامی و سیاسی باشد",
-      "دسته‌ها کامل‌تر شدند: نظامی، سیاسی، نفت و انرژی، کامودیتی (طلا، مس و فلزات)، پولی و بانکی، هوش مصنوعی و سایبری. با زدن روی هر دسته فقط مطالب آن را می‌بینید و می‌توانید چند دسته را با هم انتخاب کنید",
-      "سطح‌بندی قرمز و نارنجی و زرد از بخش اکونومیست برداشته شد"
+      "خطاهای مربوط به چراغ‌های هشدار رفع شد"
     ],
     "note": "بعد از به‌روزرسانی کمی صبر کنید تا اطلاعات جدید بارگذاری شود. اگر نیامد، صفحه را به پایین بکشید تا تازه شود.",
     "button": "به‌روزرسانی"
@@ -14,13 +11,10 @@
   "en": {
     "title": "What's new in Daily Brief",
     "items": [
-      "The new Economist issue (November 7th) is in: 27 selected articles on what America’s midterms mean for the Iran war, the Gulf states bracing for another round, Aramco, copper, cyber-security and AI",
-      "Articles now appear in the magazine’s own order, with their categories shown as tags above each one; an article can be, say, both military and politics",
-      "Fuller categories: military, politics, oil & energy, commodities (gold, copper and metals), money & banking, AI and cyber. Tap a category to see only its articles; you can pick several at once",
-      "The red, orange and yellow levels are gone from the Economist tab"
+      "Fixed errors in the warning lights"
     ],
     "note": "After updating, give it a moment for new data to load. If it doesn't appear, pull the page down to refresh.",
     "button": "Update"
   },
-  "build": 36
+  "build": 37
 }
