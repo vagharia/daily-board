@@ -926,7 +926,7 @@ def _domestic_attack(lang, t, s):
     return "event" if (_DOM_ATTACK_FA if fa else _DOM_ATTACK_EN).search(head) else "other"
 
 
-# a court's verdict (an execution, a hanging, a death sentence, a conviction): not the attack it names, a yellow
+# a court's verdict (an execution, a hanging, a death sentence, a prisoner on death row, a conviction): not the attack it names, a yellow
 # story. A spy for Israel or America executed stays orange (SPY_WAR_SEV) when the report tells what he did in the war:
 # sites and coordinates passed on, strikes, missiles, drones, commanders or scientists killed
 JUDICIAL_CAP = 40.0
@@ -934,7 +934,7 @@ SPY_WAR_SEV = 54.0
 _JUD_EN = re.compile(r"\b(hanged|hanging of|hangs (a |an |two |three |\d+ )?([\w'-]+ ){0,2}(man|men|woman|women|prisoners?"
                      r"|spy|spies|militants?|protesters?|members?|convicts?|alleged|baluch\w*|kurd\w*|arab)|executed|executes|execution(?! of (the |a |an )?(plan|deal|agreement|order|strategy"
                      r"|operation|contract|project|budget))|death sentences?|sentenced|convicted|condemned to death"
-                     r"|put to death|gallows)\b", re.I)
+                     r"|put to death|gallows|on death row|death-row|at risk of execution|faces? execution|facing execution)\b", re.I)
 _JUD_FA = re.compile(fa_norm("اعدام|به دار آویخت|به دار آویخته|به دار مجازات|بدار آویخته|قصاص شد|حکم قصاص|حبس ابد")
                      + "|" + fa_norm("(?:محکوم|محکومیت)") + r"\s*" + fa_norm("(?:به\\s*)?(?:اعدام|حبس|زندان|قصاص)")
                      + r"|" + fa_norm("محکوم به") + r"\s*\d+\s*" + fa_norm("سال"))

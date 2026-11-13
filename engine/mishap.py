@@ -168,10 +168,12 @@ def border_drop(lang, t, s=""):
 _ROADNEWS_EN = re.compile(
     r"\b(road|traffic|highway|motorway)[\s-]+(deaths?|fatalit\w+|toll|safety|accidents?|crash\w*|collisions?|carnage)"
     r"|\b(car|vehicle|automobile|auto)[\s-]+safety\b|\bsafety (standards?|rules|regulations) (for|on) (cars|vehicles)"
-    r"|\bdrivers? (killed|died)\b|\bpedestrians? (killed|died)\b", I)
+    r"|\bdrivers? (killed|died)\b|\bpedestrians? (killed|died)\b"
+    r"|\b(drivers?|motorists?)\b[^.;:]{0,15}\blos(es|t|ing) control\b", I)
 _ROADNEWS_FA = fa_rx(["کشته در جاده", "کشته جاده", "کشتگان جاده", "تلفات جاده", "تصادفات جاده", "حوادث جاده",
                       "حوادث رانندگی", "سوانح رانندگی", "ایمنی خودرو", "استاندارد ایمنی خودرو",
-                      "استانداردهای ایمنی خودرو", "قوانین ایمنی خودرو", "ایمنی جاده", "پلیس راه", "راهور"])
+                      "استانداردهای ایمنی خودرو", "قوانین ایمنی خودرو", "ایمنی جاده", "پلیس راه", "راهور", "کنترل خودرو", "کنترل کامیون",
+                      "کنترل اتوبوس", "کنترل تریلی", "کنترل سواری"])
 _ROAD_WAR_EN = re.compile(r"\b(attack\w*|strikes?|struck|air ?strikes?|drones?|missiles?|rockets?|bomb\w*|shell\w*"
                           r"|explosives?|ied|landmines?|gunm[ae]n|gunfire|shoot\w*|shot|ambush\w*|militants?"
                           r"|insurgents?|terror\w*|sabotage\w*|military|army|soldiers?|troops|irgc|convoy|israel\w*"

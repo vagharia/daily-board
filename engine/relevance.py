@@ -162,6 +162,14 @@ FA_NOISE = fa_rx([
     "حمله قلبی", "حمله عصبی", "حمله آسم", "حمله سگ", "سگ ولگرد", "سگهای ولگرد", "سگ های ولگرد", "زورگیری",
     "پدافند غیرعامل", "پدافند غیر عامل", "آلودگی هوا", "کیفیت هوا", "هوای آلوده", "زلزله", "زمین لرزه", "ترافیک",
 ])
+# a religious or cultural event of the armed forces or anyone else (a Quran competition, a festival, an olympiad):
+# not news of the war, even when an air-defence or army unit hosts it; kept only with an attack told in the headline
+FA_CEREMONY = fa_rx([
+    "مسابقات قرآن", "مسابقه قرآن", "مسابقات سراسری قرآن", "مسابقات بین المللی قرآن", "مسابقات حفظ", "مسابقات قرائت",
+    "حفظ قرآن", "قرائت قرآن", "تلاوت قرآن", "محفل انس با قرآن", "محفل قرآنی", "جشنواره", "المپیاد", "مسابقات فرهنگی",
+    "مسابقات ورزشی", "مسابقات تیراندازی", "مسابقات کشتی",
+])
+FA_CEREMONY_WAR = fa_rx(["حمله", "حملات", "انفجار", "بمباران", "اصابت", "کشته", "ترور", "موشک", "پهپاد", "جنگنده"])
 # weather, checked in the headline and the start of the text ("هشدار دریایی… افزایش سرعت باد و ارتفاع موج",
 # "تشدید ناپایداری‌های جوی… در هرمزگان")
 _WEATHER_FA = ["هواشناسی", "پیش بینی هوا", "ناپایداری جوی", "ناپایداری های جوی", "ناپایداری هوا", "توفان تندری",
@@ -282,6 +290,8 @@ def relevance_fa(title: str, summary: str):
         ok = False                       # e.g. drone attacks in the Black Sea, riots in France
     if ok and FA_NOISE.search(t) and not FA_HARD.search(t):
         ok = False                       # cinema, a heart attack… ("حمله" alone is no reason to keep it)
+    if ok and FA_CEREMONY.search(t) and not FA_CEREMONY_WAR.search(t):
+        ok = False                       # a Quran competition, a festival ("… مسابقات سراسری قرآن … پدافند هوایی ارتش")
     if ok and sport.story("fa", title, summary) == "sport" and not sport.tension("fa", title, summary):
         ok = False                       # a match or a club with nothing of the war in it: its attacks are football's
     if ok and (FA_WEATHER.search(t) or FA_WEATHER_LEAD.search(s[:250])) and not FA_HARD.search(t):
