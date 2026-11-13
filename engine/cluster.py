@@ -2,7 +2,7 @@
 import re
 
 from . import city_strike, config, deploy, evac, pullback, vessel, witness
-from .classify import cluster_severity, tier, trump_level
+from .classify import cluster_severity, grounded, tier, trump_level
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
 from .relevance import FA_CITY, FA_IRAN
@@ -805,7 +805,7 @@ def features(m):
             "pull": pullback.mark(m), "dup": _dup_key(m),
             "stmt": vessel.signature(m), "when": vessel.when(m, fine=True) if _at_sea(m) else None,
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
-            "inc": _incident_report(m),
+            "inc": _incident_report(m), "ground": grounded(m),
             "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True, new_ok=True), "gmain": gulf_main(m),
             **_iran_feats(m),
             "cwin": _chan_win(m) if channel(m) else 0,
@@ -955,6 +955,10 @@ LONG_POST = 16             # a channel's post this many words long is its whole 
 LONG_HOLD = 0.75           # …and it is a headline's story if it holds this much of the headline's words
 
 
+# reports of all flights stopped across one country (classify.grounded) this close together: one story
+GROUND_SPAN = 6 * 3600
+
+
 def same_story(a, b, dt=0, rare=frozenset()):
     """a, b: features of two reports published dt seconds apart; rare: the uncommon words of report a.
     Returns the headlines' similarity (0 = not the same story). Two reports are the same story only if they
@@ -988,6 +992,8 @@ def same_story(a, b, dt=0, rare=frozenset()):
             return 0.6
         if vessel.differ(a["ship"], b["ship"]):
             return False
+    if a.get("ground") and a["ground"] == b.get("ground") and dt <= GROUND_SPAN:
+        return 0.6                                  # all flights stopped across America (or Israel), in other words
     if same_spot(a, b):
         return 0.5                                  # the same incident at the same spot, in other words
     if same_visit(a, b):
@@ -1987,6 +1993,13 @@ def refresh(c):
         c["trump"] = 1
     else:
         c.pop("trump", None)
+    if c["tier"] != "red" and news and not c.get("unconf") and any(grounded(m) for m in news):
+        # all flights stopped across America or Israel (classify.grounded), from a news outlet: red in the bulletin;
+        # only the colour, like `trump` (alerts.py leaves out `ground`)
+        c["tier"] = "red"
+        c["ground"] = True
+    else:
+        c.pop("ground", None)
     # de-escalation (deesc.py): the green tag, and when a ceasefire or formal talks began, for the index
     for key, flag in (("cease_t", "ceasefire_on"), ("talks_t", "talks_held"), ("deny_t", "deesc_denial")):
         ts = [m["t"] for m in ms if flag in m.get("flags", []) and not channel(m)]

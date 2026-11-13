@@ -1973,3 +1973,41 @@ def trump_level(m):
 def trump_on_iran(m):
     """Trump's own words on the future of the war with Iran (red; see trump_level)."""
     return trump_level(m) == 2
+
+
+# All flights stopped across the whole of America or Israel (an FAA nationwide ground stop), told as done: red in the
+# bulletin, whatever the cause. Only the colour (cluster.py, `ground`): the severity, the index, the lamps and the
+# Telegram alerts go by the usual rules. A single airport's ground stop, flights resumed or a stop lifted are not it.
+_GROUND_WHERE_EN = re.compile(r"\b(faa|federal aviation|u\.?s\.?|united states|america\w*|israel\w*|ben gurion)\b", re.I)
+_GROUND_EN = re.compile(
+    r"\b(nationwide|national|countrywide|all|every)\b[^.;]{0,40}\b(ground stop|grounding|flights?\b[^.;]{0,30}"
+    r"\b(halt\w*|grounded|suspend\w*|stopp\w*|banned))"
+    r"|\b(halt\w*|grounds?|grounded|suspend\w*|stops?|stopped|bans?)\s+(all|every)\s+(\w+\s+){0,2}(flights?|planes?|aircraft)\b"
+    r"|\b(flights?|planes?)\b[^.;]{0,30}\b(halt\w*|grounded|suspend\w*|stopp\w*)\b[^.;]{0,30}"
+    r"\b(nationwide|across the (u\.?s\.?|united states|country))\b", re.I)
+_GROUND_NOT_EN = re.compile(r"\b(lift\w*|resum\w*|reopen\w*|end(s|ed)? (the |its )?(ground stop|halt)|could|may|might"
+                            r"|would|consider\w*|threat\w*|if)\b", re.I)
+_GROUND_WHERE_FA = re.compile(r"(آمریکا|امریکا|ایالات[‌ ]?متحده|هوانوردی فدرال|\bFAA\b|اسرائیل|فلسطین اشغالی"
+                              r"|بن[‌ ]?گوریون)")
+_GROUND_FA = re.compile(
+    r"(توقف|متوقف|زمین[‌ ]?گیر|تعلیق|ممنوعیت)[^.؛]{0,40}(تمام|همه|کلیه|سراسری|سراسر)[^.؛]{0,25}پرواز"
+    r"|(تمام|همه|کلیه|سراسری)[^.؛]{0,25}پرواز[^.؛]{0,40}(توقف|متوقف|زمین[‌ ]?گیر|تعلیق)"
+    r"|پرواز[^.؛]{0,40}(توقف|متوقف|زمین[‌ ]?گیر|تعلیق)[^.؛]{0,30}(سراسر|سراسری)")
+_GROUND_NOT_FA = re.compile(r"(ازسرگیری|از سر گرفته|از سرگیری|برقرار شد|لغو دستور|پایان توقف|رفع توقف|ممکن است"
+                            r"|احتمال|تهدید|اگر|در صورت)")
+
+
+def grounded(m):
+    """"us" or "il" when the report's headline tells of all flights stopped across America or Israel (see
+    _GROUND_*), else None."""
+    if m.get("lang") == "fa":
+        t = m.get("ti") or ""
+        ok = _GROUND_FA.search(t) and not _GROUND_NOT_FA.search(t)
+        where = _GROUND_WHERE_FA.findall(t)
+    else:
+        t = m.get("en_ti") or m.get("ti") or ""
+        ok = _GROUND_EN.search(t) and not _GROUND_NOT_EN.search(t)
+        where = [x[0] if isinstance(x, tuple) else x for x in _GROUND_WHERE_EN.findall(t)]
+    if not ok or not where:
+        return None
+    return "il" if re.search(r"israel|اسرائیل|فلسطین|gurion|گوریون", where[0], re.I) else "us"

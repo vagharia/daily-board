@@ -295,6 +295,8 @@ def lite(T, day, idx, lights, lang, front=()):
 def shown_sev(c):
     """The severity the app shows: a story coloured by Trump's words on Iran (cluster.py, `trump`: 2 red, 1 orange)
     shows at least that colour's line; the engine and the index keep its own severity."""
+    if c.get("ground"):
+        return max(c["sev"], float(config.TIER_RED))   # all flights stopped across America or Israel (cluster.py)
     lv = c.get("trump")
     if not lv:
         return c["sev"]
@@ -391,7 +393,7 @@ def news_round(full=True):
         log(f"live-page reports retimed: {fix_live_pages(clusters, seen)}")
         misc["live_fix"] = 1
         misc["recluster"] = 0                 # so their stories are rebuilt just below
-    if misc.get("recluster") != 25:
+    if misc.get("recluster") != 26:
         # once after a clustering change: rebuild the last two days' stories from their reports
         for c in clusters:                    # names translated wrongly: Pezeshkian as "doctors", Hegseth as "Hegst"
             for m in c["m"]:
@@ -401,7 +403,7 @@ def news_round(full=True):
                         m["en_su"] = fix_terms(m.get("su") or "", m["en_su"], "en")
         n0 = len(clusters)
         clusters = recluster(clusters, T)
-        misc["recluster"] = 25
+        misc["recluster"] = 26
         # re-formed stories must not trigger alerts again; new reports in this round still can
         sent = alerts_state.setdefault("sent", [])
         sent.extend(c["id"] for c in clusters if c.get("tier") == "red" and c["id"] not in sent)
