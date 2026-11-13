@@ -419,6 +419,18 @@ _FA_GAZA_WAR = re.compile(fa_norm("حمله زمینی|تهاجم زمینی|ع�
                                   "|پایان آتش بس|آتش بس (شکست|فرو پاشید|نقض شد و جنگ)"))
 
 
+# words about Gaza from anyone (Yemen, Iran, the UN…): a condemnation, a statement, a reaction. Not a threat or a
+# warning of revenge, and not Trump's own words (they keep their own rule)
+_EN_GAZA_WORDS = re.compile(r"\b(condemn\w*|denounc\w*|deplor\w*|slams?|slammed|reacts?|reacted|reactions?|statements?"
+                            r"|criticiz\w*|criticis\w*|decr(y|ies|ied)|outrage\w*|war crimes?|concern\w*|appalled|shock\w*"
+                            r"|horrified|calls? (for|on)|urges?|urged|demands?|demanded)\b", _I)
+_EN_GAZA_THREAT = re.compile(r"\b(warn\w*|threat\w*|vows?|vowed|reveng\w*|retaliat\w*|respon(d|se) militar\w*|trump"
+                             r"|ultimatum)\b", _I)
+_FA_GAZA_WORDS = re.compile(fa_norm("واکنش|محکوم|محکومیت|بیانیه|ابراز نگرانی|ابراز تاسف|ابراز تأسف|انتقاد|جنایت جنگی"
+                                    "|جنایت|خواستار|نگرانی|اعتراض"))
+_FA_GAZA_THREAT = re.compile(fa_norm("هشدار|تهدید|انتقام|تلافی|پاسخ نظامی|پاسخ کوبنده|ضربه|ترامپ|اولتیماتوم"))
+
+
 def israel_gaza(title, lang="en", flags=()):
     """None when the report is not about Gaza (or names Iran, America, Yemen, Lebanon or Israel's own soil),
     "secondary" for a big turn there (a senior leader or commander killed, the war resumed, a ground offensive),
@@ -427,7 +439,12 @@ def israel_gaza(title, lang="en", flags=()):
     t = fa_norm(title or "") if fa else (title or "")
     front, other, senior, war, future = (_FA_GAZA, _FA_GAZA_OTHER, _FA_GAZA_SENIOR, _FA_GAZA_WAR, _FA_LEB_FUTURE) if fa \
         else (_EN_GAZA, _EN_GAZA_OTHER, _EN_GAZA_SENIOR, _EN_GAZA_WAR, _EN_LEB_FUTURE)
-    if not front.search(t) or other.search(t):
+    if not front.search(t):
+        return None
+    if other.search(t):
+        words, threat = (_FA_GAZA_WORDS, _FA_GAZA_THREAT) if fa else (_EN_GAZA_WORDS, _EN_GAZA_THREAT)
+        if words.search(t) and not threat.search(t):
+            return "minor"               # Yemen, Iran or the UN reacting to Gaza in words: yellow
         return None
     if (senior.search(t) or war.search(t)) and not future.search(t):
         return "secondary"
