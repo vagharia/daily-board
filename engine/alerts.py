@@ -747,6 +747,10 @@ def _told_event(red, clusters, sent):
     return keep, drop
 
 
+# a lamp switching on is announced at most once in this span (a lamp going off and on again in a few hours)
+LIGHT_QUIET = 12 * 3600
+
+
 def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None, seen=None):
     """flash_msgs: the main front's instant alerts (flash.py), sent first; flash_keys: reports they cover, whose
     stories don't also get the red-story alert."""
@@ -801,7 +805,11 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
             messages.append(f"🔴 و {_fa_num(len(red_msg) - 4)} خبر قرمز دیگر در بولتن.")
         for c, m, new in later[:2]:
             messages.append(_later_msg(c, m, new))
+        lit_at = state.setdefault("light_at", {})
         for l in lights_on:
+            if t - lit_at.get(l["id"], 0) < LIGHT_QUIET:
+                continue                       # this lamp was announced a short while ago: once in LIGHT_QUIET
+            lit_at[l["id"]] = t
             ev = l["evidence"][0] if l["evidence"] else None
             line = html.escape(ev.get("fa", "")) if ev else ""
             messages.append(f"⚠️ <b>چراغ هشدار روشن شد: {html.escape(l['fa'])}</b>" + (f"\n{line}" if line else ""))

@@ -28,7 +28,7 @@ after either ends the effect.
 import math
 import re
 
-from . import deploy, evac
+from . import deploy, evac, lamps
 from .aviation import recent_warnings
 from .lexicon import PLACES
 from .sources import BY_ID
@@ -541,6 +541,17 @@ def saudi_air(m):
     return not (_UAE_AIR.search(head) and not _TO_SAUDI.search(head))
 
 
+def _air_lamp(m):
+    return lamps.air(m) and not saudi_air(m)
+
+
+def _gate(flags):
+    """The headline check of a lamp (lamps.py): a strike told as done in the war itself, an incident at sea or the
+    strait closed told as done, an airspace closure (not a reopening, not Saudi Arabia's own sky)."""
+    return {frozenset({"kinetic"}): lamps.strike, frozenset({"maritime_incident", "hormuz_closure"}): lamps.sea,
+            frozenset({"airspace"}): _air_lamp}.get(frozenset(flags))
+
+
 def _ev_cluster(c, flags=()):
     """A story as a lamp's evidence line. Its headline is the story's own when the item it comes from carries the
     lamp's flag; otherwise the headline of the item that lit the lamp ("flights suspended at Riyadh airport" under a
@@ -555,6 +566,8 @@ def _ev_cluster(c, flags=()):
     def lit(m):
         if flags == {"deploy"}:
             return deploy.lamp(m)
+        if _gate(flags):
+            return _gate(flags)(m) and "digest" not in (m.get("flags") or [])
         if told:
             return bool(set(m.get("tf") or []) & told) and "digest" not in (m.get("flags") or [])
         if flags == {"airspace"} and saudi_air(m):
@@ -633,7 +646,8 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
                     continue
                 (on if t - c["u"] <= 24 * 3600 else watch).append(c)
                 continue
-            if not (set(c.get("flags", [])) & flags) or c["sev"] < min_sev or not c.get("core", True):
+            at_sea = flags == {"maritime_incident", "hormuz_closure"} and any(lamps.sea(m) for m in c["m"])
+            if not (set(c.get("flags", [])) & flags or at_sea) or c["sev"] < min_sev or not c.get("core", True):
                 continue
             if set(c.get("flags", [])) & set(exclude):
                 continue
@@ -644,6 +658,9 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
             air = [m for m in c["m"] if "airspace" in (m.get("flags") or [])]
             if flags == {"airspace"} and air and all(saudi_air(m) for m in air):
                 continue                       # Saudi Arabia's own sky, closed in its war with the Houthis (saudi_air)
+            gate = _gate(flags)
+            if gate and not any(gate(m) for m in c["m"]):
+                continue                       # nothing in a headline tells what the lamp is for (lamps.py)
             told = flags & {"deploy", "ultimatum", "evac"}
             if told and not any(set(m.get("tf") or []) & told and "digest" not in (m.get("flags") or [])
                                 for m in c["m"]):
