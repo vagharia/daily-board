@@ -14,7 +14,7 @@ has its own (deploy.lamp). The classifier's flags are broad, for the bulletin; a
 """
 import re
 
-from . import attack_verb, city_strike, vessel
+from . import attack_verb, cause, city_strike, vessel, witness
 from .util import fa_norm, to_latin_digits
 
 _NOT = {"denial", "past", "speculative", "analysis", "opinion", "digest", "scheduled", "feature", "aside", "tribute",
@@ -59,10 +59,21 @@ _GULF_FA = re.compile(_fa("عمان", "امارات", "قطر", "بحرین", "�
 # the attack is not the news: a market, trade, a reaction or prevention
 _STRIKE_NOT_EN = re.compile(r"\b(oil prices?|crude prices?|brent|stocks?|markets?|shares|sells?|selling|sold|insur\w+"
                             r"|avert\w*|prevent\w*|avoid\w*|window|commitment|monitoring|condemn\w*|criticiz\w*"
-                            r"|anniversary|lawsuit|compensation|environmental|impacts?|effects?|aftermath)\b", re.I)
+                            r"|anniversary|lawsuit|compensation|environmental|impacts?|effects?|aftermath|meets|met with"
+                            r"|12-day war|last year|first place)\b", re.I)
 _STRIKE_NOT_FA = re.compile(_fa("قیمت نفت", "بازار", "بورس", "فروش", "می فروشد", "بیمه", "جلوگیری", "اجتناب",
                                 "انتقاد", "محکوم", "سکوت", "تعهد", "نظارت", "سالگرد", "غرامت", "شکایت",
-                                "تاثیرات", "تأثیرات", "پیامد", "زیست محیطی"))
+                                "تاثیرات", "تأثیرات", "پیامد", "زیست محیطی", "دیدار", "ملاقات", "آلاینده",
+                                # an attack retold: «اولین جایی که اسرائیل بمباران کرد … بود»
+                                "اولین جایی", "اولین جا", "جنگ ۱۲ روزه", "جنگ 12 روزه", "جنگ دوازده روزه",
+                                "سال گذشته", "پارسال"))
+# a fire after a drone attack is still the attack
+_WAR_EN = re.compile(r"\b(attack\w*|strikes?|struck|drones?|missiles?|air ?strikes?|bomb\w*|air defen[cs]es?|jets?)\b", re.I)
+_WAR_FA = re.compile(_fa("حمله", "حملات", "پهپاد", "موشک", "بمباران", "پدافند", "جنگنده", "اصابت"))
+_MISHAP_EN = re.compile(r"\b(gas (?:cylinder|canister|leak|pipe\w*)|cylinder|leak|boiler|heater|short[- ]circuit"
+                        r"|fireworks?|firecrackers?|fire (?:at|in|breaks)|blaze|accident\w*|earthquake|quake)\b", re.I)
+_MISHAP_FA = re.compile(_fa("کپسول", "نشت گاز", "گاز شهری", "گازگرفتگی", "ترکیدن", "آتش سوزی", "حریق", "اتصال برق",
+                            "اتصالی", "بخاری", "آبگرمکن", "ترقه", "چهارشنبه سوری", "زلزله", "زمین لرزه", "حادثه"))
 _SEA_EN = re.compile(r"\b(tankers?|ships?|vessels?|cargo|carriers? of|lng|lpg|mines?|boats?|supertankers?)\b", re.I)
 _SEA_FA = re.compile(_fa("نفتکش", "نفت کش", "کشتی", "تانکر", "شناور", "لنج", "مین", "قایق", "ناو"))
 
@@ -77,6 +88,9 @@ def strike(m):
         return False                   # at sea: the Hormuz lamp
     if (_STRIKE_NOT_FA if fa else _STRIKE_NOT_EN).search(t):
         return False
+    if ((_MISHAP_FA if fa else _MISHAP_EN).search(t) and not (_WAR_FA if fa else _WAR_EN).search(t)) \
+            or cause.which("fa" if fa else "en", t):
+        return False                   # a gas cylinder, a fire, fireworks, a drill: an announced cause, not an attack
     iran, foe = ((_IRAN_FA, _FOE_FA) if fa else (_IRAN_EN, _FOE_EN))
     told = attack_verb.actor_strikes_fa(t) if fa else (attack_verb.actor_strikes_en(t) or bool(_FIRE_EN.search(t))
                                                          or bool(_EXCHANGE_EN.search(t)))
@@ -85,7 +99,10 @@ def strike(m):
         return True
     if (_DOWN_FA if fa else _DOWN_EN).search(t) and iran.search(t) and foe.search(t):
         return True
-    return bool(city_strike.mark(m))   # an attack or explosions in a city of Iran
+    if city_strike.mark(m):
+        return True                    # an attack or explosions in a city of Iran
+    # Tehran too (left out of city_strike's one-story-per-city rule, not of the lamp)
+    return not fl & city_strike._NOT and bool(witness.cities_in(t, "fa" if fa else "en"))
 
 
 # ---- hormuz

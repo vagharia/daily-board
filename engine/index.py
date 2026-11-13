@@ -123,6 +123,7 @@ HALF = 6 * 3600
 ACT_FLAGS = {"kinetic", "maritime_incident", "hormuz_closure", "nuclear_red"}
 # the deployment lamp: the story's and the lamp report's own severity (deploy.lamp decides what the headline tells)
 DEPLOY_STORY_SEV = 50
+STRIKE_STORY_SEV = 66
 DEPLOY_ITEM_SEV = 56
 THREAT_FLAGS = {"ultimatum", "threat", "kinetic_threat", "deploy", "evac", "pullback_me", "talks_fail", "retaliation",
                 "alert"}
@@ -677,7 +678,8 @@ def compute_lights(clusters, av, sea, markets, t=None, translate=None):
         return on, watch
 
     res = {}
-    on, watch = by_flag({"kinetic"}, 72, need_state_actor=True, exclude=("maritime_incident",))
+    # the headline check (lamps.strike) is strict, so one outlet's "Explosions heard in Shiraz" (70) is enough
+    on, watch = by_flag({"kinetic"}, STRIKE_STORY_SEV, need_state_actor=True, exclude=("maritime_incident",))
     res["strike"] = (on, watch, [])
     on, watch = by_flag({"maritime_incident", "hormuz_closure"}, 60)
     res["hormuz"] = (on, watch, [])
