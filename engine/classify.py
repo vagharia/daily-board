@@ -521,6 +521,32 @@ def _tribute(lang, t):
     return bool(_TRIB_EN.search(t or ""))
 
 
+# a running toll of the whole war ("UN says IMO confirms 25 seafarer deaths since Iran war began", "… as death toll
+# climbs" with "since the Iran war began" in the lead, «از آغاز جنگ … کشته»): a count of months, no event of now, a
+# yellow story. A headline telling an attack ("strike kills 3, bringing the toll since the war began to …") is left.
+WAR_TALLY_CAP = 40.0
+_TALLY_EN = re.compile(r"\b(killed|deaths?|dead|died|toll|casualt\w+|fatalit\w+|lives)\b", re.I)
+_SINCE_WAR_EN = re.compile(
+    r"\bsince (the )?([\w'-]+ ){0,3}?(war|conflict|fighting|hostilities) (began|started|erupted|broke out)\b"
+    r"|\bsince the (start|beginning|outbreak|onset) of (the )?([\w'-]+ ){0,3}?(war|conflict|fighting|hostilities)\b"
+    r"|\bsince (late |early )?(february|feb\.?)( 28)?\b|\bdeath toll (climbs|rises|grows|mounts)\b", re.I)
+_TALLY_FA = re.compile(fa_norm("کشته|تلفات|جان باخت|جان‌باخت|کشتگان"))
+_SINCE_WAR_FA = re.compile(fa_norm("از") + r"\s*(?:" + fa_norm("زمان") + r"\s*)?(?:" + fa_norm("آغاز|شروع") + r")\s*"
+                           + fa_norm("(?:جنگ|درگیری)"))
+_TALLY_HIT_EN = re.compile(r"\b(strikes?|struck|attack\w*|hits?|bomb\w*|missiles?|drones?|shell\w*|kills)\b", re.I)
+_TALLY_HIT_FA = re.compile(fa_norm("حمله|اصابت|بمباران|موشک|پهپاد|شلیک"))
+
+
+def war_tally(lang, t, s=""):
+    """A toll counted since the war began, told in the headline (the 'since' in the headline or the lead)."""
+    fa = lang == "fa"
+    h = fa_norm(t or "") if fa else (t or "")
+    lead = h + " " + (fa_norm(first_sentences(s or "", 220)) if fa else first_sentences(s or "", 220))
+    if not (_TALLY_FA if fa else _TALLY_EN).search(h) or (_TALLY_HIT_FA if fa else _TALLY_HIT_EN).search(h):
+        return False
+    return bool((_SINCE_WAR_FA if fa else _SINCE_WAR_EN).search(lead))
+
+
 # hijab and dress-code enforcement inside Iran (a prosecutor calling on the IRGC to enforce it, arrests over it): a
 # domestic matter, yellow, even when the IRGC or a "warning" is in the headline
 # a statement of clerics (the seminary, Friday prayer leaders, grand ayatollahs): a yellow story, unless it tells of
@@ -1754,6 +1780,10 @@ def classify(item):
         # several items in one headline: a yellow story, whatever one of them tells; it lights no lamp
         flags = (set(flags) - HARD_EVENTS - LIGHT_FLAGS) | {"digest"}
         sev = min(sev, DIGEST_CAP)
+    if war_tally(lang, fa_t or en_t, fa_s or en_s):
+        # a toll counted since the war began: no event of now, a yellow story (war_tally)
+        flags = (set(flags) - HARD_EVENTS) | {"tally"}
+        sev = min(sev, WAR_TALLY_CAP)
     if _tribute(lang, fa_t or en_t):
         # a memoir or a profile of the dead: a yellow story, whatever attack it recalls
         flags = (set(flags) - HARD_EVENTS) | {"tribute"}

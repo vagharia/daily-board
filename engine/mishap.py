@@ -26,6 +26,8 @@ _CAUSE_EN = re.compile(
     r"(crash|accident|collision|disaster)\w*"
     r"|(bus|buses|trucks?|cars?|vehicles?|trains?|minibus\w*|lorr(y|ies))\b[^.;:]{0,30}\b(collid\w*|crash\w*)"
     r"|collid\w*[^.;:]{0,30}\b(bus|truck|car|vehicle|train|minibus|lorry)"
+    # "twins, grandson killed in UAE crash": a crash with no aircraft, ship or word of the war named (_NOT_EN)
+    r"|(killed|die[sd]?|dead|hurt|injured) in (an? |the )?([\w'-]+ ){0,2}?crash(es)?"
     r"|(?<!by )accidents?|derail\w*|(bus|truck|car|vehicle|minibus|van|boat)s? (overturn\w*|plunge\w*|fell|falls)"
     r"|overturn\w* (bus|truck|car|vehicle|minibus|van|boat)|capsiz\w*|drown\w*|stampede\w*"
     r"|(building|bridge|roof|wall|ceiling|tunnel) collaps\w*|collaps\w* (building|bridge|roof|tunnel)"
@@ -195,7 +197,8 @@ def road(lang, t, s=""):
     tt = t or ""
     lead = tt + " " + first_sentences(s or "", 200)
     hit = _ROADNEWS_EN.search(tt) or _road("en", tt) or (mishap("en", tt, s) and re.search(
-        r"\b(road|traffic|highway|motorway|bus|buses|truck|lorry|cars?|vehicles?|minibus\w*|van)\b", tt, I))
+        r"\b(road|traffic|highway|motorway|bus|buses|truck|lorry|cars?|vehicles?|minibus\w*|van|crash(es)?)\b", tt, I)
+        and not re.search(r"\b(trains?|rail\w*)\b", tt, I))
     return bool(hit) and not _ROAD_WAR_EN.search(lead)
 
 
