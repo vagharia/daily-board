@@ -22,9 +22,9 @@
     set: function (k, v) { try { localStorage.setItem('db.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
   };
   // the version of the app in this file; release.json says which is the newest (see checkRelease)
-  var APP_REL = 25;
+  var APP_REL = 26;
   // the build of this file: release.json's "build" is the newest one; a newer one reloads the app quietly
-  var APP_BUILD = 37;
+  var APP_BUILD = 38;
   var FIRST_RUN = (function () {
     try { for (var i = 0; i < localStorage.length; i++) if (/^db\./.test(localStorage.key(i))) return false; } catch (e) { return false; }
     return true;
@@ -85,7 +85,7 @@
       xGeo: 'سیاسی و نظامی', xEcon: 'نفت و طلا', xNote: 'ایکس API رایگان ندارد؛ این‌ها پست‌های حساب‌های معتبرند که رسانه‌های معتبر نقل کرده‌اند، به‌علاوه پست‌های تروث‌سوشال ترامپ.',
       xEmpty: 'هنوز پستی از حساب‌های منتخب ثبت نشده. با هر به‌روزرسانی اضافه می‌شود.', cites: '{n} رسانه نقل کرده', openX: 'باز کردن', telegram: 'تلگرام',
       newRed: 'خبر خیلی مهم جدید', refreshed: 'به‌روز شد', loading: 'در حال دریافت…', stories: '{n} خبر',
-      tEcon: 'اکونومیست', ecIssue: 'شماره‌ی {d}', ecCount: '{n} مطلب برگزیده، به ترتیب مجله', ecImpact: 'اثرات', ecAll: 'همه',
+      tEcon: 'اکونومیست', ecIssue: 'شماره‌ی {d}', ecCount: '{n} مطلب برگزیده، به ترتیب مجله', ecImpact: 'اثرات', ecAll: 'همه', ecIssueTab: '{d}', ecNew: 'تازه',
       ecRead: 'متن کامل در سایت اکونومیست', ecPage: 'صفحه‌ی {n}', ecEmpty: 'این هفته در اکونومیست مطلبی برای «{c}» نبود.',
       ecNone: 'هنوز شماره‌ای از اکونومیست ثبت نشده.',
       ecNote: 'خلاصه‌ها برداشت آزاد از مقاله‌هاست، نه ترجمه‌ی متن کامل. تصویرها پیش‌نمایش خود سایت اکونومیست‌اند.',
@@ -144,7 +144,7 @@
       xGeo: 'Politics & military', xEcon: 'Oil & gold', xNote: 'X has no free API; these are posts from credible accounts cited by reputable media, plus Trump\'s Truth Social posts.',
       xEmpty: 'No posts from the selected accounts yet. They are added with each update.', cites: 'cited by {n} outlets', openX: 'Open', telegram: 'Telegram',
       newRed: 'New critical story', refreshed: 'Updated', loading: 'Loading…', stories: '{n} stories',
-      tEcon: 'Economist', ecIssue: 'Issue of {d}', ecCount: '{n} selected articles, in magazine order', ecImpact: 'Why it matters', ecAll: 'All',
+      tEcon: 'Economist', ecIssue: 'Issue of {d}', ecCount: '{n} selected articles, in magazine order', ecImpact: 'Why it matters', ecAll: 'All', ecIssueTab: '{d}', ecNew: 'New',
       ecRead: 'Read on economist.com', ecPage: 'p. {n}', ecEmpty: 'No Economist article for “{c}” this week.',
       ecNone: 'No Economist issue yet.',
       ecNote: 'Summaries are free paraphrases, not translations. Pictures are the site’s own previews.',
@@ -1332,15 +1332,26 @@
   function renderEcon() {
     var d = S.d.econ, feed = $('#ecFeed');
     if (!d || !d.articles) {
-      $('#ecHead').innerHTML = ''; $('#ecCats').innerHTML = '';
+      $('#ecHead').innerHTML = ''; $('#ecCats').innerHTML = ''; $('#ecIssues').hidden = true;
       feed.innerHTML = S.offline ? '<div class="empty">' + ic('offline') + '<p>' + esc(t('offline')) + '</p></div>'
         : S.econTried ? '<div class="empty">' + ic('book') + '<p>' + esc(t('ecNone')) + '</p></div>' : skeleton();
       return;
     }
-    var arts = d.articles.filter(function (a) { return a && a.id; });
+    // the two newest issues, newest first; the bar above the categories picks one (the newest when the app opens)
+    var issues = (d.issues && d.issues.length ? d.issues : [{ issue: d.issue, articles: d.articles }])
+      .filter(function (x) { return x && x.articles; });
+    var cur = issues.filter(function (x) { return x.issue === S.econIssue; })[0] || issues[0];
+    S.econIssue = cur.issue;
+    $('#ecIssues').innerHTML = issues.length > 1 ? issues.map(function (x, i) {
+      var on = x === cur;
+      return '<button data-eiss="' + esc(x.issue) + '" class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '">' +
+        esc(t('ecIssueTab', { d: issueDate(x.issue) })) + (i === 0 ? '<i class="ec-new">' + esc(t('ecNew')) + '</i>' : '') + '</button>';
+    }).join('') : '';
+    $('#ecIssues').hidden = issues.length < 2;
+    var arts = cur.articles.filter(function (a) { return a && a.id; });
     var count = function (k) { return arts.filter(function (a) { return ecTags(a).indexOf(k) >= 0; }).length; };
     var sel = S.econSel;
-    $('#ecHead').innerHTML = '<span class="ec-mark">' + ic('book') + '</span><div><b>' + esc(t('ecIssue', { d: issueDate(d.issue) })) + '</b>' +
+    $('#ecHead').innerHTML = '<span class="ec-mark">' + ic('book') + '</span><div><b>' + esc(t('ecIssue', { d: issueDate(cur.issue) })) + '</b>' +
       '<span>' + esc(t('ecCount', { n: nfmt(arts.length) })) + '</span></div>';
     $('#ecCats').innerHTML = '<button class="ec-cat' + (sel.length ? '' : ' on') + '" data-ecat="" aria-pressed="' + !sel.length + '">' +
       ic('layers') + '<span>' + esc(t('ecAll')) + '</span><b>' + nfmt(arts.length) + '</b></button>' +
@@ -1500,6 +1511,12 @@
     if ((el = e.target.closest('[data-sty]'))) { openStories(+el.dataset.sty); return; }
     if ((el = e.target.closest('[data-story]')) && el.dataset.story) { if (el.id === 'toast') el.hidden = true; openStory(el.dataset.story); return; }
     if ((el = e.target.closest('[data-tab]'))) { setTab(el.dataset.tab); return; }
+    if ((el = e.target.closest('[data-eiss]'))) {
+      S.econIssue = el.dataset.eiss; renderEcon();
+      var top0 = $('#pane-econ').offsetTop - 64;
+      if (window.scrollY > top0) window.scrollTo(0, top0);
+      return;
+    }
     if ((el = e.target.closest('[data-ecat]'))) {
       var k = el.dataset.ecat, es = S.econSel.slice(), at = es.indexOf(k);
       if (!k) es = [];                                              // "All"

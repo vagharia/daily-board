@@ -1,0 +1,431 @@
+{
+ "issue": "2026-11-14",
+ "articles": [
+  {
+   "id": "wtw-pol",
+   "url": "https://www.economist.com/the-world-this-week/2026/11/12/politics",
+   "sec": "wtw",
+   "tags": [
+    "pol",
+    "mil",
+    "cyber"
+   ],
+   "fa": {
+    "t": "فرانسه سپاه را عامل حمله‌ی سایبری به سوپرمارکت‌ها دانست؛ استیضاح هگست شکست خورد",
+    "s": "فرانسه سپاه پاسداران ایران را مسئول موجی از حمله‌های سایبری به سامانه‌های سرمایش سوپرمارکت‌های بزرگ دانست. هکرها در نیمه‌ی اکتبر به سامانه‌های خنک‌کننده‌ای که از راه اینترنت کنترل می‌شوند نفوذ کردند و ده‌ها میلیون یورو کالا را از بین بردند. ژان-نوئل بارو، وزیر خارجه‌ی فرانسه، این اقدام را «تهاجمی بی‌سابقه» خواند و نگرانی درباره‌ی حمله به امنیت غذایی بالا گرفته است. در همین هفته گزارش شد که هواپیماهای نظامی آمریکا به دلیل تشدید تدابیر امنیتی در برابر حمله‌ی احتمالی ایران، از دومین پایگاه هوایی در بریتانیا، یعنی میلدنهال، خارج شده‌اند. در سپتامبر هم بمب‌افکن‌های آمریکایی به دلیل یک توطئه‌ی احتمالی ایرانی از پایگاه فرفورد جابه‌جا شده بودند و وزارت دادگستری آمریکا سه نفر را به اتهام فعالیت برای ایران تحت پیگرد قرار داده است.\n\nدر واشنگتن، تلاش یک نماینده‌ی جمهوری‌خواه برای استیضاح پیت هگست، وزیر جنگ، به اتهام‌هایی مرتبط با جنگ ایران، با مخالفت دیگر جمهوری‌خواهان شکست خورد؛ دموکرات‌ها وعده داده‌اند سال آینده آن را دوباره پیش ببرند. ترامپ برای بازپس‌گیری ابتکار عمل پس از شکست انتخاباتی، استیون میلر را که مدافع سخت‌گیرانه‌ترین سیاست‌های مهاجرتی است به ریاست دفتر کاخ سفید گماشت. در می‌سی‌سی‌پی هم نامزد دموکرات برنده‌ی کرسی سنا شد.\n\nدر اسرائیل، رئیس‌جمهور مأموریت تشکیل دولت را به گادی آیزنکوت، رهبر حزب میانه‌روی «یاشار»، سپرد. او قصد دارد دولت اقلیتِ «اضطراری» بدون احزاب عرب و حریدی تشکیل دهد و حداکثر شش هفته فرصت دارد. «هیئت صلح» ترامپ نیز در انتقادی کم‌سابقه به سیاستمداران اسرائیلی هشدار داد که کمک‌های رسیده به غزه، جایی که سیل چادرهای حدود ۳۵۰ هزار نفر را فراگرفت، «ناکافی» است.",
+    "i": "متهم شدن رسمی سپاه از سوی یک کشور اروپایی، جبهه‌ی سایبری را به بخشی آشکار از تقابل ایران و غرب بدل می‌کند و احتمال واکنش اروپا، از تحریم تا اقدام متقابل، را بالا می‌برد. جابه‌جایی هواپیماهای آمریکایی در بریتانیا هم نشان می‌دهد واشنگتن تهدید ایران را فراتر از خاورمیانه جدی گرفته است."
+   },
+   "en": {
+    "t": "France blames Iran’s Revolutionary Guards for supermarket cyber-attacks; Hegseth survives impeachment",
+    "s": "France accused Iran’s Revolutionary Guards of being behind a spate of cyber-attacks on the refrigeration systems of big supermarkets. In mid-October hackers broke into cooling systems controlled over the internet, ruining goods worth tens of millions of euros and raising fears for food security. Jean-Noël Barrot, the French foreign minister, called it an act of “unprecedented aggressiveness”. American military aircraft were also reported to have been withdrawn from a second air base in Britain, RAF Mildenhall, amid heightened security over a possible Iranian attack. In September American bombers had been moved from RAF Fairford because of a potential Iranian plot, and America’s Justice Department has charged three alleged Iranian operatives.\n\nIn Washington a Republican congressman’s attempt to impeach Pete Hegseth, the secretary of war, on charges related to the Iran war failed after other Republicans moved to defeat it; Democrats vowed to revive it next year. Seeking to regain the initiative after the midterm rout, Donald Trump made Stephen Miller, the architect of his harshest immigration policies, his chief of staff. In Mississippi the Democrat won the Senate race.\n\nIn Israel the president asked Gadi Eisenkot, leader of the centrist Yashar party, to form a government. He wants a minority “emergency” government without Arab or ultra-Orthodox parties and has up to six weeks. In unusual criticism, Mr Trump’s Board of Peace warned Israeli politicians that aid to Gaza, where floods drenched the tents of some 350,000 people, is “insufficient”.",
+    "i": "A European country formally blaming the Revolutionary Guards turns the cyber front into an open part of the Iran–West confrontation and raises the odds of a European response, from sanctions to retaliation. The withdrawal of American aircraft in Britain shows Washington takes the Iranian threat seriously well beyond the Middle East."
+   }
+  },
+  {
+   "id": "wtw-biz",
+   "url": "https://www.economist.com/the-world-this-week/2026/11/12/business",
+   "sec": "wtw",
+   "tags": [
+    "ai",
+    "money"
+   ],
+   "fa": {
+    "t": "رسوایی رئیس انویدیا بازار تراشه را لرزاند؛ ارزش آنتروپیک در آستانه‌ی ۱.۴ هزار میلیارد دلار",
+    "s": "انویدیا پس از آنکه جنسن هوانگ، مدیرعاملش، به رابطه‌ای خارج از ازدواج با یکی از مدیران «مگااسپید» اعتراف کرد دچار آشوب شد. مگااسپید شرکتی سنگاپوری در حوزه‌ی رایانش ابری و از خریداران سخت‌افزار انویدیاست. مقام‌های آمریکایی گمان می‌کنند این زن مأمور چین است و این شرکت به دور زدن محدودیت‌های صادرات تراشه به چین کمک می‌کند. ترامپ گفت اف‌بی‌آی تحقیق را آغاز کرده است. سهام انویدیا سقوط کرد و پیش از آن هم سهام تراشه‌سازان یکی از بدترین روزهای تاریخ خود را گذرانده بود: شاخص نزدک ۱۰۰ پس از پیروزی دموکرات‌ها، که وعده‌ی محدود کردن ساخت مراکز داده را داده‌اند، حدود ۶ درصد افت کرد. بازارهای ژاپن و کره‌ی جنوبی هم ریختند.\n\nبر اساس مدارک به‌روزشده، ارزش آنتروپیک در عرضه‌ی اولیه‌ی سهام ممکن است به ۱.۴ هزار میلیارد دلار و حتی نزدیک ۱.۵ هزار میلیارد برسد؛ معامله‌ی سهام از ۱۹ نوامبر آغاز می‌شود. سافت‌بنک به دلیل لغو قراردادهای تجهیزات انرژی مراکز داده‌اش در آمریکا ۳.۷ میلیارد دلار زیان شناسایی کرد. تورم ماهانه‌ی آمریکا در اکتبر ۰.۴ درصد و بالاتر از انتظار بود و بازارها تقریباً یقین دارند فدرال رزرو در دسامبر نرخ بهره را دوباره بالا می‌برد. مازاد تجاری چین هم با جهش ۳۵ درصدی صادرات، زودتر از سال قبل از هزار میلیارد دلار گذشت.",
+    "i": "ترکیب رسوایی انویدیا، فشار سیاسی بر مراکز داده و تورم سمج آمریکا، که فدرال رزرو را به افزایش دوباره‌ی نرخ بهره سوق می‌دهد، بازار هوش مصنوعی را شکننده کرده است. عرضه‌ی سهام آنتروپیک در ۱۹ نوامبر آزمون اصلی اعتماد بازار خواهد بود."
+   },
+   "en": {
+    "t": "Nvidia’s boss rocks the chip market; Anthropic heads for a $1.4trn valuation",
+    "s": "Nvidia was engulfed in turmoil after Jensen Huang, its chief executive, admitted an extramarital affair with an executive at Megaspeed, a Singaporean cloud-computing firm that buys Nvidia’s hardware. American officials suspect she is a Chinese agent and that Megaspeed helps China evade export controls on chips; Donald Trump said the FBI had opened an inquiry. Nvidia’s shares plunged. Chip stocks had already suffered one of their worst days ever, the NASDAQ 100 falling by about 6% after the midterm victory of Democrats, who have pledged to curb data-centre construction. Markets in Japan and South Korea sank too.\n\nAn updated filing suggested Anthropic could be worth $1.4trn at its IPO, perhaps nearer $1.5trn; trading is expected to start on November 19th. SoftBank took a $3.7bn charge after cancelling energy-equipment contracts for its American data centres. America’s monthly inflation rate was 0.4% in October, more than expected, and markets are all but certain the Federal Reserve will raise rates again in December. China’s trade surplus passed $1trn earlier than last year as exports jumped by 35%.",
+    "i": "Nvidia’s scandal, political pressure on data centres and sticky American inflation, which pushes the Fed towards another rate rise, have left the AI market fragile. Anthropic’s listing on November 19th will be the big test of confidence."
+   }
+  },
+  {
+   "id": "ai-crash",
+   "url": "https://www.economist.com/leaders/2026/11/12/why-you-should-expect-an-ai-crash",
+   "sec": "leaders",
+   "tags": [
+    "ai",
+    "money"
+   ],
+   "fa": {
+    "t": "چرا باید منتظر سقوط بازار هوش مصنوعی بود",
+    "s": "سرمقاله‌ی اکونومیست می‌پرسد رونق هوش مصنوعی چقدر پایدار است. سرمایه‌گذاری پیش‌بینی‌شده در این فناوری بین ۲۰۲۵ تا ۲۰۳۲ به‌طور میانگین سالانه ۳.۶ درصد تولید ناخالص آمریکاست. ده سهم بزرگِ وابسته به هوش مصنوعی نزدیک ۴۰ درصد شاخص S&P 500 را تشکیل می‌دهند و سهام شرکت‌ها حالا ۳۸ درصد ثروت خالص خانوارهای آمریکایی است، یعنی نزدیک یک‌چهارم بیشتر از اوج حباب دات‌کام. پس از انتخابات، نزدک در یک روز ۵.۵ درصد افت کرد و سهام انویدیا نزدیک ۳۰ درصد از اوجش پایین‌تر است. همه‌ی زنجیره، از مراکز داده تا تراشه‌سازان، به درآمد دو شرکت آنتروپیک و اوپن‌اِی‌آی وابسته است. اگر این دو نتوانند به اندازه‌ی کافی بفروشند یا قیمت بالا نگه دارند، فاجعه در راه است؛ به‌ویژه که مدل‌های آمریکایی تنها حدود شش ماه از رقبای چینی جلوترند که مدل‌هایشان را تقریباً رایگان عرضه می‌کنند.\n\nخبر خوب این است که پیامدها احتمالاً مهارشدنی است. بیشتر هزینه‌ی سرمایه‌ای آمریکا صرف تجهیزات وارداتی مانند تراشه می‌شود و قرار گرفتن مستقیم اقتصاد آمریکا در معرض این رونق شاید تنها ۰.۳ درصد تولید ناخالص باشد؛ سقوط برای تایوان بسیار دردناک‌تر خواهد بود. این رونق هم عمدتاً با سهام تأمین مالی شده، نه با بدهی خانوارها که خطرناک‌ترین نشانه‌ی بحران است. بدهی غول‌های مراکز داده حدود ۶ درصد ارزش بازارشان است. محتمل‌ترین سناریو، سقوطی شبیه دات‌کام و رکودی خفیف مانند ۲۰۰۱ است. وضع تنها وقتی وخیم می‌شود که سقوط هم‌زمان با بلای دیگری مانند هراس در بازار اوراق قرضه یا یک جنگ رخ دهد.",
+    "i": "اکونومیست سقوط بازار را محتمل اما بحران مالی عمیق را بعید می‌داند. هشدار اصلی اما ترکیب خطرهاست: سقوط هوش مصنوعی در کنار جنگ، که با پرونده‌ی ایران دور از ذهن نیست، می‌تواند رکودی جدی‌تر بسازد."
+   },
+   "en": {
+    "t": "Why you should expect an AI crash",
+    "s": "The Economist’s leader asks how sustainable the AI boom is. Expected investment in the technology averages 3.6% of America’s GDP a year between 2025 and 2032. The ten most AI-exposed stocks make up nearly 40% of the S&P 500, and equities account for 38% of American household net worth, nearly a quarter more than at the dotcom peak. After the midterms the NASDAQ fell by 5.5% in a day, and Nvidia is nearly 30% below its peak. The whole supply chain, from data centres to chipmakers, depends on revenues at Anthropic and OpenAI. If they sell too little or cannot charge enough, disaster looms, especially since American models are only about six months ahead of Chinese rivals that give theirs away almost free.\n\nThe good news is that the consequences would probably be manageable. Most of America’s AI capital spending goes on imported kit such as chips, so its direct exposure may be just 0.3% of GDP; a bust would hurt Taiwan far more. The boom is mostly financed by equity rather than household debt, the reddest flag of all, and the big data-centre owners’ debts are about 6% of their market value. The likeliest outcome is a dotcom-style crash and a shallow recession like 2001’s. Things would get much worse only if a crash coincided with another calamity, such as a bond-market panic or a war.",
+    "i": "The Economist sees a market crash as likely but a deep financial crisis as unlikely. The real warning is about compounding risks: an AI bust coinciding with a war, which the Iran file makes far from unthinkable, could cause a far deeper downturn."
+   }
+  },
+  {
+   "id": "huang-leader",
+   "url": "https://www.economist.com/leaders/2026/11/11/jensen-huang-must-go",
+   "sec": "leaders",
+   "tags": [
+    "ai",
+    "pol"
+   ],
+   "fa": {
+    "t": "جنسن هوانگ باید برود",
+    "s": "اکونومیست پیش از آنکه هوانگ در ۱۲ نوامبر استعفا دهد، خواستار کناره‌گیری او شده بود. مدیرعامل انویدیا با یکی از مدیران مگااسپید، شرکتی که میلیاردها دلار سخت‌افزار انویدیا خریده، رابطه داشته است. مقام‌های آمریکایی این زن را مأمور چین و شرکت مستقر در سنگاپورش را پوششی برای قاچاق تراشه‌های حساس به چین می‌دانند. به نوشته‌ی نشریه، حتی اگر روشن نباشد هوانگ کی از ظن دولت باخبر شد، رابطه با مشتری تعارض منافع آشکار است و او که امانت‌دار فناوری‌ای است که چین سخت در پی آن است، باید بسیار محتاط‌تر می‌بود. هوانگ حتی ماه گذشته درباره‌ی این رابطه دروغ گفته بود. این پرسش هم مطرح است که آیا مشاور حقوقی انویدیا در تحقیقات وزارت بازرگانی آمریکا درباره‌ی مگااسپید دخالت کرده است. حمایت هوانگ از سست کردن محدودیت‌های صادرات تراشه و از مدل‌های متن‌باز چینی هم حالا بدگمانی برمی‌انگیزد.\n\nنشریه انگشت اتهام را به سوی دولت ترامپ هم می‌گیرد: وزارت بازرگانی به ریاست هاوارد لاتنیک نتوانسته جلوی رسیدن بهترین تراشه‌های آمریکا به چین را بگیرد و ظاهراً حتی پس از هشدارها اجازه داده فروش به مگااسپید ادامه یابد. دموکرات‌ها پس از در دست گرفتن کنگره، هم لاتنیک و هم خود ترامپ را، که سهام انویدیا خریده و برای سالن رقص تازه‌اش از این شرکت پول گرفته، بازخواست خواهند کرد. به تعبیر نشریه، دو سال سیاست‌گذاری آشفته و اجرای سست به چین امکان داده در رقابت بر سر فناوری‌ای که شاید از سلاح هسته‌ای قدرتمندتر باشد پیش بیفتد.",
+    "i": "این رسوایی محدودیت صادرات تراشه به چین را به موضوع امنیت ملی در کنگره‌ی تازه بدل می‌کند و احتمال تصویب قوانین سخت‌گیرانه‌تر، از جمله ردیابی محل تراشه‌ها، را بالا می‌برد. رقابت فناوری آمریکا و چین وارد مرحله‌ای امنیتی‌تر می‌شود."
+   },
+   "en": {
+    "t": "Jensen Huang must go",
+    "s": "Before Mr Huang resigned on November 12th, The Economist argued he had to. Nvidia’s boss had an affair with an executive at Megaspeed, a firm that has bought billions of dollars of Nvidia hardware; American officials think she is a Chinese agent and that her Singapore-based company is a front for smuggling sensitive chips into China. Even if it is unclear when he learned of his government’s suspicions, a romance with a customer is an obvious conflict of interest, and as steward of a technology China covets he should have been extra wary. He lied publicly about the relationship as recently as last month. Questions also swirl over whether Nvidia’s chief counsel intervened in a Commerce Department probe into Megaspeed, and his advocacy of looser chip controls and of Chinese open-source models now looks suspect.\n\nThe paper also blames the Trump administration. The Commerce Department under Howard Lutnick has failed to stem the flow of America’s best chips to China and seems to have let sales to Megaspeed continue even after warnings. Once Democrats control Congress they will question Mr Lutnick and Mr Trump, who has bought Nvidia shares and tapped the firm to fund his ballroom. Two years of incoherent policy and lax enforcement, it argues, have let China gain ground in a technology that may prove more powerful than nuclear weapons.",
+    "i": "The scandal turns chip-export controls into a national-security issue for the new Congress, making tougher laws, such as tracking where chips end up, more likely. The tech rivalry between America and China is entering a more security-driven phase."
+   }
+  },
+  {
+   "id": "inv-ai-defence",
+   "url": "https://www.economist.com/by-invitation/2026/11/12/ai-sceptics-focus-on-the-wrong-threats",
+   "sec": "inv",
+   "tags": [
+    "cyber",
+    "ai"
+   ],
+   "fa": {
+    "t": "بدبینان به هوش مصنوعی از تهدیدهای اشتباهی می‌ترسند",
+    "s": "آن نوبرگر، معاون پیشین مشاور امنیت ملی آمریکا و مدیر پیشین بخش امنیت سایبری آژانس امنیت ملی، می‌نویسد پرسش فوری‌تر این نیست که چگونه جلوی خطرناک‌تر شدن جهان با هوش مصنوعی را بگیریم، بلکه این است که با آن جهانِ از پیش خطرناک را چقدر سریع امن‌تر کنیم. او یادآوری می‌کند که در ۲۰۲۳ هکرهای مرتبط با ایران به تأسیسات آب آمریکا نفوذ کردند و اپراتورها را به کنترل دستی واداشتند، و هکرهای دولتی چین در شبکه‌های برق و آب و حمل‌ونقل آمریکا جای پا ساخته‌اند تا در زمان درگیری بی‌صدا ضربه بزنند. بیشتر این حمله‌ها نه به ترفندهای تازه، که به ناتوانی مدافعان در یافتن و بستن به‌موقع حفره‌های شناخته‌شده متکی بوده‌اند.\n\nبه باور او، هوش مصنوعی می‌تواند بیش از مهاجمان به مدافعان کمک کند: مدافع کد خود را در اختیار دارد و می‌تواند آن را خط‌به‌خط از هر زاویه‌ی حمله بررسی کند، ترافیک شبکه‌ی خود را می‌بیند و با «همزاد دیجیتال» شبکه‌های برق و آب، دفاع را بدون به خطر انداختن خدمات آزمایش می‌کند. هوش مصنوعی حفره‌ها را وصله هم می‌کند و برای تجهیزات فرسوده‌ای که وصله‌پذیر نیستند راه‌حل‌های جایگزین می‌سازد. پیشنهاد او این است که دولت‌ها از حیاتی‌ترین زیرساخت‌ها شروع کنند، آزمایشگاه‌های هوش مصنوعی را برای یافتن و رفع حفره‌ها با مهلت مشخص به کار گیرند، هزینه‌ی اپراتورهای کوچک را تقسیم کنند و یافته‌ها را با متحدان به اشتراک بگذارند.",
+    "i": "نویسنده صریحاً ایران را در کنار چین از تهدیدهای اصلی زیرساخت‌های آمریکا می‌شمارد. اگر این رویکرد اجرا شود، توان دفاع سایبری آمریکا و متحدانش در برابر حمله‌های ایرانی، مانند همین حمله به سوپرمارکت‌های فرانسه، به‌سرعت بالا می‌رود."
+   },
+   "en": {
+    "t": "AI sceptics focus on the wrong threats",
+    "s": "Anne Neuberger, a former deputy national security adviser who ran the NSA’s Cybersecurity Directorate, argues the more urgent question is not how to stop AI making the world more dangerous but how fast it can make an already dangerous world safer. She recalls that in 2023 Iranian-linked hackers broke into American water utilities, forcing operators onto manual control, and that Chinese state hackers have planted footholds in American power, water and transport systems, ready to strike silently in a conflict. Most such attacks succeeded not through brilliant new exploits but because defenders could not find and fix known weaknesses fast enough.\n\nAI, she argues, can help defenders more than attackers. Defenders own their code and can have AI analyse it line by line from every angle of attack; they see their own network traffic; and with “digital twins” of grids and water systems they can test defences without risking services. AI can also write patches, and workarounds for ageing kit that cannot be patched. Governments should start with the most critical infrastructure, enlist AI labs to find and fix flaws by set deadlines, share costs for small operators and share findings with allies.",
+    "i": "The author explicitly lists Iran, alongside China, among the main threats to American infrastructure. If her approach is adopted, the cyber defences of America and its allies against Iranian attacks, such as the one on French supermarkets, could improve quickly."
+   }
+  },
+  {
+   "id": "ai-money",
+   "url": "https://www.economist.com/briefing/2026/11/12/can-the-ai-boom-make-enough-money-to-sustain-itself",
+   "sec": "briefing",
+   "tags": [
+    "ai",
+    "money"
+   ],
+   "fa": {
+    "t": "آیا رونق هوش مصنوعی آن‌قدر پول درمی‌آورد که سرپا بماند؟",
+    "s": "آنتروپیک، نخستین توسعه‌دهنده‌ی بزرگ و صرفاً هوش مصنوعی که وارد بورس می‌شود، ارزشی حدود ۱.۵ هزار میلیارد دلار هدف گرفته است؛ پیش از رسوایی انویدیا و شکست طرفداران مراکز داده در انتخابات، رقم ۲ هزار میلیارد هم مطرح بود. اوپن‌اِی‌آی عرضه‌ی سهامش را به سال آینده انداخته است. پرسش اصلی این است که آیا این فناوری به اندازه‌ی کافی درآمد می‌سازد. به حساب اکونومیست، برای آنکه موج ساخت مراکز داده بازدهی متعارفی داشته باشد، هوش مصنوعی تا ۲۰۳۰ به حدود ۳ هزار میلیارد دلار درآمد سالانه نیاز دارد؛ تقریباً یک‌دهم کل دستمزدهای کشورهای ثروتمند. امروز درآمد سازندگان مدل حدود ۲۰۰ میلیارد دلار است: آنتروپیک ۸۱ و اوپن‌اِی‌آی ۵۰ میلیارد در سال. جهش قبلی، از ۱۰ به ۱۳۰ میلیارد، سریع بود، اما نشانه‌هایی از کند شدن رشد درآمد دیده می‌شود.\n\nاقتصاد مدل‌های هوش مصنوعی با نرم‌افزار سنتی فرق دارد: تغییر ارائه‌دهنده آسان است، هر پرسش جدید در مرکز داده‌ای گران اجرا می‌شود و هر مدل تنها چند هفته یا چند ماه فرصت دارد هزینه‌ی آموزشش را پیش از آمدن جانشین برگرداند. مدل‌های چینی هم حدود شش ماه عقب‌ترند و توانایی‌ها به‌سرعت ارزان می‌شوند. شرکت‌ها برای ساختن «خندق» به ابزارهای تخصصی حقوقی و مالی و پزشکی، سرمایه‌گذاری مشترک و حتی بهره‌برداری مستقیم از مدل‌ها در داروسازی و رباتیک رو آورده‌اند. اثر اقتصادی هوش مصنوعی هم هنوز بیرون از خود این صنعت محدود است و تنها حرفه‌ای که واقعاً دگرگون شده برنامه‌نویسی است.\n\nسیاست هم مانع تازه‌ای است. رأی‌دهندگان در ۴۰ همه‌پرسی از ۴۱ همه‌پرسی محلی به محدود کردن مراکز داده رأی دادند و فرماندار منتخب تگزاس، ایالتی که حدود یک‌سوم ساخت‌وساز مراکز داده‌ی آمریکا را دارد، وعده‌ی توقف آن را داده است. در ایالت‌هایی که فرماندارانشان طرفدار توقف‌اند، پروژه‌هایی معادل نزدیک نیمی از ظرفیت فعلی مراکز داده‌ی آمریکا هنوز آغاز نشده‌اند.",
+    "i": "بازار پس از عرضه‌ی سهام آنتروپیک، هوش مصنوعی را با معیارهای سخت وال‌استریت خواهد سنجید. اگر رشد درآمد کند شود، فشار بر سهام تراشه و مراکز داده و به‌تبع آن بر کالاهایی مانند مس افزایش می‌یابد."
+   },
+   "en": {
+    "t": "Can the AI boom make enough money to sustain itself?",
+    "s": "Anthropic, the first big pure-play AI developer to list, is aiming for a valuation of about $1.5trn; before Nvidia’s scandal and the midterm defeat of data-centre boosters, $2trn or more looked possible. OpenAI has pushed its listing to next year. The question is whether the technology can earn enough. The Economist calculates that AI needs about $3trn of revenue by 2030 for the planned data-centre buildout to earn a conventional return, almost a tenth of all rich-world wages. Model-makers now earn perhaps $200bn, with Anthropic at an annualised $81bn and OpenAI at $50bn. The previous tenfold leap, from $10bn to $130bn, came fast, but there are signs revenue growth is slowing.\n\nSelling AI models differs from conventional software: switching providers is trivial, each new query runs in a costly data centre, and each model has only weeks or months to recoup its training costs before being surpassed. Chinese models trail by about six months, and capabilities quickly become cheap. To dig moats the labs are building specialist tools for law, finance and science, forming joint ventures and may exploit their models directly in fields such as drugs and robotics. Outside the AI sector itself the economic impact is still limited; the only profession truly upended is software engineering.\n\nPolitics is a new obstacle. Voters backed curbs on data centres in 40 of 41 local referendums, and the governor-elect of Texas, home to about a third of America’s data-centre buildout, campaigned for a pause. In states whose new governors back a pause, unstarted projects equal nearly half of America’s current data-centre capacity.",
+    "i": "After Anthropic’s listing, Wall Street will judge AI by stricter standards. If revenue growth slows, pressure will mount on chip and data-centre stocks and, in turn, on commodities such as copper."
+   }
+  },
+  {
+   "id": "sub-base",
+   "url": "https://www.economist.com/asia/2026/11/10/inside-americas-first-new-submarine-base-abroad-for-53-years",
+   "sec": "asia",
+   "tags": [
+    "mil"
+   ],
+   "fa": {
+    "t": "نخستین پایگاه زیردریایی تازه‌ی آمریکا در خارج از کشور پس از ۵۳ سال",
+    "s": "استرالیا پایگاه دریایی استرلینگ در نزدیکی پرت را آماده می‌کند تا از سال آینده میزبان زیردریایی‌های تهاجمی هسته‌ای آمریکا باشد. این نخستین پایگاه زیردریایی آمریکا در خارج از کشور در نیم قرن اخیر است و قدرت آمریکا را تا عمق آسیا امتداد می‌دهد. مزیت آن در موقعیتش است: برخلاف گوام، تقریباً از برد موشک‌های متعارف زمینی چین بیرون است، اما از دیگر پایگاه‌های زیردریایی آمریکا به آب‌های آسیا نزدیک‌تر است. چهار زیردریایی آمریکایی با حدود ۱۲۰۰ ملوان، هر یک برای یک تا دو سال، از این پایگاه عمل خواهند کرد. تاکنون ۱.۵ میلیارد دلار صرف آماده‌سازی شده و ۴.۱ میلیارد دیگر در برنامه است.\n\nاین گام نخستین دستاورد بزرگ پیمان «آکوس» میان آمریکا، استرالیا و بریتانیاست. قرار است استرالیا در اوایل دهه‌ی ۲۰۳۰ زیردریایی‌های کلاس ویرجینیا از آمریکا بخرد و سپس با بریتانیا کلاس تازه‌ای بسازد. اما کشتی‌سازی آمریکا باید تولیدش را از ۱.۲ به ۲.۳ زیردریایی در سال برساند و ظرفیت بریتانیا هم محل تردید است؛ ممکن است استرالیا پایگاه داشته باشد اما زیردریایی هسته‌ای نداشته باشد. این پیمان همکاری در هوش مصنوعی، کوانتوم و موشک‌های مافوق صوت را هم گشوده است.",
+    "i": "این پایگاه نشان می‌دهد آمریکا حتی در اوج درگیری در خاورمیانه، تمرکز راهبردی‌اش بر مهار چین را رها نکرده است. توزیع نیروی دریایی میان دو جبهه، فشار بر توان آمریکا را بیشتر می‌کند."
+   },
+   "en": {
+    "t": "Inside America’s first new submarine base abroad for 53 years",
+    "s": "Australia is readying HMAS Stirling, near Perth, to host American nuclear-powered attack submarines from next year, the first new American submarine base abroad in half a century, projecting American power deep into Asia. Its location is the advantage: unlike Guam it is out of range of all but China’s most advanced conventional land-based missiles, yet closer to Asian waters than other American submarine bases. Four American boats with some 1,200 sailors will operate from it, each for one to two years at a time. Already $1.5bn has been spent, with $4.1bn more planned.\n\nIt is the first big milestone for AUKUS, the pact between America, Australia and Britain. Australia is due to buy Virginia-class boats from America in the early 2030s and then build a new class with Britain. But American shipyards must raise output from 1.2 boats a year to 2.3, and Britain’s capacity is in doubt; Australia could end up with a base but no nuclear submarines of its own. The pact has also opened co-operation on AI, quantum computing and hypersonic missiles.",
+    "i": "The base shows that, even at the height of its Middle East commitments, America has not dropped its strategic focus on containing China. Splitting naval power between two fronts adds strain on American capacity."
+   }
+  },
+  {
+   "id": "china-emissions",
+   "url": "https://www.economist.com/china/2026/11/12/chinas-carbon-dioxide-emissions-have-begun-to-fall",
+   "sec": "china",
+   "tags": [
+    "oil"
+   ],
+   "fa": {
+    "t": "انتشار دی‌اکسید کربن چین کاهش یافته و مصرف نفتش رو به افول است",
+    "s": "چین که نزدیک یک‌سوم دی‌اکسید کربن جهان را منتشر می‌کند، در فصل سوم امسال ۳.۱ درصد کمتر از سال قبل کربن منتشر کرد؛ بیشترین کاهش از دوران قرنطینه‌های کرونا، این بار در حالی که رشد اقتصادی کمی هم بالا رفته است. برخی عوامل موقتی‌اند: سخت‌گیری ایمنی در معادن زغال‌سنگ قیمت آن را بالا برد، جنگ ایران نفت را گران کرد و هوای معتدل تقاضای برق را کاهش داد. اما علت اصلی ساختاری است. رکود مسکن تقاضای فولاد و سیمان را کم کرده و سهم زغال‌سنگ در تولید برق برای نخستین بار به زیر ۵۰ درصد رسیده است. چین از ۲۰۲۲ تاکنون هزار گیگاوات ظرفیت خورشیدی نصب کرده، بیش از مجموع بقیه‌ی جهان.\n\nبرقی شدن حمل‌ونقل سریع است: در سپتامبر دوسوم خودروهای سواری فروخته‌شده برقی یا هیبریدی بودند و نیمی از کامیون‌های سنگین هم برقی بودند. سینوپک انتظار دارد مصرف نفت چین در ۲۰۲۶ برای سومین سال پیاپی، این بار نزدیک ۴ درصد، کاهش یابد. با این حال سرعت نصب فناوری‌های پاک کند شده و دولت‌های محلی از ترس خاموشی همچنان نیروگاه زغال‌سنگی می‌سازند.",
+    "i": "کاهش ساختاری مصرف نفت در بزرگ‌ترین واردکننده‌ی جهان یعنی تقاضای کمتر برای نفت خلیج فارس در بلندمدت. شوک قیمتی جنگ ایران این گذار را شتاب داده و پس از جنگ هم بازگشت‌پذیر نخواهد بود."
+   },
+   "en": {
+    "t": "China’s carbon-dioxide emissions have begun to fall, and so has its oil use",
+    "s": "China, which emits nearly a third of the world’s carbon dioxide, cut its emissions by 3.1% year on year in the third quarter, the steepest fall since covid lockdowns, and this time while growth picked up slightly. Some causes are temporary: a coal-mine safety campaign raised coal prices, the Iran war raised oil prices and mild weather cut power demand. But the main cause is structural. A property bust has cut demand for steel and cement, and coal’s share of power generation fell below 50% for the first time. China has installed 1,000GW of solar capacity since 2022, more than the rest of the world combined.\n\nTransport is electrifying fast: in September two-thirds of passenger cars sold were electric or plug-in hybrids, and half of heavy lorries were electric. Sinopec expects China’s oil consumption to fall in 2026 for a third straight year, by nearly 4%. Yet the roll-out of clean tech has slowed, and local governments still build coal plants for fear of blackouts.",
+    "i": "A structural fall in oil use at the world’s biggest importer means weaker long-term demand for Gulf oil. The Iran war’s price shock has sped up a transition that will not reverse after the war."
+   }
+  },
+  {
+   "id": "xi-order",
+   "url": "https://www.economist.com/china/2026/11/09/xi-jinpings-plan-for-a-china-centric-world-order",
+   "sec": "china",
+   "tags": [
+    "pol"
+   ],
+   "col": {
+    "fa": "چاگوان",
+    "en": "Chaguan"
+   },
+   "fa": {
+    "t": "نقشه‌ی شی جین‌پینگ برای نظمی جهانی با محوریت چین",
+    "s": "هفته‌ی آینده ترامپ، پوتین و نزدیک ۲۰ رهبر دیگر در نشست اپک در شنژن گرد هم می‌آیند و شی جین‌پینگ با نمایش پهپادها و ربات‌های انسان‌نما، پیشرفت فناوری چین را به رخ خواهد کشید. شعار نشست بازتاب آموزه‌ی اصلی سیاست خارجی شی است: «جامعه‌ای با آینده‌ی مشترک برای بشریت». این عبارت در قانون اساسی چین گنجانده شده، اما سند رسمی ۱۳ هزار کلمه‌ای‌اش بیشتر فهرستی از آرزوهای کلی است. به استدلال دو پژوهشگر بریتانیایی، این گفتار بیان رسمی آرزوی واقعی شی، یعنی نظمی جهانی با محوریت چین، است. او نمی‌خواهد بار پلیس جهان را بر دوش بکشد؛ می‌خواهد برتری چین به رسمیت شناخته شود و دیگران به آن گردن بنهند، حتی وقتی رفتار چین به منافعشان آسیب می‌زند. جهان مطلوب او جایی است که رهبران در مرزهای خود هر کاری بخواهند بکنند؛ جهانی امن برای خودکامگان.\n\nستون‌نویس می‌گوید این همان اصل قدیمی عدم مداخله است که از دهه‌ی ۱۹۵۰ شعار چین بوده، با این تفاوت که حالا قدرت اقتصادی و نظامی عظیمی پشت آن است و می‌تواند پوششی برای هر اقدامی درباره‌ی تایوان باشد. با این حال دولت‌ها و شرکت‌ها اکنون بیشتر درگیر پیامدهای جنگ آمریکا با ایران و تعرفه‌های ترامپ‌اند تا سخنان شی.",
+    "i": "نشست شنژن صحنه‌ی رویارویی ترامپ تضعیف‌شده با شی‌ای است که الگوی «عدم مداخله» را به جهان عرضه می‌کند؛ الگویی که برای حکومت‌هایی مانند ایران جذاب است و از فشار غرب بر آن‌ها می‌کاهد."
+   },
+   "en": {
+    "t": "Xi Jinping’s plan for a China-centric world order",
+    "s": "Next week Donald Trump, Vladimir Putin and nearly 20 other leaders will gather for the APEC summit in Shenzhen, where Xi Jinping will show off drone swarms and humanoid robots. The summit’s theme echoes Mr Xi’s main foreign-policy doctrine, “a community with a shared future for mankind”. The phrase is in China’s constitution, yet the 13,000-word white paper explaining it is mostly a vague wish list. Two British scholars argue it is the formal expression of Mr Xi’s real aim, a Sino-centric world order. He does not want the burden of global policing; he wants China’s pre-eminence recognised and others to defer to it, even when its behaviour hurts their interests. His ideal is a world where leaders can do as they please within their borders, a world safe for autocrats.\n\nThe columnist notes this is essentially China’s old principle of non-interference, touted since the 1950s, except that it now has enormous economic and military muscle behind it and could give cover for whatever China wants to do with Taiwan. For now, though, governments and businesses are more consumed by the fallout from America’s war on Iran and Mr Trump’s tariffs than by Mr Xi’s words.",
+    "i": "Shenzhen will pit a wounded Mr Trump against a Mr Xi selling a doctrine of non-interference, a model attractive to regimes such as Iran’s that eases Western pressure on them."
+   }
+  },
+  {
+   "id": "dems-iran",
+   "url": "https://www.economist.com/united-states/2026/11/11/democrats-strategy-for-ending-the-war-in-iran",
+   "sec": "us",
+   "tags": [
+    "pol",
+    "mil"
+   ],
+   "fa": {
+    "t": "راهبرد دموکرات‌ها برای پایان دادن به جنگ ایران",
+    "s": "پیت هگست، وزیر جنگ، در رأی‌گیری ۱۰ نوامبر مجلس نمایندگان با اختلافی اندک از استیضاح جان به در برد؛ یازده نماینده‌ی دموکرات در رأی‌گیری غایب بودند، بیش از اختلاف هفت‌رأیی. کیفرخواستی که توماس مسی، نماینده‌ی جمهوری‌خواه، تنظیم کرده بود هگست را به آغاز غیرقانونی جنگ، نادیده گرفتن قطعنامه‌های کنگره برای خروج نیروها و بی‌اعتنایی به آسیب غیرنظامیان متهم می‌کرد. بیش از هفت نفر از هر ده رأی‌دهنده‌ای که حزب ترامپ را در انتخابات شکست دادند، گفته‌اند جنگ ایران عامل تعیین‌کننده یا مهمی در رأیشان بوده است. استیضاح در ژانویه، با اکثریت دموکرات‌ها، تقریباً قطعاً تصویب می‌شود، اما برکناری در سنا به همراهی دست‌کم ۱۱ سناتور جمهوری‌خواه نیاز دارد. ترامپ می‌گوید هگست «فقط به دو چیز متهم است: پیروزی در دو جنگ».\n\nبرای پایان دادن به خود جنگ، قانون اختیارات جنگی ۱۹۷۳ عملاً بی‌اثر مانده و هر قانون تازه برای غلبه بر وتو به ۶۷ رأی سنا نیاز دارد. ابزار مؤثرتر، اختیار بودجه است: بودجه‌ی دولت ۱۱ دسامبر تمام می‌شود. اما استفاده از بودجه‌ی دفاعی به‌عنوان اهرم پرخطر است، چون پنتاگون به دلیل جنگ ایران با کسری بزرگی روبه‌روست و حتی با تمدید موقت روزانه ۴۰۰ میلیون دلار کمتر از سال گذشته در اختیار خواهد داشت. دموکرات‌ها می‌پذیرند که تا سال آینده شانس چندانی برای قطع بودجه‌ی جنگ ندارند. در همین حال جنگ ادامه دارد: آمریکا پیش از انتخابات به قشم حمله کرد و ایران به‌طور میانگین روزی یک نفتکش را هدف قرار می‌دهد.",
+    "i": "کنگره دست‌کم تا ژانویه نمی‌تواند جنگ را متوقف کند و حتی پس از آن هم ابزارش محدود است؛ فشار اصلی سیاسی خواهد بود. حمله‌ی روزانه‌ی ایران به نفتکش‌ها نشان می‌دهد ناامنی دریایی در هرمز ادامه دارد."
+   },
+   "en": {
+    "t": "Democrats’ strategy for ending the war in Iran",
+    "s": "Pete Hegseth, the secretary of war, narrowly survived an impeachment vote in the House on November 10th; eleven Democrats missed it, more than the seven-vote margin. The articles, brought by Thomas Massie, a maverick Republican, accused him of starting the war illegally, ignoring congressional resolutions to withdraw and disregarding civilian harm. More than seven in ten voters who crushed Mr Trump’s party said the Iran war was a crucial or major factor in their vote. Impeachment will almost certainly pass in January under a Democratic majority, but removal requires at least 11 Republican senators to break ranks. Mr Trump says Mr Hegseth is “guilty of two things: basically winning two wars.”\n\nTo end the war itself, the War Powers Resolution of 1973 has proved toothless, and any new law would need 67 Senate votes to beat a veto. The stronger tool is the power of the purse, with government funding expiring on December 11th. Yet using defence money as leverage is risky: the Iran war has left the Pentagon with a gaping hole, and even a stopgap would leave it $400m a day short of last year. Democrats concede they have little chance of choking off war funding until next year. Meanwhile the war drags on: America hit Qeshm before the election, and Iran strikes an oil tanker a day on average.",
+    "i": "Congress cannot stop the war before January at least, and its tools remain limited after that; the pressure will be mainly political. Iran’s daily strikes on tankers show insecurity at sea around Hormuz continues."
+   }
+  },
+  {
+   "id": "paraguay-bomb",
+   "url": "https://www.economist.com/the-americas/2026/11/12/how-paraguays-digital-bank-became-a-massive-bomb",
+   "sec": "americas",
+   "tags": [
+    "money",
+    "pol"
+   ],
+   "fa": {
+    "t": "بانک دیجیتال پاراگوئه چگونه به بمبی بزرگ بدل شد",
+    "s": "پاراگوئه از ۳ نوامبر، که ناظران بانک نوپای «اوئنو» را تصرف کردند، در آشوب است. سه میلیون مشتری، در کشوری هفت‌میلیونی، از حساب‌هایشان محروم شدند و بسیاری پول غذا و سوخت و دارو نداشتند. حدود ۸۵۰ میلیون دلار پول دولت هنوز در این بانک گیر کرده است. ظرف چند روز سانتیاگو پنیا، رئیس‌جمهور، استیضاح و بازداشت شد. بازپرسان می‌گویند او از جایگاهش به سود این بانک بهره برد: رئیس اوئنو را به ریاست بانک مرکزی گماشت، بانک دست‌کم ۳۱۵ هزار دلار به او وام داد که ظاهراً صرف ساخت ویلای تابستانی‌اش شد، و بانک مرکزی هشدار یکی از ناظرانش درباره‌ی وضع وخیم اوئنو را نادیده گرفت و او را برکنار کرد. پنیا هرگونه تخلف را انکار می‌کند.\n\nصندوق ضمانت سپرده تاکنون به بیش از ۱.۸ میلیون نفر تا سقف ۳۸ هزار دلار پول برگردانده، اما سپرده‌گذاران بزرگ تضمینی ندارند و ۵۲۰ میلیون دلار از صندوق‌های بازنشستگی دولتی در این بانک بود. فروپاشی بانک حواله‌های کارگران پاراگوئه‌ای خارج از کشور را هم مختل کرده و آسیب به اعتبار استقلال بانک مرکزی ممکن است سرمایه‌گذاری خارجی را کاهش دهد.",
+    "i": "این ماجرا نمونه‌ی روشنی از پیوند خطرناک قدرت سیاسی و نظارت بانکی است. نظام مالی پاراگوئه فعلاً مهار شده، اما آسیب به اعتماد عمومی و بازنشستگی‌ها ماندگار خواهد بود."
+   },
+   "en": {
+    "t": "How Paraguay’s digital bank became a massive bomb",
+    "s": "Paraguay has been in turmoil since November 3rd, when regulators seized Ueno, an upstart bank. Three million customers, in a country of 7m, were frozen out of their accounts, and many could not pay for food, fuel or medicine; some $850m of government money remains stranded. Within days President Santiago Peña was impeached and arrested. Investigators say he used his position to benefit the bank: he made its chairman head of the central bank, the bank lent him at least $315,000, apparently used to build his summer home, and the central bank ignored and removed a regulator who warned that Ueno’s finances were dire. Mr Peña denies wrongdoing.\n\nDeposit insurance has begun repaying over 1.8m people up to $38,000, but larger depositors are not guaranteed, and Ueno held $520m of state pension funds. The collapse has also disrupted remittances from Paraguayans abroad, and damage to the central bank’s reputation for independence could deter foreign investment.",
+    "i": "A clear case of the dangerous mix of political power and bank supervision. Paraguay’s financial system is contained for now, but the damage to public trust and pensions will linger."
+   }
+  },
+  {
+   "id": "eisenkot",
+   "url": "https://www.economist.com/middle-east-and-africa/2026/11/08/gadi-eisenkot-has-a-chance-to-form-a-new-government-in-israel",
+   "sec": "mea",
+   "tags": [
+    "pol"
+   ],
+   "fa": {
+    "t": "گادی آیزنکوت فرصت تشکیل دولت تازه در اسرائیل را یافته است",
+    "s": "رئیس‌جمهور اسرائیل در ۸ نوامبر مأموریت تشکیل دولت را به گادی آیزنکوت، رئیس پیشین ستاد ارتش، سپرد تا جایگزین بنیامین نتانیاهو شود که در انتخابات ۲۷ اکتبر اکثریت ائتلافش را از دست داد. آیزنکوت می‌خواهد دولت اقلیتِ «اضطراری» از چهار حزب یهودی مخالف تشکیل دهد که احزاب عرب و حریدی رسماً در آن نباشند اما در صورت نیاز از آن حمایت کنند. منطق او این است که کنار زدن نتانیاهو فوری‌ترین اولویت است؛ نتانیاهو در هفته‌های اخیر کوشیده اسرائیل را به جنگ دیگری با ایران بکشاند و از رئیس شین‌بت خواسته آرای عرب‌ها را بررسی و نتیجه‌ی انتخابات را باطل کند. این چهار حزب تنها ۴۸ کرسی از ۱۲۰ کرسی کنست را دارند و تشکیل اکثریت به معنای زیر پا گذاشتن وعده‌های انتخاباتی است، از خدمت سربازی همگانی تا شرط‌های مربوط به احزاب عرب.\n\nرقیبان هم بیکار ننشسته‌اند. آویگدور لیبرمن جداگانه با احزاب حریدی مذاکره می‌کند و حاضر نیست در دولت اقلیتی متکی به احزاب عرب شرکت کند. نتانیاهو هم نتیجه را به اتهام دخالت خارجی به چالش کشیده، هرچند دادستان کل شواهد را ناکافی دانسته و نتایج تأیید شده است. او خواستار دولت وحدت ملی شده و هشدار داده دولتی متکی به «اسلام‌گرایان» اسرائیل را از درون نابود می‌کند. آیزنکوت شش هفته فرصت دارد.",
+    "i": "کنار رفتن نتانیاهو یکی از مشوق‌های اصلی ازسرگیری جنگ با ایران را حذف می‌کند. دولتی به رهبری فرمانده پیشین ارتش احتمالاً در پرونده‌ی ایران محتاط‌تر و با واشنگتن هماهنگ‌تر خواهد بود."
+   },
+   "en": {
+    "t": "Gadi Eisenkot has a chance to form a new government in Israel",
+    "s": "On November 8th Israel’s president gave Gadi Eisenkot, a former army chief, the mandate to form a government to replace Binyamin Netanyahu, whose coalition lost its majority in the election on October 27th. Mr Eisenkot wants a minority “emergency” government of four Jewish opposition parties, with Arab and ultra-Orthodox parties outside it but lending support when needed. His rationale is that removing Mr Netanyahu is the most urgent priority: in recent weeks the prime minister has tried to drag Israel into another war with Iran and urged the head of the Shin Bet to investigate Arab votes and disqualify the result. The four parties hold only 48 of the Knesset’s 120 seats, and a majority would mean breaking campaign promises, from universal national service to conditions on Arab parties.\n\nRivals are manoeuvring. Avigdor Lieberman is negotiating separately with the ultra-Orthodox parties and rules out a minority government relying on Arab parties. Mr Netanyahu is challenging the result, alleging foreign interference, though the attorney-general found insufficient evidence and the results have been ratified; he calls for a unity government and warns that one relying on “Islamists” will dismantle Israel from within. Mr Eisenkot has six weeks.",
+    "i": "Mr Netanyahu’s exit would remove one of the main drivers of a renewed war with Iran. A government led by a former army chief would probably be more cautious on Iran and more in step with Washington."
+   }
+  },
+  {
+   "id": "israel-blame",
+   "url": "https://www.economist.com/middle-east-and-africa/2026/11/06/republicans-blame-israel-for-their-defeat",
+   "sec": "mea",
+   "tags": [
+    "pol",
+    "mil"
+   ],
+   "fa": {
+    "t": "جمهوری‌خواهان اسرائیل را مقصر شکست خود می‌دانند",
+    "s": "ترامپ در روز انتخابات گفت کمک نظامی آمریکا به اسرائیل «تا پایان سال» قطع می‌شود؛ هم به این دلیل که اسرائیل «شکوفاست» و هم چون این کمک «دستمایه‌ی بدی برای تبلیغات» شده است. ونس روز بعد صریح‌تر، جنگ ایران و رابطه با اسرائیل را عامل شکست دانست. محبوبیت اسرائیل در آمریکا مدتی است رو به افول است: جنگ‌های غزه و لبنان رأی‌دهندگان هر دو طیف را خشمگین کرده و جنگ نامحبوب ایران توجه‌ها را به کمک سالانه‌ی ۳.۸ میلیارد دلاری، که تقریباً همه‌اش صرف خرید سلاح آمریکایی می‌شود، جلب کرده است. آیپک، لابی طرفدار اسرائیل، دو هفته پیش از انتخابات اعلام کرد دیگر از نامزدها حمایت نمی‌کند. مقام‌های اسرائیلی از اعلام ناگهانی ترامپ غافلگیر شدند.\n\nقطع کمک در دو سال آینده حفره‌ای هفت میلیارد دلاری در بودجه‌ی اسرائیل ایجاد می‌کند، اما این رقم تنها حدود نیم درصد تولید ناخالص اسرائیل است. نگرانی بزرگ‌تر جایگاه اسرائیل است: کنگره‌ی دموکرات ممکن است نوع سلاح‌ها و نحوه‌ی استفاده از آن‌ها را محدود کند و حتی تعهد دیرینه‌ی آمریکا به حفظ «برتری نظامی کیفی» اسرائیل محل بحث شود. با این حال همکاری‌ها فراتر از کمک مالی است: رادارها و تأسیسات اطلاعاتی آمریکا در اسرائیل، پایگاه هوایی گسترش‌یافته در نقب و همکاری گسترده در دفاع موشکی. به گفته‌ی دیپلمات‌های اسرائیلی، نتانیاهو و ائتلاف تندرویش در آمریکا «سمی» شده‌اند.",
+    "i": "فاصله گرفتن واشنگتن از اسرائیل، دست اسرائیل را برای اقدام نظامی مستقل علیه ایران می‌بندد. اما همکاری عمیق دفاع موشکی و اطلاعاتی، که در جنگ ایران حیاتی است، دست‌نخورده می‌ماند."
+   },
+   "en": {
+    "t": "Republicans blame Israel for their defeat",
+    "s": "On election day Donald Trump said America would cut off military aid to Israel “at the end of the year”, both because Israel is “thriving” and because the aid is “a bad talking point”. The next day J.D. Vance went further, blaming the Iran war and the relationship with Israel for the defeat. Israel has been falling out of favour in America: its campaigns in Gaza and Lebanon angered voters on both left and right, and the unpopular Iran war drew attention to the $3.8bn a year it receives, nearly all spent on American arms. AIPAC, the pro-Israel lobby, said two weeks before the vote it would stop endorsing candidates. Israeli officials were taken by surprise by Mr Trump’s announcement.\n\nEnding aid would leave a $7bn hole in Israel’s finances over two years, though aid is barely half a percent of its GDP. The bigger worry is standing: a Democratic Congress may limit which weapons Israel can buy and how it uses them, and even America’s long commitment to Israel’s “qualitative military edge” could be debated. Still, ties go beyond aid: American radars and intelligence installations in Israel, an expanded airbase in the Negev and close co-operation on missile defence. Israeli diplomats privately admit Mr Netanyahu and his hard-right coalition are “toxic in America”.",
+    "i": "Washington’s distancing ties Israel’s hands for independent military action against Iran. But the deep missile-defence and intelligence co-operation, vital in the Iran war, stays intact."
+   }
+  },
+  {
+   "id": "jordan",
+   "url": "https://www.economist.com/middle-east-and-africa/2026/11/12/jordan-is-worried-about-a-resurgence-in-jihadism",
+   "sec": "mea",
+   "tags": [
+    "pol",
+    "mil"
+   ],
+   "fa": {
+    "t": "اردن از بازگشت جهادگرایی نگران است",
+    "s": "اردن سال‌ها از خشونتی که خاورمیانه را درنوردید در امان مانده بود. اما در ۲۳ اکتبر سه مرد به مراسم تشییع جنازه‌ای در کلیسایی در استان کرک تیراندازی کردند و ۹ نفر را کشتند. چند روز بعد هم پلیسی که از سفارت سریلانکا محافظت می‌کرد کشته شد. ملک عبدالله انتقام گرفت و جنگنده‌هایش مخفیگاهی منتسب به داعش در جنوب سوریه را زدند؛ به گفته‌ی دیپلمات‌های غربی، تلاشی ناشیانه برای منحرف کردن توجه از ناکامی‌های داخلی. اردن در این سال‌ها با سرکوب آرام مانده بود: اعتراض‌ها عملاً ممنوع، بزرگ‌ترین اتحادیه‌ی کارگری منحل و اخوان‌المسلمین غیرقانونی شده است. اما سرکوب، تندروی را به زیرزمین می‌راند و شناسایی‌اش را دشوارتر می‌کند.\n\nجنگ ایران هم نقش دارد. دولت بر منافع اقتصادی آن تأکید می‌کند: کمک نظامی آمریکا بیشتر شده و با اختلال در بنادر دریای سرخ و خلیج فارس، عربستان و عراق بیشتر به بندر عقبه متکی شده‌اند و ترانزیت ۱۵۰ درصد رشد کرده است. اما بسیاری از اردنی‌ها از جنگ خشمگین‌اند: قیمت سوخت بالا رفته و از زمان آتش‌بس ژوئن، اردن ده‌ها موج حمله‌ی ایرانی را رهگیری کرده است. بسیاری از حضور نظامی آمریکا و نقش کشورشان به‌عنوان «خط مقدم دفاع از اسرائیل» ناراضی‌اند و اگر ایران تهدیدش به حمله به زیرساخت‌ها را عملی کند، این خشم شدت خواهد گرفت.",
+    "i": "اردن حلقه‌ای حساس در دفاع از اسرائیل و انتقال نیروهای آمریکایی است. ترکیب خشم عمومی از جنگ ایران و بازگشت جهادگرایی می‌تواند ثبات این متحد کلیدی آمریکا را تهدید کند."
+   },
+   "en": {
+    "t": "Jordan is worried about a resurgence in jihadism",
+    "s": "Jordan has largely escaped the region’s violence for years. But on October 23rd three men opened fire on a funeral at a church in Karak province, killing nine; days later a policeman guarding Sri Lanka’s embassy was killed. King Abdullah vowed revenge and his jets struck an alleged Islamic State hideout in southern Syria, a botched attempt to deflect attention from domestic failures, say Western diplomats. Jordan stayed calm through repression: protests are in effect banned, the largest trade union dissolved and the Muslim Brothers outlawed. But repression drives radicalism underground, making it harder to detect.\n\nThe Iran war plays a part. Officials stress its economic benefits: American military aid has risen, and with Red Sea and Gulf ports disrupted, Saudi Arabia and Iraq rely more on Aqaba, where transshipment is up 150%. But many Jordanians are angry: fuel prices have risen, and since a ceasefire in June Jordan has intercepted scores of Iranian salvoes. Many resent the American military presence and their country’s role as Israel’s forward defence, and anger could soar if Iran carries out threats to hit infrastructure.",
+    "i": "Jordan is a sensitive link in Israel’s defence and in American logistics. Public anger over the Iran war combined with resurgent jihadism could threaten the stability of this key American ally."
+   }
+  },
+  {
+   "id": "europe-bills",
+   "url": "https://www.economist.com/europe/2026/11/10/europe-has-been-living-beyond-its-means-now-the-bills-are-due",
+   "sec": "europe",
+   "tags": [
+    "money",
+    "pol"
+   ],
+   "fa": {
+    "t": "اروپا فراتر از توانش خرج کرده و حالا موعد پرداخت رسیده است",
+    "s": "اعتراض‌ها این پاییز اروپا را فراگرفته است: در فرانسه و آلمان علیه کم‌سرمایه‌گذاری در آموزش، در اسپانیا و ایتالیا علیه بحران مسکن و در همه‌جا علیه گرانی. مشکل مشترک این است که اروپایی‌ها سطحی از هزینه‌های عمومی می‌خواهند که دیگر توان پرداختش را ندارند و پارلمان‌های چندپاره و سیاست پوپولیستی اصلاح را تقریباً ناممکن کرده است. اروپا ۷ درصد جمعیت جهان و ۲۵ درصد تولید جهانی را دارد اما ۵۰ درصد هزینه‌ی رفاه اجتماعی جهان را خرج می‌کند. بدهی عمومی پنج کشور، از جمله فرانسه و ایتالیا و اسپانیا، به ۱۰۰ درصد تولید ناخالص یا بیشتر رسیده و هزینه‌ی بهره‌ی فرانسه از ۷۹ میلیارد یورو در ۲۰۲۶ به ۹۱ میلیارد در ۲۰۲۷ می‌رسد. گرانی انرژی هم کاهش مستمری‌ها را از نظر سیاسی دشوارتر کرده است.\n\nنخست‌وزیر بلژیک بر سر بودجه پیشنهاد استعفا داد، هلند نخستین دولت اقلیتش از جنگ جهانی دوم را دارد و حتی صدراعظم آلمان می‌گوید دولت رفاه «دیگر مقرون‌به‌صرفه نیست». نگران‌کننده‌تر از همه فرانسه است که پارلمانش به سه بلوک متخاصم تقسیم شده و دولت می‌کوشد با منجمد کردن بیشتر مستمری‌ها کسری را از ۵.۴ به ۵ درصد برساند. پوپولیست‌های چپ و راست، که محبوب‌ترین نامزدهای انتخابات بهار آینده‌اند، وعده‌ی کاهش سن بازنشستگی می‌دهند. اکونومیست هشدار می‌دهد اگر دولت‌ها نتوانند برای تصمیم‌های دشوار اکثریت بسازند، بازار اوراق قرضه این تصمیم‌ها را در یک بحران تحمیل خواهد کرد.",
+    "i": "اروپای مقروض و گرفتار گرانی انرژی جنگ، توان کمتری برای هزینه‌های دفاعی و حمایت از سیاست‌های پرهزینه در خاورمیانه دارد. خطر بحران بدهی در فرانسه می‌تواند بازارهای جهانی را هم بلرزاند."
+   },
+   "en": {
+    "t": "Europe has been living beyond its means. Now the bills are due",
+    "s": "Protests have swept Europe this autumn: in France and Germany against underinvestment in education, in Spain and Italy over housing, and everywhere over rising prices. The shared problem is that Europeans want public spending they can no longer afford, while fragmented parliaments and populism make reform almost impossible. Europe has 7% of the world’s people and 25% of its GDP but accounts for 50% of global social spending. Five countries, including France, Italy and Spain, have public debt at or above 100% of GDP, and France’s interest bill will rise from €79bn in 2026 to €91bn in 2027. Higher energy costs make pension cuts politically harder.\n\nBelgium’s prime minister offered to resign over the budget, the Netherlands has its first minority government since the second world war, and even Germany’s chancellor says the welfare state is “no longer affordable”. France is the most worrying: its parliament is split into three hostile blocs, and the government is trying to cut the deficit from 5.4% to 5% of GDP by freezing most pensions. The populist left and right, favourites for next spring’s presidential election, both promise a lower retirement age. If governments cannot forge majorities for hard choices, The Economist warns, bond markets will impose them in a crisis.",
+    "i": "An indebted Europe squeezed by war-driven energy costs has less room for defence spending and costly Middle East policies. A French debt crisis could shake global markets too."
+   }
+  },
+  {
+   "id": "bullies",
+   "url": "https://www.economist.com/international/2026/11/10/global-bullies-have-turned-uncertainty-into-a-weapon",
+   "sec": "intl",
+   "tags": [
+    "pol",
+    "cyber"
+   ],
+   "col": {
+    "fa": "ستون تلگرام",
+    "en": "The Telegram"
+   },
+   "fa": {
+    "t": "قلدرهای جهانی بلاتکلیفی را به سلاح بدل کرده‌اند",
+    "s": "آیا تنگه‌ی هرمز باز است یا بسته؟ کسی نمی‌تواند با اطمینان پاسخ دهد. این گذرگاه دری نیست که یا باز باشد یا بسته؛ جایی پر از خطرهای ناشناخته برای کشتیرانان و دولت‌هاست. برای ایران، که به تعبیر نویسنده کشوری ورشکسته و منزوی است، همین بلاتکلیفی اهرمی در برابر دشمنان قوی‌تر و ثروتمندتر می‌سازد. بازیگران آشوب‌گر همیشه از برهم زدن تعادل رقیبان ثبات‌طلب خود لذت برده‌اند. تازگی ماجرا این است که حالا آمریکا و چین هم همین بازی را می‌کنند. ترامپ بی‌ثباتی را به «ابرقدرت» خود بدل کرده است: کشورها را تهدید به بمباران می‌کند و در جمله‌ی بعد پیشنهاد دوستی می‌دهد، و نرخ تعرفه‌ها و محدودیت‌های صادراتی را به میل خود تغییر می‌دهد. مشاورانش آشکارا می‌گویند «بلاتکلیفی ارزش دارد».\n\nچین هم که سال‌ها از رفتار متغیر آمریکا گلایه داشت، حالا با تسلط بر مواد اولیه‌ای مانند عناصر نادر خاکی، کنترل‌های صادراتی و قوانین فراسرزمینی خود را به کار گرفته تا شرکت‌های خارجی را میان قوانین دو کشور سردرگم کند. نویسنده نتیجه می‌گیرد که آمریکای دوران ترامپ از این نظر بیشتر به روسیه و ایران شبیه است تا یک قدرت بزرگ سنتی. نمونه‌ی تازه‌اش را فرانسه گزارش کرد: در ۹ نوامبر سپاه پاسداران را عامل حمله‌های سایبری‌ای دانست که فریزرهای صدها سوپرمارکت را به «اجاق» بدل کرد؛ ردپای زبان فارسی در کد هکرها هم پیدا شده بود. به تعبیر نویسنده، در روزگار خشونت، کاشتن تردید خود پیروزی است.",
+    "i": "راهبرد «ابهام در هرمز» یعنی حتی بدون بستن رسمی تنگه، هزینه‌ی بیمه و حمل نفت بالا می‌ماند. حمله‌ی بی‌پروای سایبری به فرانسه هم نشان می‌دهد ایران آماده است جبهه را تا خاک اروپا گسترش دهد."
+   },
+   "en": {
+    "t": "Global bullies have turned uncertainty into a weapon",
+    "s": "Is the Strait of Hormuz open or closed? Nobody can say with confidence. The choke point is not a barn door that is either open or shut but a place of unknown dangers for shippers and governments. For Iran, a bankrupt and isolated rogue in the columnist’s words, that uncertainty creates leverage over stronger, richer foes. Agents of chaos have long relished keeping stability-loving rivals off-balance. What is new is that America and China now play the same game. Donald Trump treats inconstancy as his superpower, threatening to bomb countries before offering friendship in the next breath and changing tariffs and export controls on a whim; his aides openly say “there is a value to uncertainty”.\n\nChina, which long complained of America’s changeable ways, now uses its dominance of inputs such as rare earths, its own export controls and long-arm laws to leave foreign firms torn between two legal systems. In this, the columnist argues, Trump-era America resembles Russia and Iran more than a traditional great power. A fresh example came from France, which on November 9th blamed Iran’s Revolutionary Guards for cyber-attacks that turned freezers in hundreds of supermarkets into ovens; traces of Persian were found in the hackers’ code. In brutal times, sowing doubt is the win.",
+    "i": "“Ambiguity in Hormuz” means insurance and shipping costs for oil stay high even without a formal closure. The brazen cyber-attack on France shows Iran is willing to carry the fight onto European soil."
+   }
+  },
+  {
+   "id": "nvidia",
+   "url": "https://www.economist.com/business/2026/11/12/jensen-huangs-recklessness-leaves-nvidia-with-no-good-options",
+   "sec": "business",
+   "tags": [
+    "ai"
+   ],
+   "fa": {
+    "t": "بی‌پروایی جنسن هوانگ انویدیا را بی گزینه‌ی خوب گذاشته است",
+    "s": "انویدیا سال‌ها شکست‌ناپذیر به نظر می‌رسید، اما جنسن هوانگ، بنیان‌گذار و مدیرش در بیش از سه دهه، آن را بیش از هر رقیبی تضعیف کرد. او در ۸ نوامبر به رابطه‌ای خارج از ازدواج اعتراف کرد و هیئت‌مدیره تحقیق درباره‌ی اینکه آیا او «هدف یک عملیات اطلاعاتی خارجی» بوده را آغاز کرد. طرف این رابطه مدیر چینی مگااسپید بود؛ شرکتی سنگاپوری که مقام‌های آمریکایی گمان می‌کنند تراشه‌های ممنوع را به چین قاچاق می‌کند و به برآورد یک شرکت تحقیقاتی، زیرمجموعه‌ی مالزیایی‌اش در حدود یک سال ۴.۶ میلیارد دلار کالا، عمدتاً سرور مجهز به تراشه‌های انویدیا، وارد کرده است. سپس گزارش شد که هوانگ با یکی از زیردستانش هم رابطه داشته و سهام شرکت ۹ درصد دیگر ریخت. او در ۱۲ نوامبر استعفا داد.\n\nدولت ترامپ هم باید پاسخ دهد: ترامپ دست‌کم دو بار، از جمله پیش از سفرش به چین در ماه مه، درباره‌ی این رابطه هشدار گرفته بود. دموکرات‌ها وعده‌ی تحقیق داده‌اند و این رسوایی ممکن است لایحه‌هایی برای سخت‌تر کردن دسترسی چین به تراشه‌ها، از جمله الزام به اثبات محل تراشه‌ها، را زنده کند. یافتن جانشین هم دشوار است، چون حدود ۶۰ مدیر مستقیماً به هوانگ گزارش می‌دادند و کولت کرس، مدیر مالی، گزینه‌ی موقت است. تقاضا برای تراشه‌ها فعلاً قوی است، اما هوانگ بانکدار صنعت هوش مصنوعی هم بود و بدهی بسیاری از پروژه‌های مراکز داده را ضمانت کرده بود؛ با رفتن او شبکه‌ی این معاملات ممکن است از هم بپاشد.",
+    "i": "بزرگ‌ترین تأمین‌کننده‌ی تراشه‌ی هوش مصنوعی بی‌رهبر مانده و این عدم قطعیت به کل زنجیره‌ی سرمایه‌گذاری مراکز داده سرایت می‌کند. سخت‌تر شدن کنترل صادرات، فاصله‌ی چین در دسترسی به تراشه‌های پیشرفته را بیشتر خواهد کرد."
+   },
+   "en": {
+    "t": "Jensen Huang’s recklessness leaves Nvidia with no good options",
+    "s": "Nvidia long looked unassailable, yet Jensen Huang, its co-founder and boss of more than three decades, has weakened it more than any rival could. On November 8th he confessed to an extramarital affair, and the board opened an inquiry into whether he had been “the target of a foreign-intelligence effort”. The woman was a Chinese executive at Megaspeed, a Singaporean firm American officials suspect of smuggling banned chips into China; a short-seller estimates its Malaysian arm imported $4.6bn of goods in about a year, mostly servers packed with Nvidia chips. Then came reports of an affair with a direct report, and the shares fell another 9%. He resigned on November 12th.\n\nThe Trump administration has questions to answer too: the president was reportedly warned about the relationship at least twice, including before his trip to China in May. Democrats promise investigations, and the scandal could revive bills to tighten China’s access to chips, such as requiring proof of where chips end up. A successor will be hard to find, since some 60 executives reported directly to Mr Huang; Colette Kress, the finance chief, is the likely interim boss. Demand for its chips remains strong, but Mr Huang was also the AI industry’s banker, guaranteeing the debts of many data-centre projects, and the web of deals he spun may now unravel.",
+    "i": "The biggest supplier of AI chips is leaderless, and the uncertainty spreads through the whole chain of data-centre investment. Tighter export controls would widen China’s gap in access to advanced chips."
+   }
+  },
+  {
+   "id": "softbank",
+   "url": "https://www.economist.com/business/2026/11/12/everything-is-going-wrong-for-softbank",
+   "sec": "business",
+   "tags": [
+    "ai",
+    "money"
+   ],
+   "fa": {
+    "t": "همه‌چیز برای سافت‌بنک بد پیش می‌رود",
+    "s": "در آغاز تابستان سافت‌بنک برای مدتی کوتاه از تویوتا هم باارزش‌تر شد و ارزش خالص دارایی‌هایش در سه ماه ۸۰ درصد بالا رفت. اما از آن زمان ارزش بازارش بیش از نصف شده و در ۱۰ نوامبر به‌جای سود مورد انتظار، ۷ میلیارد دلار زیان گزارش کرد که بخش بزرگش به کاهش ارزش سرمایه‌گذاری در مراکز داده‌ی آمریکا مربوط است. هر چهار پایه‌ی شرط ماسایوشی سون بر هوش مصنوعی لرزان شده است. سهام آرم، که حدود ۹۰ درصدش در اختیار سافت‌بنک است، و سهام اینتل هر دو از ژوئن بیش از نصف ارزش خود را از دست داده‌اند. اوپن‌اِی‌آی، که سافت‌بنک با وام‌های کلان ۶۵ میلیارد دلار در آن سرمایه‌گذاری کرده، عرضه‌ی سهامش را عقب انداخته است. خرید بخش رباتیک ABB هم با مخالفت چین روبه‌روست.\n\nدر زیرساخت، سافت‌بنک رزرو تجهیزات تولید برق را لغو کرد و ۳.۷ میلیارد دلار زیان شناسایی کرد. نسبت بدهی به دارایی‌اش به سقف خودخواسته‌ی ۲۰ تا ۲۵ درصد رسیده و قیمت بیمه‌ی نکول اوراقش به بالاترین سطح چهار سال اخیر رسیده؛ رقمی که احتمال ناتوانی در بازپرداخت را ۳۱ درصد نشان می‌دهد. تغییر باد سیاسی در آمریکا، از جمله پیروزی نامزدهای مخالف مراکز داده مانند فرماندار تازه‌ی اوهایو، هم بر این فشار افزوده است.",
+    "i": "سافت‌بنک اهرمی‌ترین شرط بر هوش مصنوعی است. اگر وضعش بدتر شود، فشار فروش دارایی‌ها می‌تواند به بازارهای اعتباری و سهام فناوری سرایت کند."
+   },
+   "en": {
+    "t": "Everything is going wrong for SoftBank",
+    "s": "At the start of summer SoftBank briefly overtook Toyota as Japan’s most valuable company, its net asset value up 80% in three months. Since then its market value has more than halved, and on November 10th it reported a $7bn loss instead of the expected profit, largely from write-downs on American data-centre investments. All four legs of Masayoshi Son’s AI bet look shaky. Shares in Arm, about 90% owned by SoftBank, and in Intel have both fallen by more than half since June. OpenAI, in which SoftBank borrowed heavily to invest $65bn, has delayed its listing. A deal for ABB’s robotics arm has run into Chinese opposition.\n\nIn infrastructure, SoftBank cancelled reservations for power-generation equipment, taking a $3.7bn write-down. Its loan-to-value ratio has reached its self-imposed ceiling of 20-25%, and its credit-default-swap spreads hit a four-year high, implying a 31% chance it cannot service its debts. The change in America’s political wind, including the election of data-centre sceptics such as Ohio’s next governor, adds to the pressure.",
+    "i": "SoftBank is the most leveraged bet on AI. If its position worsens, forced asset sales could spill into credit markets and tech stocks."
+   }
+  },
+  {
+   "id": "anti-ai-trade",
+   "url": "https://www.economist.com/finance-and-economics/2026/11/12/where-to-find-the-anti-ai-trade",
+   "sec": "finance",
+   "tags": [
+    "money",
+    "ai",
+    "oil"
+   ],
+   "fa": {
+    "t": "معامله‌ی «ضد هوش مصنوعی» را کجا باید جست",
+    "s": "در هفته‌ای که سرمایه‌گذاران جهان از ترکیدن حباب هوش مصنوعی می‌ترسیدند، شاخص نیفتی ۵۰ هند در دریایی از ارقام قرمز درخشید: در روزی که نزدک ۵.۵ درصد افت کرد، این شاخص ۲.۴ درصد بالا رفت و در یک ماه بیش از یک‌دهم رشد کرد، بهترین عملکرد در آسیا. هند تاکنون از رونق هوش مصنوعی دور مانده بود و سرمایه‌گذاران آن را قربانی این فناوری می‌دیدند، نه برنده‌اش. حالا که در ارزیابی هوش مصنوعی تجدیدنظر می‌کنند، سهام فناوری هند در جهت عکس سهام سخت‌افزار هوش مصنوعی حرکت می‌کند و شاخص فناوری اطلاعات هند از ژوئیه ۲۸ درصد رشد کرده است. در ۵ نوامبر ۱.۶ میلیارد دلار سرمایه‌ی خارجی در یک روز وارد بورس هند شد، بیشترین رقم از ۲۰۲۱.\n\nعامل دیگر، نفت ارزان‌تر است. هند حدود ۹۰ درصد نفتش را وارد می‌کند که بیشترش از خلیج فارس است. با این شرط که ترامپِ تضعیف‌شده برای آرام کردن بازار نفت به دنبال توافق با ایران خواهد رفت، روپیه تقویت شد و بازده اوراق دولتی هند پایین آمد. ارزش‌گذاری سهام هند هم به ارزان‌ترین سطح یک دهه نزدیک شده بود.",
+    "i": "بازارها احتمال توافق با ایران و نفت ارزان‌تر را در قیمت‌ها لحاظ کرده‌اند. هر نشانه‌ای از ازسرگیری جنگ، بیش از همه به اقتصادهای واردکننده‌ی نفت مانند هند ضربه می‌زند."
+   },
+   "en": {
+    "t": "Where to find the anti-AI trade",
+    "s": "In a week when investors everywhere feared the AI bubble had burst, India’s Nifty 50 stood out in a sea of red: it rose by 2.4% on the day the NASDAQ fell 5.5%, and by more than a tenth over a month, Asia’s best performance. Indian equities had largely sat out the AI boom, the country seen as a victim of the technology rather than a winner. Now that investors are reassessing AI, Indian tech stocks move opposite to AI-hardware stocks, and the Nifty IT index has risen 28% since July. On November 5th foreign investors put $1.6bn into Indian equities in a single day, the most since 2021.\n\nCheaper oil helps too. India imports about 90% of its oil, mostly from the Gulf. As investors bet that a humbled Donald Trump would seek a deal with Iran to stabilise the oil market, the rupee rallied and government bond yields fell. Valuations had also fallen close to their cheapest in a decade.",
+    "i": "Markets are pricing in a likely deal with Iran and cheaper oil. Any sign of renewed war would hit oil importers such as India hardest."
+   }
+  },
+  {
+   "id": "trumponomics",
+   "url": "https://www.economist.com/finance-and-economics/2026/11/09/the-future-of-trumponomics-compromise-or-failure",
+   "sec": "finance",
+   "tags": [
+    "money",
+    "pol"
+   ],
+   "fa": {
+    "t": "آینده‌ی اقتصاد ترامپی: سازش یا شکست",
+    "s": "ترامپ پس از شکست انتخاباتی تصویر کلاهی با شعار «وتو» منتشر کرد، اما در عین حال پیش‌بینی کرد دموکرات‌ها پس از چند ماه وتو «تماس خواهند گرفت» و با هم کار خواهند کرد. دو مهلت پیش رو فرصت مذاکره است: بودجه‌ی دولت که ۱۱ دسامبر تمام می‌شود و سقف بدهی که سال آینده باید بالا برود. هر توافقی گران خواهد بود: ترامپ در بودجه‌ی ۲۰۲۷ حدود ۴۰ درصد افزایش هزینه‌ی دفاعی خواسته و دموکرات‌ها معافیت‌های مالیاتی بهداشت و اعتبار مالیاتی کودکان را می‌خواهند. پاسخ همیشگی آمریکا به معمای «اسلحه یا کره» این است که برای هر دو بیشتر خرج کند و این یعنی کسری بیشتر.\n\nدر هوش مصنوعی، فرماندارانی که در ایالت‌های دارنده‌ی ۴۱ درصد ظرفیت برنامه‌ریزی‌شده‌ی مراکز داده پیروز شدند، بیشتر خواهان پرداخت سهم بیشتری از هزینه‌ی برق از سوی این مراکزند تا ممنوعیت دائمی؛ و این راه را برای توافقی بر سر تسریع مجوز نیروگاه‌ها و خطوط انتقال باز می‌کند. در تعرفه‌ها، دو‌سوم رأی‌دهندگان می‌گویند به اقتصاد آسیب زده و ترامپ ممکن است از یک رأی دادگاه به‌عنوان راه خروج استفاده کند. سنای دموکرات هم می‌تواند جلوی گماشتن یک وفادار دیگر در فدرال رزرو را بگیرد و استقلال آن را تقویت کند.",
+    "i": "کسری بزرگ‌تر و احتمال تعدیل تعرفه‌ها دو پیامد محتمل این دوره است. تقویت استقلال فدرال رزرو یعنی فشار سیاسی برای کاهش نرخ بهره کمتر می‌شود؛ خبری که برای دلار مهم است."
+   },
+   "en": {
+    "t": "The future of Trumponomics: compromise or failure",
+    "s": "After his party’s defeat Donald Trump posted a cap emblazoned with VETO, yet also predicted that after a couple of months of vetoes Democrats would “call” and they would work together. Two deadlines offer chances to bargain: government funding, which expires on December 11th, and the debt ceiling, due to be raised next year. Any deal would be costly: Mr Trump’s 2027 budget sought a rise of roughly 40% in defence spending, while Democrats want health-care tax breaks and bigger child tax credits. America’s usual answer to guns versus butter is to spend more on both, which means wider deficits.\n\nOn AI, the new governors in states with 41% of planned data-centre capacity mostly want operators to pay more for electricity rather than permanent bans, which could open the way to a deal speeding permits for power plants and transmission lines. On tariffs, two-thirds of voters say they hurt the economy, and Mr Trump might use a pending court ruling as an off-ramp. A Democratic Senate could also block another loyalist at the Federal Reserve, strengthening its independence.",
+    "i": "Wider deficits and possibly softer tariffs are the likely results. A more independent Fed means less political pressure for rate cuts, which matters for the dollar."
+   }
+  },
+  {
+   "id": "hedge-funds",
+   "url": "https://www.economist.com/finance-and-economics/2026/11/10/lessons-from-a-miserable-month-for-hedge-funds",
+   "sec": "finance",
+   "tags": [
+    "money",
+    "ai"
+   ],
+   "col": {
+    "fa": "باتن‌وود",
+    "en": "Buttonwood"
+   },
+   "fa": {
+    "t": "درس‌های یک ماه نکبت‌بار برای صندوق‌های پوشش ریسک",
+    "s": "اکتبر برای بسیاری از صندوق‌های پوشش ریسک بدترین ماه از آغاز همه‌گیری کرونا بود: تزلزل شور هوش مصنوعی به فروش گسترده‌ی سهام فناوری انجامید و نگرانی از بدهی فرانسه و آشفتگی بازار اعتبار هم بر زیان‌ها افزود. شاخص بازده این صنعت در این ماه ۱.۷ درصد افت کرد. صندوق‌های «چندراهبردی»، که چند مدیر مستقل را زیر یک سقف با قواعد سخت مدیریت ریسک گرد می‌آورند، بیشترین فشار را دیدند: بسیاری مدیران را وادار می‌کنند با ۵ درصد زیان شروع به بستن موقعیت‌ها کنند و با ۷.۵ درصد گروهشان را تعطیل می‌کنند. سهم هوش مصنوعی در پرتفوی صندوق‌ها از ۴۷ درصد در ژوئن به ۳۲ درصد کاهش یافته است.\n\nستون باتن‌وود نتیجه می‌گیرد که مزیت اصلی این مدل، یعنی استقلال تصمیم‌های مدیران، در حال فرسایش است، چون تقریباً هیچ گوشه‌ای از اقتصاد جهان از هوش مصنوعی مصون نیست. مدیری که قرارداد آتی مس می‌خرد دیگر ریسک همکارش را که روی شرکت‌های مراکز داده شرط بسته پوشش نمی‌دهد، وقتی قیمت مس خود به آینده‌ی هوش مصنوعی وابسته است.",
+    "i": "هم‌جهت شدن دارایی‌ها، از سهام فناوری تا مس، با سرنوشت هوش مصنوعی یعنی تنوع‌بخشی کمتر جواب می‌دهد و هر شوک در این حوزه سریع‌تر به کل بازار سرایت می‌کند."
+   },
+   "en": {
+    "t": "Lessons from a miserable month for hedge funds",
+    "s": "October was many hedge funds’ worst month since the pandemic began: a wobble in AI enthusiasm forced a tech sell-off, and worries over France’s debt and turmoil in credit markets added to the pain. An industry returns index fell by 1.7% in the month. Multi-strategy funds, which house several independent managers under strict risk rules, felt it most: many force managers to start unwinding positions after losses of just 5% and shut a team down at 7.5%. AI exposure in funds’ books fell from 47% in June to 32%.\n\nThe columnist concludes that the model’s main advantage, the independence of its managers’ bets, is eroding because almost no corner of the world economy is untouched by AI. A manager buying copper futures does little to balance a colleague’s bet on data-centre firms when the price of copper itself depends on AI’s future.",
+    "i": "With assets from tech stocks to copper moving in step with AI’s fortunes, diversification works less well, and any shock there spreads faster across markets."
+   }
+  },
+  {
+   "id": "yang-mills",
+   "url": "https://www.economist.com/science-and-technology/2026/11/11/ai-has-proved-that-a-theory-underpinning-fundamental-physics-is-trustworthy",
+   "sec": "science",
+   "tags": [
+    "ai"
+   ],
+   "fa": {
+    "t": "هوش مصنوعی ثابت کرد نظریه‌ای بنیادی در فیزیک قابل‌اعتماد است",
+    "s": "اوپن‌اِی‌آی در ۲۶ اکتبر اعلام کرده بود یکی از مدل‌های منتشرنشده‌اش گامی بزرگ در حل مسئله‌ی «وجود یانگ-میلز و شکاف جرم» برداشته است؛ یکی از هفت «مسئله‌ی هزاره». نظریه‌ی یانگ-میلز سه نیروی از چهار نیروی بنیادی طبیعت را توصیف می‌کند و پیش‌بینی‌هایش با دقتی خیره‌کننده تأیید شده، اما ریاضیدانان می‌خواهند مطمئن شوند بر پایه‌ی ریاضی محکمی استوار است. در ۱۰ نوامبر کمیته‌ی پنج‌نفره‌ی فیزیکدانان مستقل اعلام کرد که به نظرش مدل این بخش نخست مسئله را با موفقیت اثبات کرده است. کمیته بررسی کرد که صورت‌بندی اثبات به زبان Lean، کدی حدود یک میلیون خطی که منطق درونی اثبات را تأیید می‌کند، با خود مسئله مطابقت دارد.\n\nاما متن اثبات ۱۱۴۷ صفحه‌ای که کمیته می‌گوید «ادعا نمی‌کنیم کاملاً آن را فهمیده‌ایم» هنوز منتشر نشده و دلیلی هم برای این پنهان‌کاری اعلام نشده است. اثبات بر روش‌هایی بنا شده که یک پژوهشگر دانشگاه راتگرز در دهه‌ی ۱۹۸۰ پرورانده بود. ادوارد ویتن، از طراحان صورت رسمی مسئله، آن را «نقطه‌ی عطفی بسیار مهم» می‌خواند، اما معتقد است بخش دوم مسئله، یعنی شکاف جرم، هنوز «بسیار دور» است.",
+    "i": "تأیید مستقل این اثبات اعتبار ادعاهای ریاضی هوش مصنوعی را بالا می‌برد و پیش از عرضه‌ی سهام آنتروپیک به رقیبش، اوپن‌اِی‌آی، برگ برنده‌ای تبلیغاتی می‌دهد؛ هرچند پنهان ماندن متن اثبات همچنان پرسش‌برانگیز است."
+   },
+   "en": {
+    "t": "AI has proved that a theory underpinning fundamental physics is trustworthy",
+    "s": "On October 26th OpenAI said one of its unreleased models had made a big step towards solving the Yang-Mills existence and mass-gap problem, one of the seven Millennium Prize problems. Yang-Mills theory describes three of the four fundamental forces and its predictions are borne out with staggering accuracy, but mathematicians want to confirm it stands on firm mathematical footing. On November 10th a committee of five independent physicists declared that, in their judgment, the model had proved this first part. They checked that the proof’s formalisation in Lean, about 1m lines of code confirming its internal logic, matched the problem.\n\nThe 1,147-page natural-language proof, which the committee says “we do not claim to fully understand”, has not been released, and no reason has been given. It builds on techniques developed in the 1980s by a Rutgers researcher. Edward Witten, who helped write the official problem statement, calls it a “very important milestone” but thinks the second part, the mass gap, is “pretty far off”.",
+    "i": "Independent confirmation lends credibility to AI’s mathematical claims and gives OpenAI a publicity win just before its rival Anthropic lists; but keeping the proof’s text hidden still raises questions."
+   }
+  }
+ ]
+}

@@ -1,9 +1,10 @@
 {
-  "v": 25,
+  "v": 26,
   "fa": {
     "title": "نسخه‌ی جدید بولتن روزانه",
     "items": [
-      "خطاهای مربوط به چراغ‌های هشدار رفع شد"
+      "شماره‌ی جدید اکونومیست منتشر شد.",
+      "از این پس دو شماره‌ی آخر اکونومیست را دارید و از نوار بالای دسته‌ها می‌توانید میانشان جابه‌جا شوید."
     ],
     "note": "بعد از به‌روزرسانی کمی صبر کنید تا اطلاعات جدید بارگذاری شود. اگر نیامد، صفحه را به پایین بکشید تا تازه شود.",
     "button": "به‌روزرسانی"
@@ -11,10 +12,11 @@
   "en": {
     "title": "What's new in Daily Brief",
     "items": [
-      "Fixed errors in the warning lights"
+      "The new Economist issue is out.",
+      "From now on the two latest Economist issues are here; switch between them from the bar above the categories."
     ],
     "note": "After updating, give it a moment for new data to load. If it doesn't appear, pull the page down to refresh.",
     "button": "Update"
   },
-  "build": 37
+  "build": 38
 }

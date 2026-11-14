@@ -1,6 +1,7 @@
 # The weekly Economist tab
 
-`issue.json` holds one issue of The Economist, summarised by hand. Only the articles that bear on the tab's
+Each file in `issues/`, named by the issue date (`YYYY-MM-DD.json`), holds one issue of The Economist, summarised by
+hand. The tab shows the two newest issues, the newer first, with a bar above the categories to switch between them. Only the articles that bear on the tab's
 categories go in, in the magazine's own order; the rest are left out. Each article carries one or more category tags
 (an article can be both military and politics, or both AI and banking), shown above its title:
 
@@ -19,8 +20,9 @@ that week stays in the bar, dimmed. There are no red/orange/yellow levels in thi
 
 ## Each week
 
-Replace the whole file with the new issue: last week's articles go, the new ones come in. Pushing the file starts a
-live run, which publishes `economist.json` within a few minutes; preview pictures fill in over the next few rounds.
+Add the new issue as its own file in `issues/` and delete the oldest one, so two remain. Pushing starts a live run,
+which publishes `economist.json` within a few minutes; preview pictures for the new articles fill in over the next
+few rounds (those of the issue that stays are kept).
 
 ## Fields
 

@@ -534,6 +534,9 @@ html[lang=en] .sv-title{font-size:24px;line-height:1.35}
   background:var(--sonar-dim);border:1px solid rgba(94,200,255,.26)}
 .ec-head b{display:block;font-size:15px;font-weight:800;line-height:1.45}
 .ec-head span{display:block;font-size:12px;color:var(--ink-3);line-height:1.5}
+.ec-issues{margin:0 0 10px}
+.ec-issues button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.ec-new{font-style:normal;font-size:10px;font-weight:700;color:var(--sonar);padding:1px 6px;border-radius:999px;background:var(--sonar-dim)}
 .ec-cats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .ec-cat{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:72px;padding:11px 3px 8px;
   border-radius:13px;border:1px solid var(--line);background:rgba(var(--pnl),.6);color:var(--ink-2);text-align:center;
