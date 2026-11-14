@@ -1055,13 +1055,18 @@ _GATHER_EN = re.compile(r"\b(rall(y|ies|ied|ying)|protest\w*|gather\w*|march(es|
 _SUPPORTERS_FA = re.compile(fa_norm("کفن پوش|کفنپوش|تندرو|حامیان نظام|حامیان دولت|حامیان رهبری|بسیجیان|حزب اللهی"
                                     "|دلواپسان|نیروهای انقلابی"))
 _GATHER_FA = re.compile(fa_norm("تجمع|راهپیمایی|راه پیمایی|اجتماع|تظاهرات"))
+# the nightly gatherings in Iran's cities since the war («۲۵۸امین قرار شبانه مردم تهران؛ تجدید میثاق با محور مقاومت»,
+# «اجتماع شبانه مردم … در میدان …»): a rally of supporters too, whatever the speakers say of threats
+_NIGHTLY_FA = re.compile(fa_norm("(?:قرار|قرارهای|تجمع|تجمعات|اجتماع|اجتماعات|حضور|گردهمایی|اجتماع) ?شبانه")
+                         + "|" + fa_norm("تجدید (?:میثاق|بیعت|پیمان)|میثاق ?نامه شبانه"))
 
 
 def _supporters_rally(lang, t, s):
     text = (t or "") + " " + first_sentences(s or "", 220)
     if lang == "fa":
         text = fa_norm(text)
-        return bool(_SUPPORTERS_FA.search(text) and _GATHER_FA.search(text)) and not _PROTEST_NOT_FA.search(text)
+        return (bool(_SUPPORTERS_FA.search(text) and _GATHER_FA.search(text)) or bool(_NIGHTLY_FA.search(text))) \
+            and not _PROTEST_NOT_FA.search(text)
     return bool(_SUPPORTERS_EN.search(text) and _GATHER_EN.search(text)) and not _PROTEST_NOT_EN.search(text)
 
 
