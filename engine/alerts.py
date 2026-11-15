@@ -14,9 +14,9 @@ import time
 
 import re
 
-from . import deploy, evac, http, pullback, vessel
+from . import abroad_strike, deploy, evac, http, pullback, vessel
 from . import fronts
-from .cluster import _NEW_EN, _NEW_FA, channel, gulf_key, gulf_main
+from .cluster import _NEW_EN, _NEW_FA, abroad_mark, channel, gulf_key, gulf_main
 from .util import clip_sentence, fa_norm, log, now, truncate
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -674,6 +674,64 @@ def _later(sea, clusters, sent, t, seen, quiet):
     return out
 
 
+# An attack abroad (cluster.abroad_when: one attack on one place, one story; on the Gulf front: fronts.gulf_mark) is
+# announced once. A news report joining its story later gives one update (🔄) for each of: people killed or hurt
+# told for the first time; Iran named as the one striking (abroad_strike.iran_named) when the alert told of an attack
+# with no one named («انفجار در بندر خلیفه بحرین», then «سپاه: رادار آمریکا در بحرین هدف قرار گرفت»). The report: out
+# within LATER_FRESH, not seen late.
+ABROAD_KEEP = 36 * 3600
+_NO_HURT_EN = re.compile(r"\b(?:no|without) (?:casualt\w*|injur\w*|deaths?|one (?:was )?(?:hurt|injured|killed))\b", re.I)
+_NO_HURT_FA = re.compile(fa_norm("بدون تلفات|تلفات جانی نداشت|تلفاتی نداشت|کسی کشته نشد|کسی زخمی نشد|آسیبی ندید"))
+
+
+def _hurt(m):
+    en = m.get("en_ti") or ("" if m.get("lang") == "fa" else m.get("ti")) or ""
+    fa = fa_norm(m.get("ti") or "") if m.get("lang") == "fa" else ""
+    if _NO_HURT_EN.search(en) or (fa and _NO_HURT_FA.search(fa)):
+        return False
+    return bool(_HURT_EN.search(en) or (fa and _HURT_FA.search(fa)))
+
+
+def _abroad_story(c):
+    """A story of an attack abroad: Iran's (abroad_mark), or one on the Gulf front (gulf_key)."""
+    return any(abroad_mark(m) or ((gulf_key(m) or ("",))[0] == "attack") for m in c["m"])
+
+
+def _abroad_later(state, clusters, sent, now_sent, t, seen, quiet):
+    """Stories of an attack abroad already announced (or announced now: now_sent): a news report joining since that
+    first tells of people hurt, or first names Iran as the one striking, gives one update for it.
+    Returns [(story, report, {"hurt"} or {"who"})]."""
+    ab = state.setdefault("abroad", {})
+    for k in [k for k, v in ab.items() if t - v.get("t", 0) > ABROAD_KEEP]:
+        del ab[k]
+    sent = set(sent) | set(now_sent)
+    out = []
+    for c in clusters:
+        ids = [c["id"]] + list(c.get("merged", []))
+        if c["tier"] != "red" or c.get("trump") or not any(x in sent for x in ids) or t - c["u"] > ABROAD_KEEP:
+            continue
+        if not _abroad_story(c):
+            continue
+        news = [m for m in c["m"] if not channel(m)]
+        found = {"hurt": [m for m in news if _hurt(m)], "who": [m for m in news if abroad_strike.iran_named(m)]}
+        k = next((ab[x] for x in ids if x in ab), None)
+        if k is None:                                    # first seen announced: what it tells is known
+            ab[c["id"]] = {"t": t, **{x: bool(v) for x, v in found.items()}}
+            continue
+        k["t"] = t
+        for what, reps in found.items():
+            if k.get(what) or not reps:
+                continue
+            k[what] = True
+            reps = [m for m in reps if t - m["t"] <= LATER_FRESH and not (seen and seen.get(m["k"], m["t"]) - m["t"] > LATE)
+                    and "denial" not in (m.get("flags") or []) and "past" not in (m.get("flags") or [])]
+            if quiet or not reps or c["id"] in now_sent:
+                continue
+            m = next((m for m in reps if m.get("lang") == "fa"), reps[0])
+            out.append((c, m, {what}))
+    return out
+
+
 def _later_msg(c, m, new):
     fa = c.get("fa") or {}
     title = html.escape(fa.get("ti") or c.get("en", {}).get("ti", ""))
@@ -794,6 +852,7 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     upd |= {c["id"] for c, how in picked if how == "update"}
     red_msg = [c for c, _ in picked]
     red_msg, _ = _told_event(red_msg, clusters, sent)
+    later += _abroad_later(state, clusters, sent, [c["id"] for c in red_new if c["id"] not in held], t, seen, first_run)
     if not first_run:
         red_msg.sort(key=lambda c: -c["sev"])
         for c in red_msg[:4]:

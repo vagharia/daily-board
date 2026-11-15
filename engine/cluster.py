@@ -1,7 +1,7 @@
 """Group reports of the same event into one story ("cluster")."""
 import re
 
-from . import city_strike, config, deploy, evac, pullback, vessel, witness
+from . import abroad_strike, city_strike, config, deploy, evac, pullback, vessel, witness
 from .classify import cluster_severity, grounded, tier, trump_level
 from .classify_fa import _ANY, _B, R
 from .lexicon import COUNTRIES_RX, PEOPLE, PEOPLE_RX, PLACES, match_keys
@@ -655,6 +655,46 @@ def iran_when(t, c, a, b, n):
     return since <= IR_WINDOW or (abs(t - c["u"]) <= IR_GAP and since <= IR_SPAN)
 
 
+# ------------------------------------------------------------------ the main front abroad: one attack on one place
+# Reports of Iran striking a place abroad (an Arab country of the Middle East, one of America's bases: what they are
+# and what keeps two attacks apart in abroad_strike.py) are one story when the times allow (abroad_when): a report
+# giving a time within the story's time label (EV_ON) whenever it comes, up to EV_EXTEND after the story's latest
+# report; otherwise within AB_WINDOW of the story's first report, or while it is still being told (AB_GAP since its
+# latest report). A report told as it happens (sirens, blasts, interceptions) after AB_QUIET without a report is a new
+# attack, as is one saying so as it happens ("another", «مجدد»); a report saying it is new without telling it as it
+# happens joins only while the story is still being told; a later account (damage, details, a video) joins for
+# AB_KEEP. A report naming only the country joins only when one story of that country fits (in Bahrain, Qatar and
+# Kuwait the country is the city). A Telegram channel's post joins a news story this way, never another channel's.
+# A story of 60 reports takes more only of its own place, up to TARGET_FULL.
+# Two stories telling of attacks on different countries are never one (_land_conflict: the Gulf front too).
+AB_WINDOW = 2 * 3600
+AB_GAP = 3 * 3600
+AB_QUIET = 90 * 60
+AB_KEEP = 24 * 3600
+
+
+def abroad_mark(m):
+    """abroad_strike.mark of a report of Iran striking a place abroad (not at sea, not a citizens' post), or None."""
+    if m.get("wit") or _at_sea(m):
+        return None
+    return abroad_strike.mark(m)
+
+
+def abroad_when(t, c, a, told=False, live=None):
+    """How a report at time t with mark a comes within the times above of story c: "now" (within its first
+    AB_WINDOW, or while it is still being told), "told" (the time the report gives falls within the story's time
+    label), "later" (a later account within AB_KEEP: only for the latest story of the place), or None. live: the
+    story's latest report of the moment (not one telling it hours later: _ab_live); its latest report if not given."""
+    if told:
+        return "told"
+    quiet = t - (c["u"] if live is None else live)
+    if a.fresh and quiet > AB_QUIET:
+        return None                                 # told as it happens after a quiet spell: another attack
+    if abs(quiet) <= AB_GAP or (abs(t - _since(c)) <= AB_WINDOW and not a.new):
+        return "now"
+    return "later" if a.later and not a.new and 0 <= quiet <= AB_KEEP else None
+
+
 PLACE_TOKENS = {w for v in PLACES.values() for w in tokens(v[1]) if len(w) >= 4} - {"gulf", "island", "persian"}
 NAME_TOKENS = {w for v in PEOPLE.values() for x in v[2] if not x.startswith("re:") for w in tokens(x.rstrip("$"))
                if len(w) >= 4} - set("""minister foreign prime president leader chief commander defense defence staff
@@ -807,9 +847,26 @@ def features(m):
             "sid": _ship_id(m), "sarea": vessel.area(m, head=True) if _at_sea(m) else None,
             "inc": _incident_report(m), "ground": grounded(m),
             "sk": strike_key(m, chan_ok=True), "gulf": gulf_key(m, chan_ok=True, new_ok=True), "gmain": gulf_main(m),
-            **_iran_feats(m),
+            **_iran_feats(m), **_abroad_feats(m),
             "cwin": _chan_win(m) if channel(m) else 0,
             "dupsu": _norm_text(m.get("en_su") or m.get("su") or "")} | _ev_feats(m)
+
+
+def _ab_live(m, f):
+    """A report of an attack abroad told at the moment: not a later account, nor one giving a time hours before it."""
+    if f["ab"].later:
+        return False
+    w = f.get("evp") or (_ev_report(m, f) if EV_ON and _physical(f) else None)
+    return not (w and w[2] == EV_TOLD and m["t"] - w[1] > AB_GAP)
+
+
+def _abroad_feats(m):
+    a = abroad_mark(m)
+    g = gulf_key(m, chan_ok=True, new_ok=True)
+    land = set(g[2]) if g and g[0] == "attack" else set()
+    if a:
+        land.add(a[0])
+    return {"ab": a, "land": frozenset(land)}
 
 
 def _iran_feats(m):
@@ -1211,6 +1268,10 @@ class Clusterer:
         self.gmain = set()                                # stories with a report naming the main front
         self.irs = {}                                     # story id -> [(city_strike mark, channel's, spots, time)]
         self.irnews = {}                                  # story id -> cities of its reports of a new blast
+        self.abs = {}                                     # story id -> [(abroad_strike mark, channel's, time)]
+        self.abnews = set()                               # stories with a report of a new attack abroad told now
+        self.lands = {}                                   # story id -> countries its reports tell of an attack on
+        self.ablive = {}                                  # story id -> its latest report abroad of the moment
         for c in clusters:
             self._index(c)
 
@@ -1248,6 +1309,15 @@ class Clusterer:
                 if feats[m["k"]].get("ir"):
                     self.irs.setdefault(c["id"], []).append(
                         (feats[m["k"]]["ir"], feats[m["k"]]["chan"], frozenset(feats[m["k"]]["spots"]), m["t"]))
+                if feats[m["k"]].get("ab"):
+                    ab = feats[m["k"]]["ab"]
+                    self.abs.setdefault(c["id"], []).append((ab, feats[m["k"]]["chan"], m["t"]))
+                    if ab.new and ab.fresh:
+                        self.abnews.add(c["id"])
+                    if _ab_live(m, feats[m["k"]]):
+                        self.ablive[c["id"]] = max(self.ablive.get(c["id"], 0), m["t"])
+                if len(feats[m["k"]].get("land") or ()) == 1:      # a roundup of several countries lends none
+                    self.lands.setdefault(c["id"], set()).update(feats[m["k"]]["land"])
                 if feats[m["k"]].get("dup"):
                     self.dups.setdefault(feats[m["k"]]["dup"], []).append((c["id"], m["t"], feats[m["k"]]["dupsu"]))
 
@@ -1374,6 +1444,8 @@ class Clusterer:
                 continue                                   # sirens and the attack itself: two stories (Gulf front)
             if self._iran_conflict(f, cid, item["t"]):
                 continue                                   # another city, another target, a blast heard again
+            if self._abroad_conflict(f, cid, item["t"]) or self._land_conflict(f, cid):
+                continue                                   # abroad: another country, another target, a new attack
             late = self._ev_late(item, f, c)
             feats = self.tok.get(cid, {})
             if f["sk"] and (abs(item["t"] - _since(c)) <= STRIKE_WINDOW or late) \
@@ -1394,7 +1466,8 @@ class Clusterer:
             if score:
                 matches.append((score, c))
         for score, c in self._ship_matches(item, f) + self._same_matches(item, f) + self._stmt_matches(item, f) \
-                + self._own_matches(item, f) + self._gulf_matches(item, f) + self._iran_matches(item, f):
+                + self._own_matches(item, f) + self._gulf_matches(item, f) + self._iran_matches(item, f) \
+                + self._abroad_matches(item, f):
             if any(m["k"] == item["k"] for m in c["m"]):
                 return c, False
             if not any(x is c for _, x in matches) and self._ev_fits(f, c["id"]):
@@ -1438,7 +1511,9 @@ class Clusterer:
                 continue                               # bridged by a later report only: the Gulf rule's times decide
             if self._iran_apart(best, other):
                 continue                               # two strikes in one city (another kind of target)
-            strike_pair = strike_pair or gulf_pair or self._iran_pair(best, other)
+            if self._abroad_apart(best, other) or self._land_apart(best, other):
+                continue                               # attacks on two countries, or two targets abroad
+            strike_pair = strike_pair or gulf_pair or self._iran_pair(best, other) or self._abroad_pair(best, other)
             if (len(other["m"]) > 8 and not strike_pair) or len(best["m"]) + len(other["m"]) > 60:
                 continue
             if best.get("manual") or other.get("manual"):
@@ -1594,6 +1669,97 @@ class Clusterer:
                 if n == 2 and (iran_when(yt, a, y, x, n) or iran_when(xt, b, x, y, n)):
                     return True
         return False
+
+    def _abroad_matches(self, item, f):
+        """Stories of the same attack of Iran on the same place abroad (see AB_WINDOW and abroad_strike.py)."""
+        a = f.get("ab")
+        if not a or f.get("ground"):
+            return []                                  # a nationwide flight stop told with it keeps its own story
+        out = []
+        for cid, marks in self.abs.items():
+            c = self.byid.get(cid)
+            if not c or len(c["m"]) >= TARGET_FULL or self._abroad_conflict(f, cid, item["t"]) \
+                    or self._land_conflict(f, cid):
+                continue
+            if f["chan"] and abs(item["t"] - c["u"]) > f["cwin"]:
+                continue                               # a channel's post: within its window of the story's latest
+            how = abroad_when(item["t"], c, a, self._ev_late(item, f, c) or self._ev_back(item, f, c),
+                              self.ablive.get(cid))
+            if not how:
+                continue
+            n = 0
+            for x, xch, _ in marks:
+                if f["chan"] and xch:
+                    continue                           # a channel's post joins the news, never another channel
+                k = abroad_strike.same(a, x)
+                if k > n and (not xch or abs(item["t"] - c["u"]) <= CHAN_FRESH):
+                    n = k
+            if len(c["m"]) >= 60 and n < 2:
+                continue                               # a full story takes only reports of its place
+            if n:
+                out.append((n, how, 0.5 + 0.05 * n - min(abs(item["t"] - c["u"]), 86400) / 8640000, c))
+        if out and max(x[0] for x in out) == 2:
+            out = [x for x in out if x[0] == 2]        # the same place: not the country's other stories
+        elif len(out) > 1:
+            return []                                  # the country only, and two of its stories: not told which
+        if len(out) > 1 and any(x[1] == "later" for x in out):
+            # a later account (damage, details, a video) is of the latest attack on the place only
+            out = [x for x in out if x[1] != "later"] or [max(out, key=lambda x: x[3]["u"])]
+        return [(s, c) for _, _, s, c in out]
+
+    def _abroad_conflict(self, f, cid, t):
+        """True if a report of Iran striking a place abroad, at time t, is of another attack than the story's: the
+        story's reports name only other countries, or only other targets or cities there; it tells of a new attack as
+        it happens and the story has no such report; or it is a channel's post, or says it is happening now, told as
+        it happens after AB_QUIET without a report of that country, giving no time that places it earlier."""
+        a = f.get("ab")
+        marks = self.abs.get(cid, ())
+        if not a or not marks:
+            return False
+        same = [(x, xt) for x, _, xt in marks if x[0] == a[0]]
+        if not same:
+            return True                                # another country only
+        if all(abroad_strike.same(a, x) == 0 for x, _ in same):
+            return True                                # another target, another city
+        if a.new and a.fresh and cid not in self.abnews:
+            return True                                # "another attack" told as it happens
+        told = EV_ON and f.get("evp") and f["evp"][2] == EV_TOLD and not a.now
+        return a.fresh and (f["chan"] or a.now) and not told and t - max(xt for _, xt in same) > AB_QUIET
+
+    def _abroad_apart(self, a, b):
+        """Two stories of attacks abroad on different countries, or on different targets or cities in one."""
+        ma, mb = self.abs.get(a["id"]), self.abs.get(b["id"])
+        if not ma or not mb:
+            return False
+        if not {x[0] for x, _, _ in ma} & {y[0] for y, _, _ in mb}:
+            return True
+        pairs = [(x, y) for x, _, _ in ma for y, _, _ in mb if x[0] == y[0]]
+        return all(abroad_strike.same(x, y) == 0 for x, y in pairs)
+
+    def _abroad_pair(self, a, b):
+        """Two stories telling of the same attack on the same place abroad within the rule's times."""
+        ma, mb = self.abs.get(a["id"]), self.abs.get(b["id"])
+        if not ma or not mb:
+            return False
+        for x, xch, xt in ma:
+            for y, ych, yt in mb:
+                if xch and ych:
+                    continue
+                if abroad_strike.same(x, y) == 2 and "now" in (abroad_when(yt, a, y, live=self.ablive.get(a["id"])),
+                                                               abroad_when(xt, b, x, live=self.ablive.get(b["id"]))):
+                    return True                        # a later account never makes two stories one
+        return False
+
+    def _land_conflict(self, f, cid):
+        """A report of an attack on one country (Iran's abroad, or on the Gulf front) and a story only of attacks on
+        others."""
+        sl = self.lands.get(cid)
+        return bool(f.get("land") and sl and not f["land"] & sl)
+
+    def _land_apart(self, a, b):
+        """Two stories of attacks on different countries (each told by reports of one country)."""
+        la, lb = self.lands.get(a["id"]), self.lands.get(b["id"])
+        return bool(la and lb and not la & lb)
 
     def _gulf_news(self, c):
         return c["id"] not in self.gmain and any(not ch for _, ch, _ in self.gulfs.get(c["id"], ()))

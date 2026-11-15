@@ -284,3 +284,10 @@ ABROAD = {
                        "uss harry s. truman", "uss truman", "uss dwight d. eisenhower", "uss eisenhower",
                        "uss theodore roosevelt", "uss george washington", "us aircraft carrier", "american aircraft carrier"]),
 }
+
+# America's bases the list above doesn't name yet (us_bases.py is the one list of them)
+from .us_bases import BASES as _US_BASES  # noqa: E402
+
+for _k, _v in _US_BASES.items():
+    if _k not in ABROAD:
+        ABROAD[_k] = _ab(_v[0], _v[1], _v[2], _v[3][1:])
