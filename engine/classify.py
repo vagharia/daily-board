@@ -74,7 +74,8 @@ PATTERNS = [
       r"|\b(destroy\w*|hunt\w*) (of )?(an? |the )?(\w+ ){0,3}(drone|uav)s?\b", 78, ["military"], ["kinetic"]),
     P(r"\b(air ?strikes?|strikes?|shelling|bombardment|raids?|attacks?|barrage)\b.{0,25}\b(kill(s|ed|ing)?|wound\w*"
       r"|injur\w*|dead)\b", 82, ["military"], ["kinetic"]),
-    P(r"\b(missiles?|rockets?|drones?|ballistic)\b.{0,15}\b(target(s|ed|ing)?|hit(s|ting)?|slam\w*|pound\w*|rain\w*)\b",
+    # "rain" only as weapons raining down on a place ("missiles rain down on Haifa"), never weather ("drones make rain")
+    P(r"\b(missiles?|rockets?|drones?|ballistic)\b.{0,15}\b(target(s|ed|ing)?|hit(s|ting)?|slam\w*|pound\w*|rain(s|ed)?\s+(down|on|onto)|raining)\b",
       80, ["military"], ["kinetic"]),
     P(r"\b(could|would|will|may|might|ready to|prepared to|threaten\w* to|vow\w* to|plans? to)\s+(\w+\s+){0,2}"
       r"(strike|attack|bomb|hit|target|invade)\b", 60, ["military"], ["threat"]),
