@@ -16,6 +16,7 @@ import re
 
 from . import abroad_strike, deploy, evac, http, pullback, vessel
 from . import fronts
+from .index import zone as _zone_of
 from .cluster import _NEW_EN, _NEW_FA, abroad_mark, channel, gulf_key, gulf_main
 from .util import clip_sentence, fa_norm, log, now, truncate
 
@@ -807,6 +808,29 @@ def _told_event(red, clusters, sent):
 
 # a lamp switching on is announced at most once in this span (a lamp going off and on again in a few hours)
 LIGHT_QUIET = 12 * 3600
+# tension index message: a zone is left only once the value is ZONE_MARGIN below its boundary (no message for a
+# one-point swing around 75), and each zone is announced at most once in ZONE_QUIET
+ZONE_MARGIN = 5
+ZONE_QUIET = 6 * 3600
+
+
+def _held_zone(state, index):
+    """The zone kept for the next round: up at once, down only when value + ZONE_MARGIN is below the boundary."""
+    z, prev = index["zone"], state.get("zone")
+    if prev is None or z >= prev:
+        return z
+    return max(z, min(prev, _zone_of(index["value"] + ZONE_MARGIN)[0]))
+
+
+def _zone_msg(state, index, t):
+    """True when the index entered a higher zone not announced in the last ZONE_QUIET."""
+    if not index or state.get("zone") is None or index["zone"] <= state["zone"]:
+        return False
+    at = state.setdefault("zone_at", {})
+    if t - at.get(str(index["zone"]), 0) < ZONE_QUIET:
+        return False
+    at[str(index["zone"])] = t
+    return True
 
 
 def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_keys=None, seen=None):
@@ -823,7 +847,7 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
                and not any(evac.stale(m) for m in c["m"]) and not _late(c, seen)        # an order to leave retold days after it took effect
                and not _dated(c)]
     lights_on = [l for l in lights if l["state"] == "on" and prev_lights.get(l["id"]) != "on"]
-    zone_up = index and state.get("zone") is not None and index["zone"] > state["zone"]
+    zone_up = _zone_msg(state, index, t) if not first_run else False
     messages = []
     fk = flash_keys or set()
     red_msg = [c for c in red_new if not any(m["k"] in fk for m in c["m"])]
@@ -881,7 +905,7 @@ def run(state, clusters, lights, index, first_run=False, flash_msgs=None, flash_
     state["sent"] = sent[-800:]
     state["lights"] = {l["id"]: l["state"] for l in lights}
     if index:
-        state["zone"] = index["zone"]
+        state["zone"] = _held_zone(state, index)
     if not token:
         return {"enabled": False, "queued": len(messages) + len(flash_msgs or [])}
     subs = poll(state, token)
