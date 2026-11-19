@@ -17,6 +17,7 @@ import re
 
 from . import cause, front_places, witness
 from . import vessel
+from .attack_verb import actor_strikes_en, actor_strikes_fa
 from .classify import _digest_part, first_item, multi_parts
 from .cluster import blast, channel
 from .util import clip_sentence, fa_norm, truncate
@@ -434,6 +435,24 @@ _VISIT_EN = re.compile(r"\b(?:visits?|visited|visiting|arrives? in|arrived in|tr
 _VISIT_FA = re.compile(fa_norm(r"(?:سفر به|دیدار از|وارد|در سفر به|هیئت\S*\s+\S+\s+(?:در|به)|میزبان)\s+\S+(?:\s+\S+)?"))
 
 
+# a strike between Iran and Israel told as done or under way, not wanted, urged or planned
+_DONE_EN = re.compile(r"\b(struck|strikes? (?:hit|kill\w*)|bomb(?:s|ed)|attack(?:s|ed)|hits?|pound(?:s|ed)|launch(?:es|ed)"
+                      r"|kill(?:s|ed)|carr(?:y|ies|ied) out|beg[ia]n|begins|under ?way|ongoing|wave of|targets|targeted"
+                      r"|pummel\w*|rain(?:s|ed)? down|fires|fired)\b", re.I)
+_DONE_FA = re.compile(fa_norm("حمله کرد|حمله کردند|حمله شد|بمباران کرد|بمباران شد|هدف قرار داد|هدف قرار دادند"
+                              "|هدف قرار گرفت|آغاز شد|آغاز کرد|ادامه دارد|در جریان|انجام شد|انجام داد|کشته|زد|زدند"
+                              "|شلیک کرد|شلیک شد|اصابت"))
+_WANTED_EN = re.compile(r"\b(press(?:es|ed|ing)?|urg\w+|lobb\w+|asks?|asked|to join|plans?|planning|wants?|seeks?"
+                        r"|considers?|weighs?|would|could|may|might|threat\w*|warns?)\b", re.I)
+
+
+def _done(fa_t, en_t):
+    """The strike is told as done or under way: an actor striking (attack_verb), a verb of an attack carried out."""
+    if fa_t:
+        return bool(actor_strikes_fa(fa_t) or _DONE_FA.search(fa_t))
+    return bool(en_t and (actor_strikes_en(en_t) or (_DONE_EN.search(en_t) and not _WANTED_EN.search(en_t))))
+
+
 def _main_part(fa_t, en_t):
     """The part of a headline that tells what happened, without places merely visited. "Section | headline": the
     longest part."""
@@ -481,6 +500,8 @@ def events(m):
         return []
     places = _places(fa_t, en_t)
     if places == {"iran", "israel"}:
+        if kind == "strike" and not _done(fa_t, en_t):
+            return []                       # "Netanyahu presses US to join … campaign of airstrikes on Iran": no attack
         # "Iran fires missiles at Israel": one event, from the one named first towards the other
         txt = fa_t or en_t.lower()
         names = {k: txt.find(fa_norm(_GENERAL[k][0]) if fa_t else k) for k in places}

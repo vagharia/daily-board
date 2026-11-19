@@ -1302,7 +1302,12 @@ REACTION = re.compile(r"\b(condemn\w*|denounc\w*|deplor\w*|condolence\w*|sympath
 HYPO = re.compile(r"\b(threat\w*|warn\w*|vow\w*|could|would|may|might|if|unless|prepar\w+|plan\w*|plot\w*"
                   r"|consider\w*|ready to|possible|possibility|scenario|restart\w*|resum\w*|fresh|renew\w*"
                   r"|push(es)? (for|to)|seeks?|wants? to|calls? for|weigh\w*|mull\w*|options?|draw(n|s)? up|drafts?"
-                  r"|cards?|leverage|means|would mean)\b", I)
+                  r"|cards?|leverage|means|would mean"
+                  # pressing another side to join or carry out an attack ("Netanyahu presses US to join … campaign of
+                  # airstrikes on Iran"), a campaign proposed: a plan, not a strike
+                  r"|(?:press|pressur|urg|ask|push|lobb)\w*\b[^.;:]{0,40}?\b(?:to join|joining|to (?:strike|attack|bomb"
+                  r"|resume|launch|back)|for (?:\w+ ){0,2}(?:strikes?|attacks?|campaign))|lobb(?:y|ies|ied|ying)|to join"
+                  r"|campaign of)\b", I)
 QUESTION = re.compile(r"[?؟]\s*(\W*$|[|/:-])")
 # a question headline stays orange only when it asks about war or peace (an attack, a strike, an explosion, missiles,
 # a ceasefire, peace) and names Iran, America or Israel; any other question is analysis or background: yellow
@@ -1349,6 +1354,10 @@ MEDIA_CITE = re.compile(r"^(the )?(new york times|wall street journal|washington
                         r"|foreign affairs|economist|bloomberg|politico|axios|atlantic|haaretz|guardian|telegraph"
                         r"|times of israel|jerusalem post|cnn|fox news|al[- ]?monitor|middle east eye|newsweek|time"
                         r"|national interest|responsible statecraft|hill)( magazine| newspaper)?( claim| report| analysis)?\s*:", I)
+# an outlet named at the end ("…: NYT", "… – Kan"): a plan or threat relayed from a paper is that paper's account
+MEDIA_TAIL = re.compile(r"(?:[:：]|\s[-–—]\s)\s*(?:the )?(?:nyt|new york times|wsj|wall street journal|washington post|wapo"
+                        r"|financial times|ft|axios|politico|bloomberg|cnn|haaretz|times of israel|jerusalem post"
+                        r"|israel hayom|channel \d+|kan|ynet)\W*$", I)
 EXTRA_ANALYSIS = re.compile(r"\b(interview|in conversation|podcast|poll|polls|survey|op-ed|column|watch:|review:)\b"
                             r"|^(watch|listen|video)\b", I)
 ACTOR = re.compile(r"\b(trump|president|khamenei|supreme leader|netanyahu|prime minister|irgc|revolutionary guards?"
@@ -1461,6 +1470,9 @@ def score_en(title: str, summary: str):
         best = min(best, 66 if HYPO.search(t) else 64)   # "threatens to strike", "plans attacks", "X: …attack…"
         flags -= HARD_EVENTS
         flags |= {"speculative", "threat"} if HYPO.search(t) else {"quote"}
+    if MEDIA_TAIL.search(t) and flags & {"speculative", "threat", "quote"} and not flags & HARD_EVENTS:
+        best = min(best, 56)                       # "Netanyahu presses US to join … strikes on Iran: NYT"
+        flags.add("analysis")
     if flags & HARD_EVENTS and not _strong_kinetic(t) and _UNLIKELY_EN.search(t):
         best = min(best, 60)                       # "new attacks on Iran unlikely": no attack took place
         flags -= HARD_EVENTS

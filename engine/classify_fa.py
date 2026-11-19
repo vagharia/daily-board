@@ -357,12 +357,17 @@ _OUTLETS = "(?:" + "|".join(_lit(x) for x in [
     "نشنال اینترست", "هیل", "اسرائیل هیوم"]) + ")"
 MEDIA_CITE = re.compile(r"^\s*(?:" + _lit("ادعای") + r"\s*|" + _lit("روایت") + r"\s*)?" + _OUTLETS
                         + r"[^:：]{0,40}[:：]")
+# an outlet named at the end («…: نیویورک تایمز», "…: NYT"): an account relayed from a paper
+MEDIA_TAIL = re.compile(r"[:：]\s*(?:" + _OUTLETS + r"|nyt|wsj|axios|cnn|ft)\W*$", re.I)
 REACTION = re.compile(F("محکوم", "محکومیت", "تقبیح", "تسلیت", "همدردی", "همبستگی", "ابراز نگرانی", "ابراز تاسف",
                         "خویشتنداری", "دعوت به آرامش", "استقبال", "واکنش"))
 HYPO = re.compile(F("تهدید", "هشدار", "وعده", "ممکن", "احتمال", "امکان", "شاید", "اگر", "چنانچه", "در صورت",
                     "مگر", "آماده", "آمادگی", "طرح", "برنامه", "نقشه", "توطئه", "قصد", "در نظر", "گزینه", "سناریو",
                     "از سرگیری", "مجدد", "دوباره", "خواستار", "می خواهد", "میخواهد", "کارت", "اهرم", "به معنای",
-                    "خواهد", "خواهیم", "خواهند", "می تواند", "می توانند", "میتواند", "خطر"))
+                    "خواهد", "خواهیم", "خواهند", "می تواند", "می توانند", "میتواند", "خطر",
+                    # pressing another side to join an attack («… برای پیوستن به حملات … فشار می‌آورد»): a plan
+                    "پیوستن", "بپیوندد", "بپیوندند", "فشار می آورد", "فشار می آورند", "فشار آورد", "فشار آوردند",
+                    "ترغیب"))
 QUESTION = re.compile(R("re:[؟?]|^\\s*", "آیا", _E))
 QUESTION_CAP = 44.0
 Q_WAR = re.compile(F("حمله", "حملات", "انفجار", "موشک", "بمباران", "رهگیری", "تلافی", "صلح", "آتش بس", "آتشبس",
@@ -517,6 +522,9 @@ def score_fa(title: str, summary: str):
         best = min(best, 66 if HYPO.search(t) else 64)   # "تهدید به حمله", "طرح حمله", "X: …حمله…"
         flags -= HARD_EVENTS
         flags |= {"speculative", "threat"} if HYPO.search(t) else {"quote"}
+    if MEDIA_TAIL.search(t) and flags & {"speculative", "threat", "quote"} and not flags & HARD_EVENTS:
+        best = min(best, 56)                       # «… برای پیوستن به حملات … فشار می‌آورد: نیویورک تایمز»
+        flags.add("analysis")
     if JUDGED.search(t) and not strong_event(t):
         best = min(best, 44)
         flags -= HARD_EVENTS
