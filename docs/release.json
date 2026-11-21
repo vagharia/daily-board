@@ -1,10 +1,9 @@
 {
-  "v": 26,
+  "v": 27,
   "fa": {
     "title": "نسخه‌ی جدید بولتن روزانه",
     "items": [
-      "شماره‌ی جدید اکونومیست منتشر شد.",
-      "از این پس دو شماره‌ی آخر اکونومیست را دارید و از نوار بالای دسته‌ها می‌توانید میانشان جابه‌جا شوید."
+      "شماره‌ی جدید اکونومیست (۲۱ نوامبر) منتشر شد."
     ],
     "note": "بعد از به‌روزرسانی کمی صبر کنید تا اطلاعات جدید بارگذاری شود. اگر نیامد، صفحه را به پایین بکشید تا تازه شود.",
     "button": "به‌روزرسانی"
@@ -12,11 +11,10 @@
   "en": {
     "title": "What's new in Daily Brief",
     "items": [
-      "The new Economist issue is out.",
-      "From now on the two latest Economist issues are here; switch between them from the bar above the categories."
+      "The new Economist issue (November 21st) is out."
     ],
     "note": "After updating, give it a moment for new data to load. If it doesn't appear, pull the page down to refresh.",
     "button": "Update"
   },
-  "build": 38
+  "build": 39
 }
