@@ -1,0 +1,30 @@
+name: probe
+on:
+  push:
+    branches: [probe-jina]
+    paths: ['.github/workflows/probe.yml']
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe the reader service
+        run: |
+          mkdir -p probe; out=probe/result.txt; : > $out
+          for u in \
+            "https://www.economist.com/business/2026/11/16/trump-inc-is-in-free-fall" \
+            "https://www.economist.com/business/2026/11/12/everything-is-going-wrong-for-softbank" \
+            "https://example.com/"; do
+            echo "=== $u" >> $out
+            curl -s -m 40 -D - -o body.txt "https://r.jina.ai/$u" | head -25 >> $out
+            echo "--- body (first 1500 bytes)" >> $out
+            head -c 1500 body.txt >> $out; echo >> $out
+            echo "--- content-assets images:" >> $out
+            grep -o 'content-assets/images/[^)" ]*' body.txt | head -3 >> $out
+          done
+          git config user.name "board-bot"
+          git config user.email "board-bot@users.noreply.github.com"
+          git add probe; git commit -m "probe result"; git push origin HEAD:probe-jina
