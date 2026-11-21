@@ -136,7 +136,9 @@ def update(misc, t):
     st["pics"] = pics
     for a in arts:
         pics.setdefault(a["url"], {})
-    todo = [a for a in arts if not pics[a["url"]].get("n")]
+    # an issue marked "lookup": false is not looked up at all (its cards keep their icons, or a "pic" given by hand)
+    skip = {a["url"] for iss in issues if iss.get("lookup") is False for a in iss["articles"] if a.get("url")}
+    todo = [a for a in arts if not pics[a["url"]].get("n") and a["url"] not in skip]
     if todo:
         _look_up(todo[:PER_ROUND], pics, t)
         log(f"economist: pictures for {sum(1 for a in arts if pics[a['url']].get('img'))} of {len(arts)} articles")

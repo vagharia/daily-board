@@ -27,6 +27,7 @@ few rounds (those of the issue that stays are kept).
 ## Fields
 
 - `issue`: the issue date, `YYYY-MM-DD`.
+- `lookup` (optional): `false` stops the engine looking up preview pictures for this issue.
 - `articles`, in the magazine's order, each with:
   - `id`: short and unique within the issue.
   - `url`: the article's page on economist.com.
