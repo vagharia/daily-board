@@ -1,0 +1,128 @@
+=== https://www.economist.com/business/2026/11/16/trump-inc-is-in-free-fall
+HTTP/2 200 
+date: Sat, 21 Nov 2026 07:06:45 GMT
+content-type: text/plain; charset=utf-8
+content-length: 509
+vary: *
+x-usage-tokens: 61
+x-ratelimit-limit: 20, 20;w=60
+x-ratelimit-remaining: 19
+server: cloudflare
+traceparent: 00-7157d8093aaf3f4517ad15b4122abda2-5f304419fdb53d4b-00
+x-cloud-trace-context: 7157d8093aaf3f4517ad15b4122abda2/6859057110906649931
+via: 1.1 google
+alt-svc: h3=":443"; ma=86400
+cf-cache-status: DYNAMIC
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=PKNE%2FForQXnRDSCaEOsJ6kFKsg3yvTa41gOR3ljQVbrkJxcNs9%2BGga4dnM8rRA9kZaqTrKCs%2FhJtILZ7toT0cKaYA2UF4pfNeGAJty8iNgKOexS9KrFqrUXZSQ%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+cf-ray: a5ddda75183a29c6-MSP
+
+--- body (first 1500 bytes)
+Title: Just a moment...
+
+URL Source: https://www.economist.com/business/2026/11/16/trump-inc-is-in-free-fall
+
+Warning: This page maybe requiring CAPTCHA, please make sure you are authorized to access this page.
+
+Markdown Content:
+![Image 1: Icon for www.economist.com](https://www.economist.com/favicon.ico)
+
+## www.economist.com
+
+## Performing security verification
+
+This website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a bot.
+
+--- content-assets images:
+=== https://www.economist.com/business/2026/11/12/everything-is-going-wrong-for-softbank
+HTTP/2 200 
+date: Sat, 21 Nov 2026 07:06:59 GMT
+content-type: text/plain; charset=utf-8
+vary: *
+x-usage-tokens: 7458
+x-ratelimit-limit: 20, 20;w=60
+x-ratelimit-remaining: 18
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+x-decompressed-content-length: 22340
+cache-control: no-transform
+server: cloudflare
+traceparent: 00-6a990f7ebe65d4d344ea5c44d08442ea-a55d26348f9cfe1e-00
+x-cloud-trace-context: 6a990f7ebe65d4d344ea5c44d08442ea/11915722196281785886
+via: 1.1 google
+alt-svc: h3=":443"; ma=86400
+cf-cache-status: DYNAMIC
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=wuhhf2osck5vD8zw5OVlxodlGF49Nv1nW4kBL7tyQ0wPF8%2FfuzYlUjzjl%2FjBa0YHfCrSl5vN2TjFQgu23V%2B5IVuaAQwgXHXoaOTDm1bBoPZK5dKqpjBGWZg9Aw%3D%3D"}]}
+cf-ray: a5ddda83fb65fb43-MSP
+
+--- body (first 1500 bytes)
+Title: Everything is going wrong for SoftBank
+
+URL Source: https://www.economist.com/business/2026/11/12/everything-is-going-wrong-for-softbank
+
+Published Time: 2026-11-12T14:08:53.773Z
+
+Markdown Content:
+[![Image 6: The Economist](https://marber-cdn.economist.com/foundations/latest/images/brand-identifiers/the-economist/signature-red.svg) ![Image 7: The Economist](https://marber-cdn.economist.com/foundations/latest/images/brand-identifiers/the-economist/monogram-square-red.svg)](https://www.economist.com/)
+
+[Subscribe](https://www.economist.com/subscribe)
+
+* * *
+
+[The Economist Pro](https://www.economist.com/pro/solutions/compare-plans?utm_campaign=MA00015450&utm_content=subscriptions-page&utm_medium=referral&utm_source=teg)
+
+* * *
+
+[Log in](https://www.economist.com/api/auth/login)
+
+* * *
+
+Menu
+
+[![Image 8: The Economist](https://marber-cdn.economist.com/foundations/latest/images/brand-identifiers/the-economist/logo-red.svg) ![Image 9: The Economist](https://marber-cdn.economist.com/foundations/latest/images/brand-identifiers/the-economist/monogram-square-red.svg)](https://www.economist.com/)[Skip to content](https://www.economist.com/business/2026/11/12/everything-is-going-wrong-for-softbank#content)
+
+[Subscribe](https://www.economist.com/subscribe)
+
+* * *
+
+[The Economist Pro](https://www.economist.com/pro/solutions/compare-plans?utm_campaign=MA00015450&utm_content=subscriptions-page&utm_medium=referral&utm_source=teg)
+
+* * *
+
+[Log in](https://www.economist.com/api/auth/lo
+--- content-assets images:
+content-assets/images/20250123_drp045.png
+content-assets/images/20250310_drp051.png
+content-assets/images/20250123_drp050.png
+=== https://example.com/
+HTTP/2 200 
+date: Sat, 21 Nov 2026 07:07:00 GMT
+content-type: text/plain; charset=utf-8
+content-length: 460
+vary: *
+x-usage-tokens: 28
+x-ratelimit-limit: 20, 20;w=60
+x-ratelimit-remaining: 19
+server: cloudflare
+traceparent: 00-e08f230cc45ba87d8f6fd48af6af4f40-17f3c9fd2a64a329-00
+x-cloud-trace-context: e08f230cc45ba87d8f6fd48af6af4f40/1725945171388179241
+via: 1.1 google
+alt-svc: h3=":443"; ma=86400
+cf-cache-status: DYNAMIC
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=LpV%2BtJlxs%2BaIbYAKDCfNxzeI21Q4wZYFMug%2Fj8xn31ztmtS25tBHYOUA59miMlI1ciwSd00uh%2BR7e03C9tK%2FDpPtQeSW%2FY67qGkdnSGSnOJOBLQnxS2TQIpzhg%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+cf-ray: a5dddadca8cea1eb-MSP
+
+--- body (first 1500 bytes)
+Title: Example Domain
+
+URL Source: https://example.com/
+
+Published Time: Thu, 19 Nov 2026 22:11:52 GMT
+
+Warning: This page maybe not yet fully loaded, consider explicitly specify a timeout.
+Warning: This is a cached snapshot of the original page, consider retry with caching opt-out.
+
+Markdown Content:
+This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.
+
+--- content-assets images:
